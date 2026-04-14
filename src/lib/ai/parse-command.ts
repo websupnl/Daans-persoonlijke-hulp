@@ -44,7 +44,7 @@ Regels:
 export async function parseCommandWithAI(
   userMessage: string
 ): Promise<AICommandResult | null> {
-  const ctx = buildContext(5)
+  const ctx = await buildContext(5)
   const contextString = formatContextForPrompt(ctx)
 
   const client = getOpenAIClient()

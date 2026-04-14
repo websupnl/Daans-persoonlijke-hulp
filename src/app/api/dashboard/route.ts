@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const todoStats = await queryOne<{ total: number; open: number; due_today: number; overdue: number }>(`
     SELECT
