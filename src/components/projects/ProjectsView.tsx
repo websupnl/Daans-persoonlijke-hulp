@@ -18,16 +18,17 @@ interface Project {
 
 const STATUS_LABELS = { actief: 'Actief', 'on-hold': 'On Hold', afgerond: 'Afgerond' }
 const STATUS_COLORS_MAP: Record<string, string> = {
-  actief: 'text-emerald-400 bg-emerald-950/60',
-  'on-hold': 'text-amber-400 bg-amber-950/60',
-  afgerond: 'text-slate-500 bg-slate-800',
+  actief: 'text-emerald-600 bg-emerald-50',
+  'on-hold': 'text-amber-600 bg-amber-50',
+  afgerond: 'text-gray-400 bg-gray-100',
 }
+const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function ProjectsView() {
   const [projects, setProjects] = useState<Project[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ title: '', description: '', color: '#6172f3', status: 'actief' })
+  const [form, setForm] = useState({ title: '', description: '', color: '#ec4899', status: 'actief' })
 
   const fetchProjects = async () => {
     const res = await fetch('/api/projects')
@@ -45,7 +46,7 @@ export default function ProjectsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
-    setForm({ title: '', description: '', color: '#6172f3', status: 'actief' })
+    setForm({ title: '', description: '', color: '#ec4899', status: 'actief' })
     setShowAdd(false)
     fetchProjects()
   }
@@ -66,89 +67,100 @@ export default function ProjectsView() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+    <div className="flex flex-col h-screen bg-white">
+      <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-lg font-semibold text-white">Projecten</h1>
-          <p className="text-xs text-slate-500 mt-0.5">{projects.filter(p => p.status === 'actief').length} actieve projecten</p>
+          <h1 className="text-xl font-extrabold text-gradient">Projecten</h1>
+          <p className="text-xs text-gray-400 mt-0.5 font-medium">{projects.filter(p => p.status === 'actief').length} actieve projecten</p>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-500 transition-colors">
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+          style={{ background: GRAD }}
+        >
           <Plus size={14} />
           Nieuw project
         </button>
       </div>
 
       {showAdd && (
-        <div className="mx-6 mt-4 p-4 bg-[#13151c] border border-white/10 rounded-xl animate-fade-in space-y-3">
-          <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Projectnaam *" className="w-full bg-white/5 text-sm text-slate-300 placeholder:text-slate-600 rounded-lg px-3 py-2 outline-none" />
-          <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Beschrijving" className="w-full bg-white/5 text-sm text-slate-300 placeholder:text-slate-600 rounded-lg px-3 py-2 outline-none" />
+        <div className="mx-6 mt-4 p-4 bg-gray-50 border border-gray-200 rounded-2xl animate-fade-in space-y-3">
+          <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Projectnaam *" className="w-full bg-white text-sm text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" />
+          <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Beschrijving" className="w-full bg-white text-sm text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" />
           <div>
-            <p className="text-xs text-slate-600 mb-1.5">Kleur</p>
+            <p className="text-xs text-gray-400 mb-1.5 font-medium">Kleur</p>
             <div className="flex gap-2">
               {PROJECT_COLORS.map(c => (
-                <button key={c} onClick={() => setForm(p => ({ ...p, color: c }))} className={cn('w-6 h-6 rounded-full transition-transform', form.color === c ? 'ring-2 ring-white/50 scale-110' : 'hover:scale-105')} style={{ background: c }} />
+                <button key={c} onClick={() => setForm(p => ({ ...p, color: c }))} className={cn('w-7 h-7 rounded-full transition-transform shadow-sm', form.color === c ? 'ring-2 ring-gray-400 scale-110' : 'hover:scale-105')} style={{ background: c }} />
               ))}
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="text-xs text-slate-500 px-3 py-1.5">Annuleer</button>
-            <button onClick={addProject} className="text-xs bg-brand-600 text-white px-4 py-1.5 rounded-lg">Opslaan</button>
+            <button onClick={() => setShowAdd(false)} className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600 transition-colors">Annuleer</button>
+            <button onClick={addProject} className="text-xs text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm" style={{ background: GRAD }}>Opslaan</button>
           </div>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12">
+            <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+          </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-12">
-            <FolderOpen size={32} className="text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-600 text-sm">Nog geen projecten. Maak je eerste aan!</p>
+            <FolderOpen size={32} className="text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm font-medium">Nog geen projecten. Maak je eerste aan!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map(project => (
-              <div key={project.id} className="bg-[#13151c] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all group">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-3 h-8 rounded-full flex-shrink-0" style={{ background: project.color }} />
+              <div key={project.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm card-hover group">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-10 rounded-full flex-shrink-0 shadow-sm" style={{ background: project.color }} />
                     <div>
-                      <h3 className="text-sm font-semibold text-white">{project.title}</h3>
-                      {project.description && <p className="text-[10px] text-slate-600 mt-0.5">{project.description}</p>}
+                      <h3 className="text-sm font-bold text-gray-700">{project.title}</h3>
+                      {project.description && <p className="text-[10px] text-gray-400 mt-0.5">{project.description}</p>}
                     </div>
                   </div>
-                  <button onClick={() => deleteProject(project.id)} className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-400 transition-all">
+                  <button onClick={() => deleteProject(project.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                     <Trash2 size={12} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex items-center gap-1 text-slate-600">
-                    <CheckSquare size={11} />
-                    <span className="text-[10px]">{project.open_todos} open</span>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex items-center gap-1.5 text-gray-400">
+                    <CheckSquare size={12} />
+                    <span className="text-[11px] font-medium">{project.open_todos} open</span>
                   </div>
-                  <div className="flex items-center gap-1 text-slate-600">
-                    <FileText size={11} />
-                    <span className="text-[10px]">{project.note_count} notes</span>
+                  <div className="flex items-center gap-1.5 text-gray-400">
+                    <FileText size={12} />
+                    <span className="text-[11px] font-medium">{project.note_count} notes</span>
                   </div>
                 </div>
 
                 {project.total_todos > 0 && (
-                  <div className="mb-3">
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div className="mb-4">
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.round(((project.total_todos - project.open_todos) / project.total_todos) * 100)}%`, background: project.color }}
+                        style={{
+                          width: `${Math.round(((project.total_todos - project.open_todos) / project.total_todos) * 100)}%`,
+                          background: GRAD,
+                        }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-700 mt-1">{Math.round(((project.total_todos - project.open_todos) / project.total_todos) * 100)}% klaar</p>
+                    <p className="text-[10px] text-gradient font-bold mt-1">
+                      {Math.round(((project.total_todos - project.open_todos) / project.total_todos) * 100)}% klaar
+                    </p>
                   </div>
                 )}
 
                 <select
                   value={project.status}
                   onChange={e => updateStatus(project.id, e.target.value)}
-                  className={cn('text-[10px] px-2 py-1 rounded-lg border-0 outline-none cursor-pointer w-full', STATUS_COLORS_MAP[project.status])}
+                  className={cn('text-[10px] px-2 py-1.5 rounded-xl border-0 outline-none cursor-pointer w-full font-semibold', STATUS_COLORS_MAP[project.status])}
                 >
                   {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>

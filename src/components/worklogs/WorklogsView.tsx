@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Clock, Plus, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface WorkLog {
   id: number
@@ -23,13 +24,14 @@ interface WorklogStats {
 }
 
 const CONTEXT_OPTIONS = ['Bouma', 'WebsUp', 'privé', 'studie', 'overig']
+const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 const CONTEXT_COLORS: Record<string, string> = {
-  Bouma: 'text-blue-400 bg-blue-500/10',
-  WebsUp: 'text-violet-400 bg-violet-500/10',
-  privé: 'text-amber-400 bg-amber-500/10',
-  studie: 'text-emerald-400 bg-emerald-500/10',
-  overig: 'text-gray-400 bg-gray-500/10',
+  Bouma: 'text-blue-600 bg-blue-50',
+  WebsUp: 'text-violet-600 bg-violet-50',
+  privé: 'text-amber-600 bg-amber-50',
+  studie: 'text-emerald-600 bg-emerald-50',
+  overig: 'text-gray-500 bg-gray-100',
 }
 
 function formatDuration(minutes: number): string {
@@ -85,16 +87,20 @@ export default function WorklogsView() {
     return acc
   }, {} as Record<string, WorkLog[]>)
 
-  const today = new Date().toISOString().split('T')[0]
+  const todayStr = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto bg-white min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Werklog</h1>
-          <p className="text-gray-400 text-sm mt-1">Tijdregistratie en werkactiviteit</p>
+          <h1 className="text-2xl font-extrabold text-gradient">Werklog</h1>
+          <p className="text-gray-400 text-sm mt-1 font-medium">Tijdregistratie en werkactiviteit</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors">
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+          style={{ background: GRAD }}
+        >
           <Plus className="w-4 h-4" />
           Log toevoegen
         </button>
@@ -102,59 +108,61 @@ export default function WorklogsView() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-          <p className="text-gray-400 text-xs mb-1">Vandaag</p>
-          <p className="text-white text-xl font-bold">{formatDuration(todayMinutes)}</p>
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
+          <p className="text-gray-400 text-xs mb-1 font-medium">Vandaag</p>
+          <p className="text-2xl font-extrabold text-gradient">{formatDuration(todayMinutes)}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-          <p className="text-gray-400 text-xs mb-1">Deze week</p>
-          <p className="text-white text-xl font-bold">{formatDuration(weekMinutes)}</p>
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
+          <p className="text-gray-400 text-xs mb-1 font-medium">Deze week</p>
+          <p className="text-2xl font-extrabold text-gradient">{formatDuration(weekMinutes)}</p>
         </div>
         {stats.slice(0, 2).map(s => (
-          <div key={s.context} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-            <p className="text-gray-400 text-xs mb-1">{s.context}</p>
-            <p className="text-white text-xl font-bold">{formatDuration(s.total_minutes)}</p>
-            <p className="text-gray-500 text-xs">{s.count} logs</p>
+          <div key={s.context} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
+            <p className="text-gray-400 text-xs mb-1 font-medium">{s.context}</p>
+            <p className="text-2xl font-extrabold text-gradient">{formatDuration(s.total_minutes)}</p>
+            <p className="text-gray-400 text-xs mt-0.5">{s.count} logs</p>
           </div>
         ))}
       </div>
 
       {/* Add form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-gray-900 rounded-xl p-5 border border-gray-800 flex flex-col gap-4">
-          <h2 className="text-white font-semibold">Werklog toevoegen</h2>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
+          <h2 className="text-sm font-bold text-gradient">Werklog toevoegen</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs">Omschrijving *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="Wat heb je gedaan?" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500" />
+              <label className="text-gray-400 text-xs font-medium">Omschrijving *</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="Wat heb je gedaan?" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs">Duur (minuten) *</label>
-              <input type="number" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))} required placeholder="120" min="1" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500" />
+              <label className="text-gray-400 text-xs font-medium">Duur (minuten) *</label>
+              <input type="number" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))} required placeholder="120" min="1" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs">Context *</label>
-              <select value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500">
+              <label className="text-gray-400 text-xs font-medium">Context *</label>
+              <select value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors">
                 {CONTEXT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs">Notitie</label>
-              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optioneel" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-violet-500" />
+              <label className="text-gray-400 text-xs font-medium">Notitie</label>
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optioneel" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="submit" className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors">Opslaan</button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition-colors">Annuleren</button>
+            <button type="submit" className="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-sm transition-colors font-medium">Annuleren</button>
           </div>
         </form>
       )}
 
       {/* Logs grouped by date */}
       {loading ? (
-        <div className="text-gray-500 text-center py-10">Laden...</div>
+        <div className="flex justify-center py-10">
+          <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+        </div>
       ) : Object.keys(grouped).length === 0 ? (
-        <div className="text-gray-500 text-center py-10">Nog geen werklogs. Voeg je eerste log toe!</div>
+        <div className="text-gray-400 text-center py-10 font-medium">Nog geen werklogs. Voeg je eerste log toe!</div>
       ) : (
         <div className="flex flex-col gap-6">
           {Object.entries(grouped).map(([date, dayLogs]) => {
@@ -162,24 +170,26 @@ export default function WorklogsView() {
             return (
               <div key={date}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-gray-300 text-sm font-medium">{date === today ? 'Vandaag' : date}</h3>
-                  <span className="text-gray-500 text-xs">{formatDuration(total)} totaal</span>
+                  <h3 className="text-sm font-bold text-gradient">{date === todayStr ? 'Vandaag' : date}</h3>
+                  <span className="text-gray-400 text-xs font-medium">{formatDuration(total)} totaal</span>
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayLogs.map(log => (
-                    <div key={log.id} className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-start justify-between gap-4">
+                    <div key={log.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-start justify-between gap-4 card-hover group">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <Clock className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-sm" style={{ background: GRAD }}>
+                          <Clock className="w-3.5 h-3.5" />
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{log.title}</p>
+                          <p className="text-gray-700 text-sm font-semibold truncate">{log.title}</p>
                           {log.description && <p className="text-gray-400 text-xs mt-0.5">{log.description}</p>}
-                          {log.project_title && <p className="text-violet-400 text-xs mt-0.5">📁 {log.project_title}</p>}
+                          {log.project_title && <p className="text-violet-500 text-xs mt-0.5 font-medium">📁 {log.project_title}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-xs px-2 py-1 rounded-md font-medium ${CONTEXT_COLORS[log.context] ?? 'text-gray-400 bg-gray-500/10'}`}>{log.context}</span>
-                        <span className="text-white text-sm font-bold">{formatDuration(log.duration_minutes)}</span>
-                        <button onClick={() => handleDelete(log.id)} className="text-gray-600 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <span className={cn('text-xs px-2.5 py-1 rounded-full font-semibold', CONTEXT_COLORS[log.context] ?? 'text-gray-500 bg-gray-100')}>{log.context}</span>
+                        <span className="text-sm font-extrabold text-gradient">{formatDuration(log.duration_minutes)}</span>
+                        <button onClick={() => handleDelete(log.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}

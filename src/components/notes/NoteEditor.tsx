@@ -105,11 +105,13 @@ export default function NoteEditor({ id }: { id: string }) {
 
   if (!editor) return null
 
+  const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
+
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-white">
       {/* Toolbar */}
-      <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2 flex-shrink-0">
-        <button onClick={() => router.push('/notes')} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white">
+        <button onClick={() => router.push('/notes')} className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           <ArrowLeft size={16} />
         </button>
 
@@ -122,18 +124,26 @@ export default function NoteEditor({ id }: { id: string }) {
             { icon: List, cmd: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive('bulletList') },
             { icon: CheckSquare, cmd: () => editor.chain().focus().toggleTaskList().run(), active: editor.isActive('taskList') },
           ].map(({ icon: Icon, cmd, active }, i) => (
-            <button key={i} onClick={cmd} className={cn('p-1.5 rounded transition-colors', active ? 'bg-brand-600/20 text-brand-400' : 'text-slate-600 hover:text-slate-300 hover:bg-white/5')}>
+            <button
+              key={i}
+              onClick={cmd}
+              className={cn('p-1.5 rounded-lg transition-all', active ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
+              style={active ? { background: GRAD } : {}}
+            >
               <Icon size={14} />
             </button>
           ))}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {saving && <span className="text-[10px] text-slate-600 animate-pulse-soft">Opslaan...</span>}
-          <button onClick={togglePin} className={cn('p-1.5 rounded-lg transition-colors', note?.pinned ? 'text-amber-400' : 'text-slate-600 hover:text-slate-300 hover:bg-white/5')}>
+          {saving && <span className="text-[10px] text-gray-400 animate-pulse-soft font-medium">Opslaan...</span>}
+          <button
+            onClick={togglePin}
+            className={cn('p-1.5 rounded-lg transition-colors', note?.pinned ? 'text-amber-400' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
+          >
             <Pin size={14} />
           </button>
-          <button onClick={deleteNote} className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-white/5 transition-colors">
+          <button onClick={deleteNote} className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors">
             <Trash2 size={14} />
           </button>
         </div>
@@ -148,22 +158,22 @@ export default function NoteEditor({ id }: { id: string }) {
             debouncedSave(e.target.value || 'Naamloze note', editor.getHTML(), editor.getText())
           }}
           placeholder="Titel..."
-          className="w-full bg-transparent text-2xl font-bold text-white placeholder:text-slate-700 outline-none mb-4"
+          className="w-full bg-transparent text-2xl font-extrabold text-gradient placeholder:text-gray-200 outline-none mb-4"
         />
 
         {note && (
-          <p className="text-xs text-slate-700 mb-4">Laatst bijgewerkt: {formatDateFull(note.updated_at)}</p>
+          <p className="text-xs text-gray-400 mb-4 font-medium">Laatst bijgewerkt: {formatDateFull(note.updated_at)}</p>
         )}
 
-        <EditorContent editor={editor} className="text-slate-300 text-sm" />
+        <EditorContent editor={editor} className="text-gray-700 text-sm" />
 
         {/* Tags */}
-        <div className="mt-8 border-t border-white/5 pt-4">
+        <div className="mt-8 border-t border-gray-100 pt-4">
           <div className="flex items-center gap-2 flex-wrap">
             {note?.tags.map(tag => (
-              <span key={tag} className="flex items-center gap-1 text-xs px-2 py-0.5 bg-white/5 text-slate-400 rounded-full">
+              <span key={tag} className="flex items-center gap-1 text-xs px-2.5 py-1 bg-violet-50 text-violet-600 rounded-full font-semibold">
                 {tag}
-                <button onClick={() => removeTag(tag)} className="text-slate-600 hover:text-red-400 ml-0.5">×</button>
+                <button onClick={() => removeTag(tag)} className="text-violet-300 hover:text-red-400 ml-0.5 font-bold">×</button>
               </span>
             ))}
             <input
@@ -171,7 +181,7 @@ export default function NoteEditor({ id }: { id: string }) {
               onChange={e => setTagInput(e.target.value)}
               onKeyDown={addTag}
               placeholder="+ tag toevoegen"
-              className="text-xs bg-transparent text-slate-600 placeholder:text-slate-700 outline-none w-28"
+              className="text-xs bg-transparent text-gray-400 placeholder:text-gray-300 outline-none w-28"
             />
           </div>
         </div>

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         let q = 'SELECT * FROM todos WHERE completed = 0'
         if (filter === 'vandaag' || filter === 'today') q += " AND date(due_date) = date('now')"
         else if (filter === 'deze week' || filter === 'this week') q += " AND date(due_date) <= date('now', '+7 days')"
-        q += ' ORDER BY CASE priority WHEN "hoog" THEN 0 WHEN "medium" THEN 1 ELSE 2 END, due_date ASC NULLS LAST LIMIT 10'
+        q += " ORDER BY CASE priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, due_date ASC NULLS LAST LIMIT 10"
         actionResult = db.prepare(q).all()
         actions.push({ type: 'todo_listed', data: actionResult })
         break

@@ -18,6 +18,7 @@ interface JournalEntry {
 
 const MOOD_LABELS = ['', '😔 Slecht', '😕 Matig', '😐 Oké', '🙂 Goed', '😄 Super']
 const ENERGY_LABELS = ['', '🔋 Leeg', '⚡ Laag', '💡 Oké', '⚡⚡ Goed', '🚀 Top']
+const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function JournalView() {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -35,7 +36,6 @@ export default function JournalView() {
 
   useEffect(() => { fetchEntry(date) }, [date, fetchEntry])
 
-  // Recent dates
   useEffect(() => {
     const dates = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'))
     setRecentDates(dates)
@@ -60,9 +60,7 @@ export default function JournalView() {
   }, [save])
 
   useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    }
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   }, [])
 
   const navigate = (delta: number) => {
@@ -80,121 +78,133 @@ export default function JournalView() {
 
   const removeGratitude = (i: number) => {
     if (!entry) return
-    const list = entry.gratitude.filter((_, idx) => idx !== i)
-    save({ gratitude: list })
+    save({ gratitude: entry.gratitude.filter((_, idx) => idx !== i) })
   }
 
   const isToday = date === format(new Date(), 'yyyy-MM-dd')
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-white">
       {/* Left: date selector */}
-      <div className="w-52 border-r border-white/5 flex flex-col flex-shrink-0">
-        <div className="px-4 py-5 border-b border-white/5">
-          <h1 className="text-base font-semibold text-white">Dagboek</h1>
+      <div className="w-52 border-r border-gray-100 flex flex-col flex-shrink-0 bg-white">
+        <div className="px-4 py-5 border-b border-gray-100">
+          <h1 className="text-base font-extrabold text-gradient">Dagboek</h1>
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-3">
-          <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-2 px-1">Recente dagen</p>
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-2 px-1">Recente dagen</p>
           {recentDates.map(d => (
             <button
               key={d}
               onClick={() => setDate(d)}
-              className={cn('w-full text-left px-3 py-2 rounded-lg text-xs mb-0.5 transition-colors', d === date ? 'bg-brand-600/20 text-brand-400' : 'text-slate-400 hover:bg-white/5')}
+              className={cn('w-full text-left px-3 py-2.5 rounded-xl text-xs mb-0.5 transition-all font-medium', d === date ? 'text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50')}
+              style={d === date ? { background: GRAD } : {}}
             >
               <span className="capitalize">{format(new Date(d + 'T12:00:00'), 'EEEE', { locale: nl })}</span>
               <br />
-              <span className="text-slate-600 text-[10px]">{format(new Date(d + 'T12:00:00'), 'd MMM', { locale: nl })}</span>
+              <span className={cn('text-[10px]', d === date ? 'text-white/80' : 'text-gray-400')}>
+                {format(new Date(d + 'T12:00:00'), 'd MMM', { locale: nl })}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Main editor */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white">
         <div className="max-w-2xl mx-auto px-6 py-6">
           {/* Date nav */}
           <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-colors">
+            <button onClick={() => navigate(-1)} className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
               <ChevronLeft size={16} />
             </button>
             <div className="flex-1 text-center">
-              <h2 className="text-base font-semibold text-white capitalize">
+              <h2 className="text-base font-extrabold text-gradient capitalize">
                 {format(new Date(date + 'T12:00:00'), 'EEEE d MMMM yyyy', { locale: nl })}
               </h2>
-              {isToday && <span className="text-[10px] text-brand-400">Vandaag</span>}
+              {isToday && <span className="text-[10px] text-pink-400 font-semibold">Vandaag</span>}
             </div>
-            <button onClick={() => navigate(1)} disabled={isToday} className="p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            <button onClick={() => navigate(1)} disabled={isToday} className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
               <ChevronRight size={16} />
             </button>
           </div>
 
           {entry && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {/* Mood & Energy */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#13151c] border border-white/5 rounded-xl p-4">
+                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
-                    <Smile size={14} className="text-brand-400" />
-                    <p className="text-xs font-medium text-slate-400">Stemming</p>
+                    <Smile size={14} className="text-pink-400" />
+                    <p className="text-xs font-semibold text-gray-500">Stemming</p>
                   </div>
                   <div className="flex gap-1.5">
                     {[1,2,3,4,5].map(v => (
-                      <button key={v} onClick={() => save({ mood: v })} className={cn('flex-1 h-8 rounded-lg text-sm transition-all', entry.mood === v ? 'bg-brand-600/30 text-brand-400 scale-105' : 'bg-white/5 text-slate-600 hover:bg-white/10')}>
+                      <button
+                        key={v}
+                        onClick={() => save({ mood: v })}
+                        className={cn('flex-1 h-9 rounded-xl text-sm transition-all', entry.mood === v ? 'scale-110 shadow-sm' : 'bg-gray-50 hover:bg-gray-100')}
+                        style={entry.mood === v ? { background: GRAD } : {}}
+                      >
                         {['😔','😕','😐','🙂','😄'][v-1]}
                       </button>
                     ))}
                   </div>
-                  {entry.mood && <p className="text-[10px] text-slate-600 mt-1.5 text-center">{MOOD_LABELS[entry.mood]}</p>}
+                  {entry.mood && <p className="text-[10px] text-gray-400 mt-1.5 text-center font-medium">{MOOD_LABELS[entry.mood]}</p>}
                 </div>
 
-                <div className="bg-[#13151c] border border-white/5 rounded-xl p-4">
+                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <Zap size={14} className="text-amber-400" />
-                    <p className="text-xs font-medium text-slate-400">Energie</p>
+                    <p className="text-xs font-semibold text-gray-500">Energie</p>
                   </div>
                   <div className="flex gap-1.5">
                     {[1,2,3,4,5].map(v => (
-                      <button key={v} onClick={() => save({ energy: v })} className={cn('flex-1 h-8 rounded-lg text-sm transition-all', entry.energy === v ? 'bg-amber-950/40 text-amber-400 scale-105' : 'bg-white/5 text-slate-600 hover:bg-white/10')}>
+                      <button
+                        key={v}
+                        onClick={() => save({ energy: v })}
+                        className={cn('flex-1 h-9 rounded-xl text-sm font-bold transition-all', entry.energy === v ? 'text-white scale-110 shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100')}
+                        style={entry.energy === v ? { background: GRAD } : {}}
+                      >
                         {v}
                       </button>
                     ))}
                   </div>
-                  {entry.energy && <p className="text-[10px] text-slate-600 mt-1.5 text-center">{ENERGY_LABELS[entry.energy]}</p>}
+                  {entry.energy && <p className="text-[10px] text-gray-400 mt-1.5 text-center font-medium">{ENERGY_LABELS[entry.energy]}</p>}
                 </div>
               </div>
 
               {/* Main content */}
-              <div className="bg-[#13151c] border border-white/5 rounded-xl p-4">
-                <p className="text-xs text-slate-600 mb-2">Dagboek</p>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-gradient mb-2">Dagboek</p>
                 <textarea
                   value={entry.content}
                   onChange={e => { setEntry(prev => prev ? { ...prev, content: e.target.value } : prev); debouncedSave({ content: e.target.value }) }}
                   placeholder="Hoe was je dag? Wat heb je gedaan, geleerd, gevoeld?"
-                  className="w-full bg-transparent text-sm text-slate-300 placeholder:text-slate-700 outline-none resize-none min-h-[140px] leading-relaxed"
+                  className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-300 outline-none resize-none min-h-[140px] leading-relaxed"
                 />
-                {saving && <p className="text-[10px] text-slate-700 text-right">Opslaan...</p>}
+                {saving && <p className="text-[10px] text-gray-300 text-right font-medium">Opslaan...</p>}
               </div>
 
               {/* Highlights */}
-              <div className="bg-[#13151c] border border-white/5 rounded-xl p-4">
-                <p className="text-xs text-slate-600 mb-2">Hoogtepunten</p>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-gradient mb-2">Hoogtepunten</p>
                 <textarea
                   value={entry.highlights || ''}
                   onChange={e => { setEntry(prev => prev ? { ...prev, highlights: e.target.value } : prev); debouncedSave({ highlights: e.target.value }) }}
                   placeholder="Wat was het beste van vandaag?"
-                  className="w-full bg-transparent text-sm text-slate-300 placeholder:text-slate-700 outline-none resize-none min-h-[60px] leading-relaxed"
+                  className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-300 outline-none resize-none min-h-[60px] leading-relaxed"
                 />
               </div>
 
               {/* Gratitude */}
-              <div className="bg-[#13151c] border border-white/5 rounded-xl p-4">
-                <p className="text-xs text-slate-600 mb-3">Dankbaarheid</p>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-gradient mb-3">Dankbaarheid</p>
                 <div className="space-y-2 mb-3">
                   {entry.gratitude.map((g, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="text-brand-400 text-sm">✦</span>
-                      <span className="text-sm text-slate-300 flex-1">{g}</span>
-                      <button onClick={() => removeGratitude(i)} className="text-slate-700 hover:text-red-400 transition-colors">
+                      <span className="text-pink-400 text-sm">✦</span>
+                      <span className="text-sm text-gray-600 font-medium flex-1">{g}</span>
+                      <button onClick={() => removeGratitude(i)} className="text-gray-300 hover:text-red-400 transition-colors">
                         <X size={12} />
                       </button>
                     </div>
@@ -206,9 +216,13 @@ export default function JournalView() {
                     onChange={e => setNewGratitude(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addGratitude()}
                     placeholder="Waar ben je dankbaar voor?"
-                    className="flex-1 bg-white/5 text-xs text-slate-300 placeholder:text-slate-700 rounded-lg px-3 py-1.5 outline-none"
+                    className="flex-1 bg-gray-50 text-xs text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-100"
                   />
-                  <button onClick={addGratitude} className="p-1.5 rounded-lg bg-brand-600/20 text-brand-400 hover:bg-brand-600/30 transition-colors">
+                  <button
+                    onClick={addGratitude}
+                    className="p-2 rounded-xl text-white shadow-sm transition-opacity hover:opacity-90"
+                    style={{ background: GRAD }}
+                  >
                     <Plus size={14} />
                   </button>
                 </div>

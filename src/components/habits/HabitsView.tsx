@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Check, Flame, Trash2 } from 'lucide-react'
-import { cn, formatDate } from '@/lib/utils'
+import { Plus, Check, Flame } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { format, subDays } from 'date-fns'
 
 interface Habit {
@@ -18,14 +18,14 @@ interface Habit {
 }
 
 const ICONS = ['⭐', '💪', '🏃', '📚', '🧘', '💧', '🥗', '😴', '💊', '🎯', '✍️', '🚴']
+const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function HabitsView() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ name: '', icon: '⭐', color: '#6172f3', frequency: 'dagelijks' })
+  const [form, setForm] = useState({ name: '', icon: '⭐', color: '#ec4899', frequency: 'dagelijks' })
 
-  // Last 7 days for mini-calendar
   const last7 = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), 6 - i), 'yyyy-MM-dd'))
 
   const fetchHabits = async () => {
@@ -58,7 +58,7 @@ export default function HabitsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
-    setForm({ name: '', icon: '⭐', color: '#6172f3', frequency: 'dagelijks' })
+    setForm({ name: '', icon: '⭐', color: '#ec4899', frequency: 'dagelijks' })
     setShowAdd(false)
     fetchHabits()
   }
@@ -66,28 +66,30 @@ export default function HabitsView() {
   const completedToday = habits.filter(h => h.completedToday).length
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+    <div className="flex flex-col h-screen bg-white">
+      <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-lg font-semibold text-white">Gewoontes</h1>
-          <p className="text-xs text-slate-500 mt-0.5">{completedToday}/{habits.length} vandaag gedaan</p>
+          <h1 className="text-xl font-extrabold text-gradient">Gewoontes</h1>
+          <p className="text-xs text-gray-400 mt-0.5 font-medium">{completedToday}/{habits.length} vandaag gedaan</p>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-500 transition-colors">
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+          style={{ background: GRAD }}
+        >
           <Plus size={14} />
           Toevoegen
         </button>
       </div>
 
       {showAdd && (
-        <div className="mx-6 mt-4 p-4 bg-[#13151c] border border-white/10 rounded-xl animate-fade-in space-y-3">
-          <div className="flex gap-2">
-            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Naam gewoonte *" className="flex-1 bg-white/5 text-sm text-slate-300 placeholder:text-slate-600 rounded-lg px-3 py-2 outline-none" />
-          </div>
+        <div className="mx-6 mt-4 p-4 bg-gray-50 border border-gray-200 rounded-2xl animate-fade-in space-y-3">
+          <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Naam gewoonte *" className="w-full bg-white text-sm text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" />
           <div>
-            <p className="text-xs text-slate-600 mb-1.5">Icoon</p>
+            <p className="text-xs text-gray-400 mb-1.5 font-medium">Icoon</p>
             <div className="flex gap-1.5 flex-wrap">
               {ICONS.map(ic => (
-                <button key={ic} onClick={() => setForm(p => ({ ...p, icon: ic }))} className={cn('text-lg p-1.5 rounded-lg transition-colors', form.icon === ic ? 'bg-brand-600/20' : 'hover:bg-white/5')}>
+                <button key={ic} onClick={() => setForm(p => ({ ...p, icon: ic }))} className={cn('text-lg p-1.5 rounded-xl transition-all', form.icon === ic ? 'bg-pink-50 shadow-sm scale-110' : 'hover:bg-gray-100')}>
                   {ic}
                 </button>
               ))}
@@ -95,14 +97,19 @@ export default function HabitsView() {
           </div>
           <div className="flex gap-2">
             {(['dagelijks', 'wekelijks'] as const).map(f => (
-              <button key={f} onClick={() => setForm(p => ({ ...p, frequency: f }))} className={cn('flex-1 py-1.5 rounded-lg text-xs', form.frequency === f ? 'bg-brand-600 text-white' : 'bg-white/5 text-slate-500')}>
+              <button
+                key={f}
+                onClick={() => setForm(p => ({ ...p, frequency: f }))}
+                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all', form.frequency === f ? 'text-white' : 'bg-white text-gray-400 border border-gray-200')}
+                style={form.frequency === f ? { background: GRAD } : {}}
+              >
                 {f}
               </button>
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="text-xs text-slate-500 px-3 py-1.5">Annuleer</button>
-            <button onClick={addHabit} className="text-xs bg-brand-600 text-white px-4 py-1.5 rounded-lg">Opslaan</button>
+            <button onClick={() => setShowAdd(false)} className="text-xs text-gray-400 px-3 py-1.5 hover:text-gray-600 transition-colors">Annuleer</button>
+            <button onClick={addHabit} className="text-xs text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm" style={{ background: GRAD }}>Opslaan</button>
           </div>
         </div>
       )}
@@ -112,8 +119,8 @@ export default function HabitsView() {
         <div className="flex items-center gap-1 justify-end mb-1">
           {last7.map(d => (
             <div key={d} className="w-8 text-center">
-              <p className="text-[9px] text-slate-700 uppercase">{format(new Date(d + 'T12:00:00'), 'EEE').slice(0, 2)}</p>
-              <p className={cn('text-[10px] font-medium', d === format(new Date(), 'yyyy-MM-dd') ? 'text-brand-400' : 'text-slate-700')}>
+              <p className="text-[9px] text-gray-400 uppercase font-medium">{format(new Date(d + 'T12:00:00'), 'EEE').slice(0, 2)}</p>
+              <p className={cn('text-[10px] font-bold', d === format(new Date(), 'yyyy-MM-dd') ? 'text-gradient' : 'text-gray-300')}>
                 {format(new Date(d + 'T12:00:00'), 'd')}
               </p>
             </div>
@@ -123,37 +130,39 @@ export default function HabitsView() {
 
       <div className="flex-1 overflow-y-auto px-6 py-2">
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12">
+            <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+          </div>
         ) : habits.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-4xl mb-3">🎯</p>
-            <p className="text-slate-600 text-sm">Nog geen gewoontes. Voeg je eerste toe!</p>
+            <p className="text-gray-400 text-sm font-medium">Nog geen gewoontes. Voeg je eerste toe!</p>
           </div>
         ) : (
           <div className="space-y-2">
             {habits.map(habit => (
-              <div key={habit.id} className="flex items-center gap-3 p-3 bg-[#13151c] border border-white/5 rounded-xl hover:border-white/10 transition-colors group">
+              <div key={habit.id} className="flex items-center gap-3 p-3.5 bg-white border border-gray-100 rounded-2xl hover:shadow-sm transition-all group card-hover">
                 <button
                   onClick={() => toggleHabit(habit)}
                   className={cn(
-                    'w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all duration-150 flex-shrink-0',
+                    'w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-150 flex-shrink-0 shadow-sm',
                     habit.completedToday ? 'scale-95' : 'hover:scale-105'
                   )}
-                  style={{ background: habit.completedToday ? habit.color + '33' : '#ffffff0d' }}
+                  style={{ background: habit.completedToday ? GRAD : '#f9fafb', border: '1.5px solid #e2e8f0' }}
                 >
                   {habit.completedToday ? (
-                    <Check size={16} style={{ color: habit.color }} strokeWidth={2.5} />
+                    <Check size={16} className="text-white" strokeWidth={2.5} />
                   ) : (
                     <span>{habit.icon}</span>
                   )}
                 </button>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-200">{habit.name}</p>
+                  <p className={cn('text-sm font-semibold', habit.completedToday ? 'text-gradient' : 'text-gray-700')}>{habit.name}</p>
                   {habit.streak > 0 && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <Flame size={10} className="text-orange-400" />
-                      <span className="text-[10px] text-orange-400">{habit.streak} dag streak</span>
+                      <span className="text-[10px] text-orange-400 font-medium">{habit.streak} dag streak</span>
                     </div>
                   )}
                 </div>
@@ -165,12 +174,10 @@ export default function HabitsView() {
                     return (
                       <div
                         key={d}
-                        className={cn('w-8 h-8 rounded-lg flex items-center justify-center',
-                          done ? 'opacity-100' : 'bg-white/5 opacity-40'
-                        )}
-                        style={done ? { background: habit.color + '33' } : {}}
+                        className={cn('w-8 h-8 rounded-xl flex items-center justify-center transition-all', done ? '' : 'bg-gray-50 border border-gray-100')}
+                        style={done ? { background: GRAD } : {}}
                       >
-                        {done && <Check size={10} style={{ color: habit.color }} strokeWidth={3} />}
+                        {done && <Check size={10} className="text-white" strokeWidth={3} />}
                       </div>
                     )
                   })}

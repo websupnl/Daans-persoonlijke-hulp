@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     params.push(category)
   }
 
-  query += ' ORDER BY CASE t.priority WHEN "hoog" THEN 0 WHEN "medium" THEN 1 ELSE 2 END, t.due_date ASC NULLS LAST, t.created_at DESC'
+  query += " ORDER BY CASE t.priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, t.due_date ASC NULLS LAST, t.created_at DESC"
 
   const todos = db.prepare(query).all(...params)
   return NextResponse.json({ data: todos })

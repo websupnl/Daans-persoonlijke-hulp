@@ -35,7 +35,6 @@ export default function ChatView() {
         if (d.data?.length) {
           setMessages(d.data)
         } else {
-          // Welkomstbericht
           setMessages([{
             id: 0,
             role: 'assistant',
@@ -75,7 +74,7 @@ export default function ChatView() {
       const assistantMsg: Message = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: data.response || 'Er ging iets mis.',
+        content: data.response || data.message || 'Er ging iets mis.',
         created_at: new Date().toISOString(),
       }
       setMessages(prev => [...prev, assistantMsg])
@@ -100,37 +99,49 @@ export default function ChatView() {
   }
 
   if (initialLoad) {
-    return <div className="flex items-center justify-center h-full"><div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-white/5 flex items-center gap-3 flex-shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center">
-          <Sparkles size={16} className="text-brand-400" />
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 flex-shrink-0 bg-white">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm"
+          style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+        >
+          <Sparkles size={16} className="text-white" />
         </div>
         <div>
-          <h1 className="text-sm font-semibold text-white">Persoonlijke Assistent</h1>
-          <p className="text-[11px] text-slate-500">Typ in het Nederlands of Engels</p>
+          <h1 className="text-sm font-bold text-gradient">Persoonlijke Assistent</h1>
+          <p className="text-[11px] text-gray-400">Typ in het Nederlands of Engels</p>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
         {messages.map((msg) => (
           <div key={msg.id} className={cn('flex gap-3 animate-fade-in', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
             {msg.role === 'assistant' && (
-              <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Bot size={14} className="text-brand-400" />
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+              >
+                <Bot size={14} className="text-white" />
               </div>
             )}
             <div className={cn(
-              'max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
+              'max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm',
               msg.role === 'user'
-                ? 'bg-brand-600 text-white rounded-tr-sm'
-                : 'bg-[#13151c] border border-white/5 text-slate-300 rounded-tl-sm'
-            )}>
+                ? 'text-white rounded-tr-sm'
+                : 'bg-gray-50 border border-gray-100 text-gray-700 rounded-tl-sm'
+            )}
+              style={msg.role === 'user' ? { background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' } : {}}
+            >
               {msg.role === 'assistant' ? (
                 <div
                   className="chat-content"
@@ -141,8 +152,8 @@ export default function ChatView() {
               )}
             </div>
             {msg.role === 'user' && (
-              <div className="w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <User size={14} className="text-slate-400" />
+              <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <User size={14} className="text-gray-500" />
               </div>
             )}
           </div>
@@ -150,13 +161,23 @@ export default function ChatView() {
 
         {loading && (
           <div className="flex gap-3 animate-fade-in">
-            <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0">
-              <Bot size={14} className="text-brand-400" />
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+            >
+              <Bot size={14} className="text-white" />
             </div>
-            <div className="bg-[#13151c] border border-white/5 px-4 py-3 rounded-2xl rounded-tl-sm">
-              <div className="flex gap-1">
+            <div className="bg-gray-50 border border-gray-100 px-4 py-3.5 rounded-2xl rounded-tl-sm shadow-sm">
+              <div className="flex gap-1.5">
                 {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-pulse-soft" style={{ animationDelay: `${i * 0.2}s` }} />
+                  <span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full animate-pulse-soft"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)',
+                      animationDelay: `${i * 0.2}s`,
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -166,12 +187,12 @@ export default function ChatView() {
       </div>
 
       {/* Quick commands */}
-      <div className="px-4 pb-2 flex gap-2 flex-wrap flex-shrink-0">
+      <div className="px-5 pb-3 flex gap-2 flex-wrap flex-shrink-0">
         {QUICK_COMMANDS.map(cmd => (
           <button
             key={cmd}
             onClick={() => cmd.endsWith('...') ? setInput(cmd.slice(0, -3).trim() + ' ') : sendMessage(cmd)}
-            className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition-all"
+            className="text-[11px] px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-pink-200 hover:text-gradient transition-all font-medium"
           >
             {cmd}
           </button>
@@ -179,8 +200,8 @@ export default function ChatView() {
       </div>
 
       {/* Input */}
-      <div className="px-4 pb-4 flex-shrink-0">
-        <div className="flex gap-2 items-end bg-[#13151c] border border-white/10 rounded-xl p-2 focus-within:border-brand-600/50 transition-colors">
+      <div className="px-5 pb-5 flex-shrink-0">
+        <div className="flex gap-2 items-end bg-gray-50 border border-gray-200 rounded-2xl p-2 focus-within:border-pink-200 transition-colors shadow-sm">
           <textarea
             ref={inputRef}
             value={input}
@@ -188,15 +209,16 @@ export default function ChatView() {
             onKeyDown={handleKeyDown}
             placeholder="Typ een bericht... (Enter om te sturen, Shift+Enter voor nieuwe regel)"
             rows={1}
-            className="flex-1 bg-transparent text-sm text-slate-200 placeholder:text-slate-600 resize-none outline-none py-1.5 px-2 max-h-32"
+            className="flex-1 bg-transparent text-sm text-gray-700 placeholder:text-gray-400 resize-none outline-none py-1.5 px-2 max-h-32"
             style={{ minHeight: '36px' }}
           />
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || loading}
-            className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand-500 transition-colors flex-shrink-0"
+            className="w-8 h-8 rounded-xl flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0 text-white shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
           >
-            <Send size={14} className="text-white" />
+            <Send size={13} />
           </button>
         </div>
       </div>

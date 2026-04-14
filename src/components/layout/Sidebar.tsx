@@ -26,16 +26,19 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[220px] bg-[#0a0c10] border-r border-white/5 flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-full w-[220px] bg-white border-r border-gray-100 flex flex-col z-40">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-white/5">
+      <div className="px-5 py-5 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-sm">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+          >
             D
           </div>
           <div>
-            <p className="text-sm font-semibold text-white leading-tight">Daan</p>
-            <p className="text-[10px] text-slate-500 leading-tight">Persoonlijke Hulp</p>
+            <p className="text-sm font-bold text-gradient leading-tight">Daan</p>
+            <p className="text-[10px] text-gray-400 leading-tight">Persoonlijke Hulp</p>
           </div>
         </div>
       </div>
@@ -49,22 +52,38 @@ export default function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+                'flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-150 group relative',
                 active
-                  ? 'bg-brand-600/20 text-brand-400 font-medium'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50'
+                  : 'hover:bg-gray-50'
               )}
             >
-              <Icon size={16} strokeWidth={active ? 2 : 1.5} />
-              {label}
+              {active && (
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+                />
+              )}
+              <span className={cn(
+                'flex-shrink-0',
+                active ? 'icon-gradient' : 'text-gray-400 group-hover:text-gray-600'
+              )}>
+                <Icon size={16} strokeWidth={active ? 2 : 1.5} />
+              </span>
+              <span className={cn(
+                'font-medium',
+                active ? 'text-gradient' : 'text-gray-500 group-hover:text-gray-700'
+              )}>
+                {label}
+              </span>
             </Link>
           )
         })}
       </nav>
 
       {/* Bottom */}
-      <div className="px-4 py-4 border-t border-white/5">
-        <p className="text-[10px] text-slate-600">
+      <div className="px-5 py-4 border-t border-gray-100">
+        <p className="text-[10px] text-gradient font-medium capitalize">
           {new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>

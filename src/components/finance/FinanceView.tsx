@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Euro, TrendingUp, TrendingDown, AlertCircle, Check, Trash2 } from 'lucide-react'
+import { Plus, Euro, TrendingUp, TrendingDown, AlertCircle, Trash2 } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue, STATUS_COLORS } from '@/lib/utils'
 
 interface FinanceItem {
@@ -77,14 +77,18 @@ export default function FinanceView() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+      <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-lg font-semibold text-white">Financiën</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Facturen, inkomsten & uitgaven</p>
+          <h1 className="text-xl font-extrabold text-gradient">Financiën</h1>
+          <p className="text-xs text-gray-400 mt-0.5 font-medium">Facturen, inkomsten &amp; uitgaven</p>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-500 transition-colors">
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+        >
           <Plus size={14} />
           Toevoegen
         </button>
@@ -93,31 +97,42 @@ export default function FinanceView() {
       {/* Stats */}
       {stats && (
         <div className="px-6 pt-4 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-3 flex-shrink-0">
-          <MiniStat icon={<AlertCircle size={14} />} label="Openstaand" value={formatCurrency(stats.open_amount)} color="text-amber-400" />
-          <MiniStat icon={<Euro size={14} />} label="Open facturen" value={String(stats.open_count)} color="text-amber-400" />
-          <MiniStat icon={<TrendingUp size={14} />} label="Inkomsten (mnd)" value={formatCurrency(stats.month_income)} color="text-emerald-400" />
-          <MiniStat icon={<TrendingDown size={14} />} label="Uitgaven (mnd)" value={formatCurrency(stats.month_expenses)} color="text-red-400" />
+          <MiniStat icon={<AlertCircle size={14} />} label="Openstaand" value={formatCurrency(stats.open_amount)} />
+          <MiniStat icon={<Euro size={14} />} label="Open facturen" value={String(stats.open_count)} />
+          <MiniStat icon={<TrendingUp size={14} />} label="Inkomsten (mnd)" value={formatCurrency(stats.month_income)} positive />
+          <MiniStat icon={<TrendingDown size={14} />} label="Uitgaven (mnd)" value={formatCurrency(stats.month_expenses)} negative />
         </div>
       )}
 
       {/* Add form */}
       {showAdd && (
-        <div className="mx-6 mt-2 p-4 bg-[#13151c] border border-white/10 rounded-xl animate-fade-in">
+        <div className="mx-6 mt-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl animate-fade-in shadow-sm">
           <div className="flex gap-2 mb-3">
             {(['factuur', 'inkomst', 'uitgave'] as const).map(t => (
-              <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))} className={cn('flex-1 py-1.5 rounded-lg text-xs capitalize', form.type === t ? 'bg-brand-600 text-white' : 'bg-white/5 text-slate-500 hover:text-slate-300')}>
+              <button
+                key={t}
+                onClick={() => setForm(p => ({ ...p, type: t }))}
+                className={cn('flex-1 py-1.5 rounded-xl text-xs capitalize font-semibold transition-all', form.type === t ? 'text-white shadow-sm' : 'bg-white text-gray-400 border border-gray-200 hover:text-gray-600')}
+                style={form.type === t ? { background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' } : {}}
+              >
                 {t}
               </button>
             ))}
           </div>
-          <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Omschrijving *" className="w-full bg-white/5 text-sm text-slate-300 placeholder:text-slate-600 rounded-lg px-3 py-2 outline-none mb-2" />
+          <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Omschrijving *" className="w-full bg-white text-sm text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none mb-2 border border-gray-200" />
           <div className="flex gap-2">
-            <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (€)" className="flex-1 bg-white/5 text-xs text-slate-300 placeholder:text-slate-600 rounded-lg px-3 py-2 outline-none" />
-            {form.type === 'factuur' && <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} className="flex-1 bg-white/5 text-xs text-slate-300 rounded-lg px-3 py-2 outline-none" />}
+            <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (€)" className="flex-1 bg-white text-xs text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" />
+            {form.type === 'factuur' && <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} className="flex-1 bg-white text-xs text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" />}
           </div>
           <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => setShowAdd(false)} className="text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5">Annuleer</button>
-            <button onClick={addItem} className="text-xs bg-brand-600 text-white px-4 py-1.5 rounded-lg hover:bg-brand-500 transition-colors">Opslaan</button>
+            <button onClick={() => setShowAdd(false)} className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">Annuleer</button>
+            <button
+              onClick={addItem}
+              className="text-xs text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm transition-opacity hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+            >
+              Opslaan
+            </button>
           </div>
         </div>
       )}
@@ -125,7 +140,12 @@ export default function FinanceView() {
       {/* Filters */}
       <div className="px-6 pt-3 pb-2 flex gap-1.5 flex-shrink-0">
         {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={cn('px-3 py-1 rounded-full text-xs transition-colors', filter === f ? 'bg-brand-600/20 text-brand-400' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5')}>
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all', filter === f ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
+            style={filter === f ? { background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' } : {}}
+          >
             {f}
           </button>
         ))}
@@ -134,42 +154,45 @@ export default function FinanceView() {
       {/* List */}
       <div className="flex-1 overflow-y-auto px-6 py-2">
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12">
+            <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+          </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-12"><p className="text-slate-600 text-sm">Geen items gevonden.</p></div>
+          <div className="text-center py-12"><p className="text-gray-400 text-sm">Geen items gevonden.</p></div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {items.map(item => (
-              <div key={item.id} className="flex items-center gap-3 p-3 bg-[#13151c] border border-white/5 rounded-xl hover:border-white/10 transition-colors group">
-                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                  item.type === 'factuur' ? 'bg-amber-950/60' : item.type === 'inkomst' ? 'bg-emerald-950/60' : 'bg-red-950/60'
-                )}>
-                  {item.type === 'factuur' ? <Euro size={14} className="text-amber-400" /> : item.type === 'inkomst' ? <TrendingUp size={14} className="text-emerald-400" /> : <TrendingDown size={14} className="text-red-400" />}
+              <div key={item.id} className="flex items-center gap-3 p-3.5 bg-white border border-gray-100 rounded-2xl hover:shadow-sm transition-all group card-hover">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+                >
+                  {item.type === 'factuur' ? <Euro size={14} /> : item.type === 'inkomst' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm text-slate-200 truncate">{item.title}</p>
-                    {item.invoice_number && <span className="text-[10px] text-slate-600">#{item.invoice_number}</span>}
+                    <p className="text-sm text-gray-700 font-medium truncate">{item.title}</p>
+                    {item.invoice_number && <span className="text-[10px] text-gray-400">#{item.invoice_number}</span>}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    {item.contact_name && <span className="text-[10px] text-slate-600">{item.contact_name}</span>}
+                    {item.contact_name && <span className="text-[10px] text-gray-400">{item.contact_name}</span>}
                     {item.due_date && (
-                      <span className={cn('text-[10px]', isOverdue(item.due_date) && item.status !== 'betaald' ? 'text-red-400' : 'text-slate-600')}>
+                      <span className={cn('text-[10px] font-medium', isOverdue(item.due_date) && item.status !== 'betaald' ? 'text-red-400' : 'text-gray-400')}>
                         {isOverdue(item.due_date) && item.status !== 'betaald' ? '⚠ ' : ''}{formatDate(item.due_date)}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-sm font-medium text-white">{formatCurrency(item.amount)}</span>
+                  <span className="text-sm font-bold text-gradient">{formatCurrency(item.amount)}</span>
                   <select
                     value={item.status}
                     onChange={e => updateStatus(item.id, e.target.value)}
-                    className={cn('text-[10px] px-2 py-1 rounded-lg border-0 outline-none cursor-pointer', STATUS_COLORS[item.status] || 'text-slate-400 bg-slate-800')}
+                    className={cn('text-[10px] px-2 py-1 rounded-lg border-0 outline-none cursor-pointer font-medium', STATUS_COLORS[item.status] || 'text-gray-400 bg-gray-100')}
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all">
+                  <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -182,11 +205,14 @@ export default function FinanceView() {
   )
 }
 
-function MiniStat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function MiniStat({ icon, label, value, positive, negative }: { icon: React.ReactNode; label: string; value: string; positive?: boolean; negative?: boolean }) {
   return (
-    <div className="bg-[#13151c] border border-white/5 rounded-xl p-3">
-      <div className={cn('flex items-center gap-1.5 mb-1', color)}>{icon}<span className="text-[10px] text-slate-500">{label}</span></div>
-      <p className="text-base font-semibold text-white">{value}</p>
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm card-hover">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={cn('flex-shrink-0', positive ? 'text-emerald-500' : negative ? 'text-red-400' : 'icon-gradient')}>{icon}</span>
+        <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+      </div>
+      <p className="text-base font-extrabold text-gradient">{value}</p>
     </div>
   )
 }
