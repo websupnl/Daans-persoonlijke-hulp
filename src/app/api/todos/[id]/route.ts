@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import getDb, { toRow } from '@/lib/db'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const db = getDb()
+  const db = await getDb()
   const id = parseInt(params.id)
   const body = await req.json()
 
-  const existing = db.prepare('SELECT * FROM todos WHERE id = ?').get(id)
+  const existing = toRow(await db.execute({ sql: 'SELECT * FROM todos WHERE id = ?', args: [id] }))
   if (!existing) return NextResponse.json({ error: 'Todo niet gevonden' }, { status: 404 })
 
   const fields = ['title', 'description', 'category', 'priority', 'due_date', 'completed', 'project_id', 'contact_id', 'recurring']
@@ -32,15 +32,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   updates.push("updated_at = datetime('now')")
   values.push(id)
 
-  db.prepare(`UPDATE todos SET ${updates.join(', ')} WHERE id = ?`).run(...values)
-  const updated = db.prepare('SELECT * FROM todos WHERE id = ?').get(id)
+  await db.execute({ sql: `UPDATE todos SET ${updates.join(', ')} WHERE id = ?`, args: values })
+  const updated = toRow(await db.execute({ sql: 'SELECT * FROM todos WHERE id = ?', args: [id] }))
   return NextResponse.json({ data: updated })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const db = getDb()
+  const db = await getDb()
   const id = parseInt(params.id)
-  const result = db.prepare('DELETE FROM todos WHERE id = ?').run(id)
-  if (result.changes === 0) return NextResponse.json({ error: 'Todo niet gevonden' }, { status: 404 })
+  const result = await db.execute({ sql: 'DELETE FROM todos WHERE id = ?', args: [id] })
+  if (result.rowsAffected === 0) return NextResponse.json({ error: 'Todo niet gevonden' }, { status: 404 })
   return NextResponse.json({ message: 'Todo verwijderd' })
 }

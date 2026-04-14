@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import getDb, { toRows, toRow } from '@/lib/db'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const db = getDb()
+  const db = await getDb()
   const id = parseInt(params.id)
-  const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id) as Record<string, unknown> | undefined
+  const contact = toRow(await db.execute({ sql: 'SELECT * FROM contacts WHERE id = ?', args: [id] }))
   if (!contact) return NextResponse.json({ error: 'Contact niet gevonden' }, { status: 404 })
 
-  const todos = db.prepare('SELECT id, title, priority, due_date, completed FROM todos WHERE contact_id = ? ORDER BY completed, due_date').all(id)
-  const notes = db.prepare('SELECT id, title, updated_at FROM notes WHERE contact_id = ? ORDER BY updated_at DESC').all(id)
-  const finance = db.prepare('SELECT id, title, type, amount, status, due_date FROM finance_items WHERE contact_id = ? ORDER BY created_at DESC').all(id)
+  const todos = toRows(await db.execute({ sql: 'SELECT id, title, priority, due_date, completed FROM todos WHERE contact_id = ? ORDER BY completed, due_date', args: [id] }))
+  const notes = toRows(await db.execute({ sql: 'SELECT id, title, updated_at FROM notes WHERE contact_id = ? ORDER BY updated_at DESC', args: [id] }))
+  const finance = toRows(await db.execute({ sql: 'SELECT id, title, type, amount, status, due_date FROM finance_items WHERE contact_id = ? ORDER BY created_at DESC', args: [id] }))
 
   return NextResponse.json({
     data: {
@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const db = getDb()
+  const db = await getDb()
   const id = parseInt(params.id)
   const body = await req.json()
 
@@ -39,13 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   updates.push("updated_at = datetime('now')")
   values.push(id)
 
-  db.prepare(`UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`).run(...values)
-  const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id) as Record<string, unknown>
-  return NextResponse.json({ data: { ...updated, tags: JSON.parse(updated.tags as string || '[]') } })
+  await db.execute({ sql: `UPDATE contacts SET ${updates.join(', ')} WHERE id = ?`, args: values })
+  const updated = toRow(await db.execute({ sql: 'SELECT * FROM contacts WHERE id = ?', args: [id] }))
+  return NextResponse.json({ data: { ...updated, tags: JSON.parse(updated?.tags as string || '[]') } })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const db = getDb()
-  db.prepare('DELETE FROM contacts WHERE id = ?').run(parseInt(params.id))
+  const db = await getDb()
+  await db.execute({ sql: 'DELETE FROM contacts WHERE id = ?', args: [parseInt(params.id)] })
   return NextResponse.json({ message: 'Contact verwijderd' })
 }

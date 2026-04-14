@@ -1,31 +1,48 @@
-import Database from 'better-sqlite3'
+import { createClient, type Client, type ResultSet } from '@libsql/client'
 import path from 'path'
 import fs from 'fs'
 
-const DB_PATH = process.env.DATABASE_PATH || './data/persoonlijke-hulp.db'
-const resolvedPath = path.resolve(process.cwd(), DB_PATH)
+export type DbRow = Record<string, unknown>
 
-// Zorg dat de data directory bestaat
-const dataDir = path.dirname(resolvedPath)
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
+export function toRows(result: ResultSet): DbRow[] {
+  return result.rows.map(row =>
+    Object.fromEntries(result.columns.map((col, i) => [col, row[i]]))
+  )
 }
 
-let db: Database.Database
+export function toRow(result: ResultSet): DbRow | undefined {
+  if (result.rows.length === 0) return undefined
+  return Object.fromEntries(result.columns.map((col, i) => [col, result.rows[0][i]]))
+}
 
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(resolvedPath)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    initSchema(db)
+let initPromise: Promise<Client> | undefined
+
+export async function getDb(): Promise<Client> {
+  if (!initPromise) {
+    initPromise = initDb()
   }
+  return initPromise
+}
+
+async function initDb(): Promise<Client> {
+  if (!process.env.TURSO_DATABASE_URL) {
+    const dataDir = path.resolve(process.cwd(), 'data')
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true })
+    }
+  }
+
+  const dbPath = path.resolve(process.cwd(), 'data/persoonlijke-hulp.db')
+  const url = process.env.TURSO_DATABASE_URL ?? `file:${dbPath}`
+  const authToken = process.env.TURSO_AUTH_TOKEN
+
+  const db = createClient(authToken ? { url, authToken } : { url })
+  await initSchema(db)
   return db
 }
 
-function initSchema(db: Database.Database) {
-  db.exec(`
-    -- Projecten
+async function initSchema(db: Client): Promise<void> {
+  await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -36,7 +53,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Contacten
     CREATE TABLE IF NOT EXISTS contacts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -53,7 +69,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Todos
     CREATE TABLE IF NOT EXISTS todos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -70,7 +85,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Notes
     CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT DEFAULT 'Naamloze note',
@@ -84,7 +98,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Financiën
     CREATE TABLE IF NOT EXISTS finance_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL CHECK(type IN ('factuur','inkomst','uitgave')),
@@ -102,7 +115,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Gewoontes
     CREATE TABLE IF NOT EXISTS habits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -115,7 +127,6 @@ function initSchema(db: Database.Database) {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Gewoonte logs
     CREATE TABLE IF NOT EXISTS habit_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       habit_id INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
@@ -125,7 +136,6 @@ function initSchema(db: Database.Database) {
       UNIQUE(habit_id, logged_date)
     );
 
-    -- Dagboek
     CREATE TABLE IF NOT EXISTS journal_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       date TEXT NOT NULL UNIQUE,
@@ -138,7 +148,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- AI Geheugen / feiten over de gebruiker
     CREATE TABLE IF NOT EXISTS memories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT NOT NULL UNIQUE,
@@ -148,7 +157,6 @@ function initSchema(db: Database.Database) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Chat geschiedenis
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       role TEXT NOT NULL CHECK(role IN ('user','assistant')),
@@ -157,14 +165,12 @@ function initSchema(db: Database.Database) {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- Full-text search voor notes
     CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
       title, content_text, tags,
       content=notes,
       content_rowid=id
     );
 
-    -- Triggers voor FTS sync
     CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
       INSERT INTO notes_fts(rowid, title, content_text, tags)
       VALUES (new.id, new.title, new.content_text, new.tags);

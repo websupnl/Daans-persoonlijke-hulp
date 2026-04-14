@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import getDb, { toRows, toRow } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const db = getDb()
+  const db = await getDb()
   const { searchParams } = new URL(req.url)
   const filter = searchParams.get('filter')
   const projectId = searchParams.get('project_id')
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     LEFT JOIN contacts c ON t.contact_id = c.id
     WHERE 1=1
   `
-  const params: (string | number)[] = []
+  const args: (string | number | null)[] = []
 
   if (completed === '1') {
     query += ' AND t.completed = 1'
@@ -36,21 +36,21 @@ export async function GET(req: NextRequest) {
 
   if (projectId) {
     query += ' AND t.project_id = ?'
-    params.push(parseInt(projectId))
+    args.push(parseInt(projectId))
   }
   if (category) {
     query += ' AND t.category = ?'
-    params.push(category)
+    args.push(category)
   }
 
-  query += ' ORDER BY CASE t.priority WHEN "hoog" THEN 0 WHEN "medium" THEN 1 ELSE 2 END, t.due_date ASC NULLS LAST, t.created_at DESC'
+  query += ' ORDER BY CASE t.priority WHEN "hoog" THEN 0 WHEN "medium" THEN 1 ELSE 2 END, t.due_date ASC, t.created_at DESC'
 
-  const todos = db.prepare(query).all(...params)
+  const todos = toRows(await db.execute({ sql: query, args }))
   return NextResponse.json({ data: todos })
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
+  const db = await getDb()
   const body = await req.json()
   const { title, description, category, priority, due_date, project_id, contact_id, recurring } = body
 
@@ -58,20 +58,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Titel is verplicht' }, { status: 400 })
   }
 
-  const result = db.prepare(`
-    INSERT INTO todos (title, description, category, priority, due_date, project_id, contact_id, recurring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    title.trim(),
-    description || null,
-    category || 'overig',
-    priority || 'medium',
-    due_date || null,
-    project_id || null,
-    contact_id || null,
-    recurring || null
-  )
+  const result = await db.execute({
+    sql: `INSERT INTO todos (title, description, category, priority, due_date, project_id, contact_id, recurring) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      title.trim(),
+      description || null,
+      category || 'overig',
+      priority || 'medium',
+      due_date || null,
+      project_id || null,
+      contact_id || null,
+      recurring || null,
+    ],
+  })
 
-  const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid)
+  const todo = toRow(await db.execute({ sql: 'SELECT * FROM todos WHERE id = ?', args: [Number(result.lastInsertRowid)] }))
   return NextResponse.json({ data: todo }, { status: 201 })
 }
