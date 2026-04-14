@@ -5,16 +5,15 @@ import fs from 'fs'
 const DB_PATH = process.env.DATABASE_PATH || './data/persoonlijke-hulp.db'
 const resolvedPath = path.resolve(process.cwd(), DB_PATH)
 
-// Zorg dat de data directory bestaat
-const dataDir = path.dirname(resolvedPath)
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
-}
-
 let db: Database.Database
 
 export function getDb(): Database.Database {
   if (!db) {
+    // Zorg dat de data directory bestaat (lazy — niet bij module load)
+    const dataDir = path.dirname(resolvedPath)
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true })
+    }
     db = new Database(resolvedPath)
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
