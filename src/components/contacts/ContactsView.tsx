@@ -67,9 +67,9 @@ export default function ContactsView() {
   }
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex min-h-full flex-col bg-white lg:flex-row">
       {/* Left panel */}
-      <div className="flex flex-col w-72 border-r border-gray-100 flex-shrink-0 bg-white">
+      <div className="flex w-full flex-col border-b border-gray-100 bg-white lg:w-72 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
         {/* Header */}
         <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
           <div>
@@ -155,7 +155,7 @@ export default function ContactsView() {
       </div>
 
       {/* Detail panel */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="min-h-[40vh] flex-1 overflow-y-auto bg-white">
         {!selected ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -182,7 +182,7 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
   const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="max-w-2xl p-5 sm:p-8">
       <div className="flex items-center gap-5 mb-8">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-extrabold text-white shadow-md" style={{ background: GRAD }}>
           {(detail.name as string).charAt(0).toUpperCase()}
@@ -193,7 +193,7 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {!!detail.email && <InfoField icon={<Mail size={12} />} label="Email" value={detail.email as string} />}
         {!!detail.phone && <InfoField icon={<Phone size={12} />} label="Telefoon" value={detail.phone as string} />}
       </div>

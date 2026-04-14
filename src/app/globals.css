@@ -19,8 +19,16 @@ html, body {
 }
 
 body {
+  min-height: 100dvh;
+}
+
+body {
   background: #ffffff;
   color: #2d3748;
+}
+
+#__next {
+  min-height: 100dvh;
 }
 
 /* Gradient text utility */

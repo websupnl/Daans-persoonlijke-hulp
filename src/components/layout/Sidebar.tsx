@@ -22,16 +22,29 @@ const nav = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobile = false,
+  onNavigate,
+}: {
+  mobile?: boolean
+  onNavigate?: () => void
+}) {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[220px] bg-white border-r border-gray-100 flex flex-col z-40">
+    <aside
+      className={cn(
+        'flex h-full flex-col border-r border-gray-100 bg-white',
+        mobile
+          ? 'w-full rounded-r-[1.75rem] shadow-2xl'
+          : 'fixed left-0 top-0 z-20 hidden h-dvh w-[220px] md:flex'
+      )}
+    >
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
+      <div className="border-b border-gray-100 px-5 py-5">
         <div className="flex items-center gap-2.5">
           <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
             style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
           >
             D
@@ -44,15 +57,16 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
         {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <Link
               key={href}
               href={href}
+              onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-150 group relative',
+                'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-150',
                 active
                   ? 'bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50'
                   : 'hover:bg-gray-50'
@@ -60,7 +74,7 @@ export default function Sidebar() {
             >
               {active && (
                 <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                  className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full"
                   style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
                 />
               )}
@@ -82,7 +96,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="px-5 py-4 border-t border-gray-100">
+      <div className="border-t border-gray-100 px-5 py-4">
         <p className="text-[10px] text-gradient font-medium capitalize">
           {new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>

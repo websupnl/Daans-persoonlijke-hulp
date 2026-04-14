@@ -108,7 +108,7 @@ export default function NoteEditor({ id }: { id: string }) {
   const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex min-h-full flex-col bg-white">
       {/* Toolbar */}
       <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 flex-shrink-0 bg-white">
         <button onClick={() => router.push('/notes')} className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">

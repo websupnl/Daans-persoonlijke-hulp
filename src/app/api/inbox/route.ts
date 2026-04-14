@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne, execute } from '@/lib/db'
 
 export async function GET() {
-  const db = getDb()
-  const items = db.prepare(`SELECT * FROM inbox_items ORDER BY created_at DESC LIMIT 50`).all()
-  const pending = db.prepare(`SELECT COUNT(*) as count FROM inbox_items WHERE parsed_status = 'pending'`).get() as { count: number }
-  return NextResponse.json({ items, pendingCount: pending.count })
+  const items = await query(`SELECT * FROM inbox_items ORDER BY created_at DESC LIMIT 50`)
+  const pending = await queryOne<{ count: number }>(`SELECT COUNT(*) as count FROM inbox_items WHERE parsed_status = 'pending'`)
+  return NextResponse.json({ items, pendingCount: pending?.count ?? 0 })
 }
 
 export async function POST(request: NextRequest) {
-  const db = getDb()
   const { raw_text, suggested_type, suggested_context } = await request.json()
   if (!raw_text) return NextResponse.json({ error: 'raw_text is verplicht' }, { status: 400 })
-  const result = db.prepare(`INSERT INTO inbox_items (raw_text, suggested_type, suggested_context) VALUES (?, ?, ?)`).run(raw_text, suggested_type ?? null, suggested_context ?? null)
-  const item = db.prepare(`SELECT * FROM inbox_items WHERE id = ?`).get(result.lastInsertRowid)
+  const item = await queryOne(`
+    INSERT INTO inbox_items (raw_text, suggested_type, suggested_context) VALUES ($1, $2, $3) RETURNING *
+  `, [raw_text, suggested_type ?? null, suggested_context ?? null])
   return NextResponse.json({ item }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const db = getDb()
   const { id, parsed_status } = await request.json()
-  db.prepare(`UPDATE inbox_items SET parsed_status = ?, processed_at = CASE WHEN ? = 'processed' THEN datetime('now') ELSE NULL END WHERE id = ?`).run(parsed_status, parsed_status, id)
+  await execute(
+    `UPDATE inbox_items SET parsed_status = $1, processed_at = CASE WHEN $2 = 'processed' THEN NOW() ELSE NULL END WHERE id = $3`,
+    [parsed_status, parsed_status, id]
+  )
   return NextResponse.json({ success: true })
 }

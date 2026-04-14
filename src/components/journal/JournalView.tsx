@@ -84,19 +84,20 @@ export default function JournalView() {
   const isToday = date === format(new Date(), 'yyyy-MM-dd')
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex min-h-full flex-col bg-white lg:flex-row">
       {/* Left: date selector */}
-      <div className="w-52 border-r border-gray-100 flex flex-col flex-shrink-0 bg-white">
-        <div className="px-4 py-5 border-b border-gray-100">
+      <div className="flex w-full flex-col border-b border-gray-100 bg-white lg:w-52 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
+        <div className="border-b border-gray-100 px-4 py-5">
           <h1 className="text-base font-extrabold text-gradient">Dagboek</h1>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-3">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-2 px-1">Recente dagen</p>
+        <div className="flex-1 overflow-x-auto px-3 py-3 lg:overflow-y-auto lg:overflow-x-hidden">
+          <p className="mb-2 px-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">Recente dagen</p>
+          <div className="flex gap-2 lg:block lg:space-y-0.5">
           {recentDates.map(d => (
             <button
               key={d}
               onClick={() => setDate(d)}
-              className={cn('w-full text-left px-3 py-2.5 rounded-xl text-xs mb-0.5 transition-all font-medium', d === date ? 'text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50')}
+              className={cn('min-w-[112px] rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-all lg:mb-0.5 lg:w-full', d === date ? 'text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50')}
               style={d === date ? { background: GRAD } : {}}
             >
               <span className="capitalize">{format(new Date(d + 'T12:00:00'), 'EEEE', { locale: nl })}</span>
@@ -106,12 +107,13 @@ export default function JournalView() {
               </span>
             </button>
           ))}
+          </div>
         </div>
       </div>
 
       {/* Main editor */}
       <div className="flex-1 overflow-y-auto bg-white">
-        <div className="max-w-2xl mx-auto px-6 py-6">
+        <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6 sm:py-6">
           {/* Date nav */}
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => navigate(-1)} className="p-1.5 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
@@ -131,7 +133,7 @@ export default function JournalView() {
           {entry && (
             <div className="space-y-4">
               {/* Mood & Energy */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <Smile size={14} className="text-pink-400" />
@@ -210,7 +212,7 @@ export default function JournalView() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={newGratitude}
                     onChange={e => setNewGratitude(e.target.value)}

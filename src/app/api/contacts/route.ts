@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const db = getDb()
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search')
   const type = searchParams.get('type')
 
-  let query = 'SELECT * FROM contacts WHERE 1=1'
-  const params: (string | number)[] = []
+  let sql = 'SELECT * FROM contacts WHERE 1=1'
+  const params: unknown[] = []
+  let i = 1
 
   if (search) {
-    query += ' AND (name LIKE ? OR email LIKE ? OR company LIKE ?)'
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+    sql += ` AND (name ILIKE $${i} OR email ILIKE $${i} OR company ILIKE $${i})`
+    params.push(`%${search}%`)
+    i++
   }
   if (type) {
-    query += ' AND type = ?'
+    sql += ` AND type = $${i++}`
     params.push(type)
   }
 
-  query += ' ORDER BY name ASC'
+  sql += ' ORDER BY name ASC'
 
-  const contacts = (db.prepare(query).all(...params) as Record<string, unknown>[]).map((c) => ({
+  const contacts = (await query<Record<string, unknown>>(sql, params)).map((c) => ({
     ...c,
     tags: JSON.parse(c.tags as string || '[]'),
   }))
@@ -30,21 +31,20 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
   const body = await req.json()
   const { name, type, email, phone, company, website, address, notes, tags } = body
 
   if (!name?.trim()) return NextResponse.json({ error: 'Naam is verplicht' }, { status: 400 })
 
-  const result = db.prepare(`
+  const contact = await queryOne<Record<string, unknown>>(`
     INSERT INTO contacts (name, type, email, phone, company, website, address, notes, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *
+  `, [
     name.trim(), type || 'persoon', email || null, phone || null,
     company || null, website || null, address || null,
-    notes || null, JSON.stringify(tags || [])
-  )
+    notes || null, JSON.stringify(tags || []),
+  ])
 
-  const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid) as Record<string, unknown>
-  return NextResponse.json({ data: { ...contact, tags: JSON.parse(contact.tags as string || '[]') } }, { status: 201 })
+  return NextResponse.json({ data: { ...contact, tags: JSON.parse(contact?.tags as string || '[]') } }, { status: 201 })
 }

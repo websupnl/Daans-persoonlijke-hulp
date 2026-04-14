@@ -70,7 +70,7 @@ export default function TodosView() {
   const openCount = todos.filter(t => !t.completed).length
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex min-h-full flex-col bg-white">
       {/* Header */}
       <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
         <div>

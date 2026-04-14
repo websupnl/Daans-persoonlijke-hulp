@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne, execute } from '@/lib/db'
 import { parseIntent, generateResponse } from '@/lib/chat-parser'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions } from '@/lib/ai/execute-actions'
@@ -7,22 +7,20 @@ import { generateAIResponse } from '@/lib/ai/generate-response'
 import { format } from 'date-fns'
 
 export async function GET() {
-  const db = getDb()
-  const messages = db.prepare(`
+  const messages = await query<Record<string, unknown>>(`
     SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT 50
-  `).all().reverse()
-  return NextResponse.json({ data: (messages as Record<string, unknown>[]).map((m) => ({ ...m, actions: JSON.parse(m.actions as string || '[]') })) })
+  `)
+  return NextResponse.json({ data: messages.reverse().map((m) => ({ ...m, actions: JSON.parse(m.actions as string || '[]') })) })
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
   const body = await req.json()
   const { message } = body
 
   if (!message?.trim()) return NextResponse.json({ error: 'Bericht is leeg' }, { status: 400 })
 
   // Sla gebruikersbericht op
-  db.prepare('INSERT INTO chat_messages (role, content, actions) VALUES (?, ?, ?)').run('user', message, '[]')
+  await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', message, '[]'])
 
   const parsed = parseIntent(message)
   let assistantMessage = ''
@@ -45,29 +43,30 @@ export async function POST(req: NextRequest) {
     switch (parsed.intent) {
       case 'todo_add': {
         if (parsed.params.title) {
-          const result = db.prepare(`
+          const inserted = await queryOne<Record<string, unknown>>(`
             INSERT INTO todos (title, category, priority, due_date)
-            VALUES (?, ?, ?, ?)
-          `).run(
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+          `, [
             String(parsed.params.title),
             parsed.params.category || 'overig',
             parsed.params.priority || 'medium',
-            parsed.params.due_date || null
-          )
-          actionResult = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid)
+            parsed.params.due_date || null,
+          ])
+          actionResult = inserted
           actions.push({ type: 'todo_created', data: actionResult })
         }
         break
       }
 
       case 'todo_complete': {
-        const query = String(parsed.params.query || '')
-        if (query) {
-          const todo = db.prepare(`
-            SELECT * FROM todos WHERE completed = 0 AND title LIKE ? LIMIT 1
-          `).get(`%${query}%`) as Record<string, unknown> | undefined
+        const q = String(parsed.params.query || '')
+        if (q) {
+          const todo = await queryOne<Record<string, unknown>>(`
+            SELECT * FROM todos WHERE completed = 0 AND title LIKE $1 LIMIT 1
+          `, [`%${q}%`])
           if (todo) {
-            db.prepare(`UPDATE todos SET completed = 1, completed_at = datetime('now') WHERE id = ?`).run(todo.id)
+            await execute(`UPDATE todos SET completed = 1, completed_at = NOW() WHERE id = $1`, [todo.id])
             actionResult = todo
             actions.push({ type: 'todo_completed', data: todo })
           }
@@ -77,11 +76,11 @@ export async function POST(req: NextRequest) {
 
       case 'todo_list': {
         const filter = String(parsed.params.filter || '')
-        let q = 'SELECT * FROM todos WHERE completed = 0'
-        if (filter === 'vandaag' || filter === 'today') q += " AND date(due_date) = date('now')"
-        else if (filter === 'deze week' || filter === 'this week') q += " AND date(due_date) <= date('now', '+7 days')"
-        q += " ORDER BY CASE priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, due_date ASC NULLS LAST LIMIT 10"
-        actionResult = db.prepare(q).all()
+        let sql = 'SELECT * FROM todos WHERE completed = 0'
+        if (filter === 'vandaag' || filter === 'today') sql += ' AND due_date::date = CURRENT_DATE'
+        else if (filter === 'deze week' || filter === 'this week') sql += " AND due_date::date <= CURRENT_DATE + INTERVAL '7 days'"
+        sql += " ORDER BY CASE priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, due_date ASC NULLS LAST LIMIT 10"
+        actionResult = await query(sql)
         actions.push({ type: 'todo_listed', data: actionResult })
         break
       }
@@ -89,10 +88,10 @@ export async function POST(req: NextRequest) {
       case 'note_add': {
         const content = String(parsed.params.content || '')
         if (content) {
-          const result = db.prepare(`
-            INSERT INTO notes (title, content, content_text) VALUES (?, ?, ?)
-          `).run(content.slice(0, 60), content, content)
-          actionResult = db.prepare('SELECT * FROM notes WHERE id = ?').get(result.lastInsertRowid)
+          const inserted = await queryOne<Record<string, unknown>>(`
+            INSERT INTO notes (title, content, content_text) VALUES ($1, $2, $3) RETURNING *
+          `, [content.slice(0, 60), content, content])
+          actionResult = inserted
           actions.push({ type: 'note_created', data: actionResult })
         }
         break
@@ -100,72 +99,75 @@ export async function POST(req: NextRequest) {
 
       case 'contact_add': {
         if (parsed.params.name) {
-          const result = db.prepare(`
-            INSERT INTO contacts (name, email, phone, tags) VALUES (?, ?, ?, '[]')
-          `).run(
+          const inserted = await queryOne<Record<string, unknown>>(`
+            INSERT INTO contacts (name, email, phone, tags) VALUES ($1, $2, $3, '[]') RETURNING *
+          `, [
             String(parsed.params.name),
             parsed.params.email || null,
-            parsed.params.phone || null
-          )
-          actionResult = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid)
+            parsed.params.phone || null,
+          ])
+          actionResult = inserted
           actions.push({ type: 'contact_created', data: actionResult })
         }
         break
       }
 
       case 'contact_list': {
-        actionResult = db.prepare('SELECT id, name, type, email FROM contacts ORDER BY name LIMIT 10').all()
+        actionResult = await query('SELECT id, name, type, email FROM contacts ORDER BY name LIMIT 10')
         actions.push({ type: 'contact_listed', data: actionResult })
         break
       }
 
       case 'finance_add_invoice': {
         const year = new Date().getFullYear()
-        const count = (db.prepare("SELECT COUNT(*) as c FROM finance_items WHERE type='factuur' AND strftime('%Y', created_at) = ?").get(String(year)) as { c: number }).c
+        const countRow = await queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM finance_items WHERE type='factuur' AND TO_CHAR(created_at, 'YYYY') = $1`, [String(year)])
+        const count = countRow?.c ?? 0
         const invoiceNumber = `${year}-${String(count + 1).padStart(3, '0')}`
 
         let contactId: number | null = null
         if (parsed.params.client) {
-          const contact = db.prepare('SELECT id FROM contacts WHERE name LIKE ? LIMIT 1').get(`%${parsed.params.client}%`) as { id: number } | undefined
+          const contact = await queryOne<{ id: number }>('SELECT id FROM contacts WHERE name LIKE $1 LIMIT 1', [`%${parsed.params.client}%`])
           contactId = contact?.id || null
         }
 
-        const result = db.prepare(`
+        const inserted = await queryOne<Record<string, unknown>>(`
           INSERT INTO finance_items (type, title, amount, contact_id, status, invoice_number, due_date, category)
-          VALUES ('factuur', ?, ?, ?, 'concept', ?, ?, 'overig')
-        `).run(
+          VALUES ('factuur', $1, $2, $3, 'concept', $4, $5, 'overig')
+          RETURNING *
+        `, [
           String(parsed.params.title || 'Nieuwe factuur'),
           parsed.params.amount || 0,
           contactId,
           invoiceNumber,
-          parsed.params.due_date || null
-        )
-        actionResult = db.prepare('SELECT * FROM finance_items WHERE id = ?').get(result.lastInsertRowid)
+          parsed.params.due_date || null,
+        ])
+        actionResult = inserted
         actions.push({ type: 'finance_created', data: actionResult })
         break
       }
 
       case 'finance_add_expense': {
-        const result = db.prepare(`
+        const inserted = await queryOne<Record<string, unknown>>(`
           INSERT INTO finance_items (type, title, amount, status, category)
-          VALUES ('uitgave', ?, ?, 'betaald', ?)
-        `).run(
+          VALUES ('uitgave', $1, $2, 'betaald', $3)
+          RETURNING *
+        `, [
           String(parsed.params.title || 'Uitgave'),
           parsed.params.amount || 0,
-          String(parsed.params.category || 'overig')
-        )
-        actionResult = db.prepare('SELECT * FROM finance_items WHERE id = ?').get(result.lastInsertRowid)
+          String(parsed.params.category || 'overig'),
+        ])
+        actionResult = inserted
         actions.push({ type: 'finance_created', data: actionResult })
         break
       }
 
       case 'finance_list': {
-        const stats = db.prepare(`
+        const stats = await queryOne<{ amount: number; open: number }>(`
           SELECT
             SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as amount,
             COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open
           FROM finance_items
-        `).get() as { amount: number; open: number }
+        `)
         actionResult = stats
         actions.push({ type: 'finance_listed', data: stats })
         break
@@ -177,14 +179,17 @@ export async function POST(req: NextRequest) {
         let habit: Record<string, unknown> | undefined
 
         if (habitName) {
-          habit = db.prepare('SELECT * FROM habits WHERE name LIKE ? AND active = 1 LIMIT 1').get(`%${habitName}%`) as Record<string, unknown> | undefined
+          habit = await queryOne<Record<string, unknown>>('SELECT * FROM habits WHERE name LIKE $1 AND active = 1 LIMIT 1', [`%${habitName}%`])
         }
         if (!habit) {
-          habit = db.prepare('SELECT * FROM habits WHERE active = 1 ORDER BY created_at LIMIT 1').get() as Record<string, unknown> | undefined
+          habit = await queryOne<Record<string, unknown>>('SELECT * FROM habits WHERE active = 1 ORDER BY created_at LIMIT 1')
         }
 
         if (habit) {
-          db.prepare('INSERT OR REPLACE INTO habit_logs (habit_id, logged_date) VALUES (?, ?)').run(habit.id, today)
+          await execute(
+            'INSERT INTO habit_logs (habit_id, logged_date) VALUES ($1, $2) ON CONFLICT(habit_id, logged_date) DO UPDATE SET created_at = NOW()',
+            [habit.id, today]
+          )
           actions.push({ type: 'habit_logged', data: { habit, date: today } })
         }
         break
@@ -194,17 +199,20 @@ export async function POST(req: NextRequest) {
         const fact = String(parsed.params.fact || '')
         if (fact) {
           const key = fact.slice(0, 60)
-          db.prepare('INSERT OR REPLACE INTO memories (key, value, category) VALUES (?, ?, ?)').run(key, fact, 'chat')
+          await execute(
+            'INSERT INTO memories (key, value, category) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()',
+            [key, fact, 'chat']
+          )
           actions.push({ type: 'memory_saved', data: { fact } })
         }
         break
       }
 
       case 'stats': {
-        const todoCount = db.prepare('SELECT COUNT(*) as c FROM todos WHERE completed = 0').get() as { c: number }
-        const noteCount = db.prepare('SELECT COUNT(*) as c FROM notes').get() as { c: number }
-        const financeOpen = db.prepare("SELECT COUNT(*) as c, SUM(amount) as total FROM finance_items WHERE type='factuur' AND status IN ('verstuurd','verlopen')").get() as { c: number; total: number }
-        actionResult = { todoCount: todoCount.c, noteCount: noteCount.c, openInvoices: financeOpen.c, openAmount: financeOpen.total || 0 }
+        const todoCount = await queryOne<{ c: number }>('SELECT COUNT(*) as c FROM todos WHERE completed = 0')
+        const noteCount = await queryOne<{ c: number }>('SELECT COUNT(*) as c FROM notes')
+        const financeOpen = await queryOne<{ c: number; total: number }>("SELECT COUNT(*) as c, SUM(amount) as total FROM finance_items WHERE type='factuur' AND status IN ('verstuurd','verlopen')")
+        actionResult = { todoCount: todoCount?.c ?? 0, noteCount: noteCount?.c ?? 0, openInvoices: financeOpen?.c ?? 0, openAmount: financeOpen?.total || 0 }
         break
       }
     }
@@ -235,11 +243,11 @@ export async function POST(req: NextRequest) {
       if (aiResult.memory_candidates) {
         for (const candidate of aiResult.memory_candidates) {
           if (candidate.confidence >= 0.7) {
-            db.prepare(`
+            await execute(`
               INSERT INTO memory_log (key, value, category, confidence)
-              VALUES (?, ?, ?, ?)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value, last_reinforced_at = datetime('now'), updated_at = datetime('now')
-            `).run(candidate.key, candidate.value, candidate.category, candidate.confidence)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, last_reinforced_at = NOW(), updated_at = NOW()
+            `, [candidate.key, candidate.value, candidate.category, candidate.confidence])
           }
         }
       }
@@ -258,13 +266,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Sla assistant response op
-  db.prepare('INSERT INTO chat_messages (role, content, actions) VALUES (?, ?, ?)').run('assistant', assistantMessage, actionsJson)
+  await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['assistant', assistantMessage, actionsJson])
 
   // Sla op in conversation_log
-  db.prepare(`
+  await execute(`
     INSERT INTO conversation_log (user_message, assistant_message, parser_type, confidence, actions)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(message, assistantMessage, parserType, confidence, actionsJson)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [message, assistantMessage, parserType, confidence, actionsJson])
 
   return NextResponse.json({
     response: assistantMessage,

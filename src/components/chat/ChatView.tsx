@@ -107,7 +107,7 @@ export default function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex min-h-full flex-col bg-white">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 flex-shrink-0 bg-white">
         <div

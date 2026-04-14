@@ -1,40 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const db = getDb()
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search')
   const projectId = searchParams.get('project_id')
   const tag = searchParams.get('tag')
 
-  let query: string
-  let params: (string | number)[] = []
+  let sql: string
+  const params: unknown[] = []
+  let i = 1
 
   if (search) {
-    query = `
+    sql = `
       SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
       FROM notes n
       LEFT JOIN projects p ON n.project_id = p.id
       LEFT JOIN contacts c ON n.contact_id = c.id
-      WHERE n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)
+      WHERE (n.title ILIKE $${i} OR n.content_text ILIKE $${i})
       ORDER BY n.pinned DESC, n.updated_at DESC
     `
-    params = [search]
+    params.push(`%${search}%`)
   } else {
-    query = `
+    sql = `
       SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
       FROM notes n
       LEFT JOIN projects p ON n.project_id = p.id
       LEFT JOIN contacts c ON n.contact_id = c.id
       WHERE 1=1
     `
-    if (projectId) { query += ' AND n.project_id = ?'; params.push(parseInt(projectId)) }
-    if (tag) { query += ' AND n.tags LIKE ?'; params.push(`%"${tag}"%`) }
-    query += ' ORDER BY n.pinned DESC, n.updated_at DESC'
+    if (projectId) { sql += ` AND n.project_id = $${i++}`; params.push(parseInt(projectId)) }
+    if (tag) { sql += ` AND n.tags LIKE $${i++}`; params.push(`%"${tag}"%`) }
+    sql += ' ORDER BY n.pinned DESC, n.updated_at DESC'
   }
 
-  const notes = (db.prepare(query).all(...params) as Record<string, unknown>[]).map((n) => ({
+  const notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
     ...n,
     tags: JSON.parse(n.tags as string || '[]'),
   }))
@@ -43,23 +43,22 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
   const body = await req.json()
   const { title, content, content_text, tags, project_id, contact_id, pinned } = body
 
-  const result = db.prepare(`
+  const note = await queryOne<Record<string, unknown>>(`
     INSERT INTO notes (title, content, content_text, tags, project_id, contact_id, pinned)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING *
+  `, [
     title || 'Naamloze note',
     content || '',
     content_text || '',
     JSON.stringify(tags || []),
     project_id || null,
     contact_id || null,
-    pinned ? 1 : 0
-  )
+    pinned ? 1 : 0,
+  ])
 
-  const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(result.lastInsertRowid) as Record<string, unknown>
-  return NextResponse.json({ data: { ...note, tags: JSON.parse(note.tags as string || '[]') } }, { status: 201 })
+  return NextResponse.json({ data: { ...note, tags: JSON.parse(note?.tags as string || '[]') } }, { status: 201 })
 }

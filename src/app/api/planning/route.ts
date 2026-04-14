@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne } from '@/lib/db'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
 import { buildContext, formatContextForPrompt } from '@/lib/ai/build-context'
 
@@ -7,13 +7,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') ?? 'day'
 
-  const db = getDb()
-  const ctx = buildContext(10)
+  const ctx = await buildContext(10)
   const contextString = formatContextForPrompt(ctx)
 
-  const overdueCount = (db.prepare(`SELECT COUNT(*) as count FROM todos WHERE completed = 0 AND due_date < date('now')`).get() as { count: number }).count
-  const highPriorityTodos = db.prepare(`SELECT id, title, due_date, category FROM todos WHERE completed = 0 AND priority = 'hoog' ORDER BY due_date ASC LIMIT 5`).all()
-  const quickTodos = db.prepare(`SELECT id, title FROM todos WHERE completed = 0 AND priority = 'laag' ORDER BY created_at DESC LIMIT 5`).all()
+  const overdueRow = await queryOne<{ count: number }>(`SELECT COUNT(*) as count FROM todos WHERE completed = 0 AND due_date::date < CURRENT_DATE`)
+  const overdueCount = overdueRow?.count ?? 0
+  const highPriorityTodos = await query(`SELECT id, title, due_date, category FROM todos WHERE completed = 0 AND priority = 'hoog' ORDER BY due_date ASC LIMIT 5`)
+  const quickTodos = await query(`SELECT id, title FROM todos WHERE completed = 0 AND priority = 'laag' ORDER BY created_at DESC LIMIT 5`)
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({

@@ -1,77 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { query, queryOne } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const db = getDb()
   const { searchParams } = new URL(req.url)
   const filter = searchParams.get('filter')
   const projectId = searchParams.get('project_id')
   const category = searchParams.get('category')
   const completed = searchParams.get('completed')
 
-  let query = `
-    SELECT t.*,
-      p.title as project_title, p.color as project_color,
-      c.name as contact_name
-    FROM todos t
-    LEFT JOIN projects p ON t.project_id = p.id
-    LEFT JOIN contacts c ON t.contact_id = c.id
-    WHERE 1=1
-  `
-  const params: (string | number)[] = []
+  const conditions: string[] = []
+  const params: unknown[] = []
+  let i = 1
 
   if (completed === '1') {
-    query += ' AND t.completed = 1'
-  } else if (completed === '0' || !completed) {
-    query += ' AND t.completed = 0'
+    conditions.push('t.completed = 1')
+  } else {
+    conditions.push('t.completed = 0')
   }
 
   if (filter === 'today' || filter === 'vandaag') {
-    query += " AND date(t.due_date) = date('now')"
+    conditions.push('t.due_date::date = CURRENT_DATE')
   } else if (filter === 'week' || filter === 'deze week') {
-    query += " AND date(t.due_date) <= date('now', '+7 days')"
+    conditions.push(`t.due_date::date <= CURRENT_DATE + INTERVAL '7 days'`)
   } else if (filter === 'overdue' || filter === 'te laat') {
-    query += " AND date(t.due_date) < date('now') AND t.completed = 0"
+    conditions.push('t.due_date::date < CURRENT_DATE AND t.completed = 0')
   }
 
-  if (projectId) {
-    query += ' AND t.project_id = ?'
-    params.push(parseInt(projectId))
-  }
-  if (category) {
-    query += ' AND t.category = ?'
-    params.push(category)
-  }
+  if (projectId) { conditions.push(`t.project_id = $${i++}`); params.push(parseInt(projectId)) }
+  if (category) { conditions.push(`t.category = $${i++}`); params.push(category) }
 
-  query += " ORDER BY CASE t.priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, t.due_date ASC NULLS LAST, t.created_at DESC"
-
-  const todos = db.prepare(query).all(...params)
+  const sql = `
+    SELECT t.*, p.title as project_title, p.color as project_color
+    FROM todos t
+    LEFT JOIN projects p ON t.project_id = p.id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY CASE t.priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, t.due_date ASC NULLS LAST
+  `
+  const todos = await query(sql, params)
   return NextResponse.json({ data: todos })
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
   const body = await req.json()
   const { title, description, category, priority, due_date, project_id, contact_id, recurring } = body
-
-  if (!title?.trim()) {
-    return NextResponse.json({ error: 'Titel is verplicht' }, { status: 400 })
-  }
-
-  const result = db.prepare(`
-    INSERT INTO todos (title, description, category, priority, due_date, project_id, contact_id, recurring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    title.trim(),
-    description || null,
-    category || 'overig',
-    priority || 'medium',
-    due_date || null,
-    project_id || null,
-    contact_id || null,
-    recurring || null
+  if (!title?.trim()) return NextResponse.json({ error: 'Titel is verplicht' }, { status: 400 })
+  const todo = await queryOne(
+    `INSERT INTO todos (title, description, category, priority, due_date, project_id, contact_id, recurring)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [title.trim(), description || null, category || 'overig', priority || 'medium', due_date || null, project_id || null, contact_id || null, recurring || null]
   )
-
-  const todo = db.prepare('SELECT * FROM todos WHERE id = ?').get(result.lastInsertRowid)
   return NextResponse.json({ data: todo }, { status: 201 })
 }

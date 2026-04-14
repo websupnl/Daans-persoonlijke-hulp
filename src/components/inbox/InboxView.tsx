@@ -55,7 +55,7 @@ export default function InboxView() {
   const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto bg-white min-h-screen">
+    <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 bg-white p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-gradient flex items-center gap-2">

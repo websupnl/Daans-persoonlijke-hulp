@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { execute } from '@/lib/db'
 import { format } from 'date-fns'
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
   const body = await req.json()
   const { habit_id, note, date } = body
 
   const logDate = date || format(new Date(), 'yyyy-MM-dd')
 
   try {
-    db.prepare(`
-      INSERT OR REPLACE INTO habit_logs (habit_id, logged_date, note)
-      VALUES (?, ?, ?)
-    `).run(habit_id, logDate, note || null)
+    await execute(`
+      INSERT INTO habit_logs (habit_id, logged_date, note)
+      VALUES ($1, $2, $3)
+      ON CONFLICT(habit_id, logged_date) DO UPDATE SET note = EXCLUDED.note, created_at = EXCLUDED.created_at
+    `, [habit_id, logDate, note || null])
 
     return NextResponse.json({ message: 'Gelogged!', date: logDate })
   } catch {
@@ -22,11 +22,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const db = getDb()
   const { searchParams } = new URL(req.url)
   const habitId = searchParams.get('habit_id')
   const date = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd')
 
-  db.prepare('DELETE FROM habit_logs WHERE habit_id = ? AND logged_date = ?').run(habitId, date)
+  await execute('DELETE FROM habit_logs WHERE habit_id = $1 AND logged_date = $2', [habitId, date])
   return NextResponse.json({ message: 'Log verwijderd' })
 }

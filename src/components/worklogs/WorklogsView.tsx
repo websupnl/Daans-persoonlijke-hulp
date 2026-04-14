@@ -90,7 +90,7 @@ export default function WorklogsView() {
   const todayStr = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto bg-white min-h-screen">
+    <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 bg-white p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-gradient">Werklog</h1>

@@ -1,4 +1,4 @@
-import { getDb } from '../db'
+import { query } from '../db'
 
 export interface AIContext {
   currentDate: string
@@ -10,33 +10,32 @@ export interface AIContext {
   recentInbox: Array<{ id: number; raw_text: string; suggested_type?: string }>
 }
 
-export function buildContext(lastN: number = 5): AIContext {
-  const db = getDb()
+export async function buildContext(lastN: number = 5): Promise<AIContext> {
   const now = new Date()
   const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
 
-  const recentTodos = db.prepare(`
+  const recentTodos = await query<AIContext['recentTodos'][number]>(`
     SELECT id, title, priority, due_date, category
     FROM todos WHERE completed = 0
     ORDER BY CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, due_date ASC
     LIMIT 10
-  `).all() as AIContext['recentTodos']
+  `)
 
-  const activeProjects = db.prepare(`
+  const activeProjects = await query<AIContext['activeProjects'][number]>(`
     SELECT id, title, status FROM projects WHERE status = 'actief' LIMIT 8
-  `).all() as AIContext['activeProjects']
+  `)
 
-  const memories = db.prepare(`
+  const memories = await query<AIContext['memories'][number]>(`
     SELECT key, value, category FROM memory_log ORDER BY last_reinforced_at DESC LIMIT 20
-  `).all() as AIContext['memories']
+  `)
 
-  const recentMessages = db.prepare(`
-    SELECT role, content FROM chat_messages ORDER BY created_at DESC LIMIT ?
-  `).all(lastN * 2) as AIContext['recentMessages']
+  const recentMessages = await query<AIContext['recentMessages'][number]>(`
+    SELECT role, content FROM chat_messages ORDER BY created_at DESC LIMIT $1
+  `, [lastN * 2])
 
-  const recentInbox = db.prepare(`
+  const recentInbox = await query<AIContext['recentInbox'][number]>(`
     SELECT id, raw_text, suggested_type FROM inbox_items WHERE parsed_status = 'pending' ORDER BY created_at DESC LIMIT 5
-  `).all() as AIContext['recentInbox']
+  `)
 
   return {
     currentDate: now.toISOString().split('T')[0],

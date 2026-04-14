@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sendTextMessage } from '@/lib/whatsapp/send-message'
-import getDb from '@/lib/db'
+import { execute } from '@/lib/db'
 
 interface SendRequest {
   to: string
@@ -40,17 +40,16 @@ export async function POST(request: NextRequest) {
     const result = await sendTextMessage({ to, text: message })
 
     // Log de notificatie
-    const db = getDb()
-    db.prepare(`
+    await execute(`
       INSERT INTO conversation_log (user_message, assistant_message, parser_type, confidence, actions)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(
+      VALUES ($1, $2, $3, $4, $5)
+    `, [
       `[outbound_notification:${type}] → ${to}`,
       message,
       'notification',
       1.0,
-      JSON.stringify([{ type: 'whatsapp_sent', to, messageId: result.messages?.[0]?.id }])
-    )
+      JSON.stringify([{ type: 'whatsapp_sent', to, messageId: result.messages?.[0]?.id }]),
+    ])
 
     return NextResponse.json({
       success: true,
