@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -26,6 +26,7 @@ export default function NoteEditor({ id }: { id: string }) {
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const editor = useEditor({
     extensions: [
@@ -51,17 +52,16 @@ export default function NoteEditor({ id }: { id: string }) {
     setTimeout(() => setSaving(false), 500)
   }, [id])
 
-  // Debounce
-  const debouncedSave = useCallback(
-    (() => {
-      let timer: ReturnType<typeof setTimeout>
-      return (t: string, content: string, contentText: string) => {
-        clearTimeout(timer)
-        timer = setTimeout(() => saveNote(t, content, contentText), 800)
-      }
-    })(),
-    [saveNote]
-  )
+  const debouncedSave = useCallback((t: string, content: string, contentText: string) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => saveNote(t, content, contentText), 800)
+  }, [saveNote])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     fetch(`/api/notes/${id}`)

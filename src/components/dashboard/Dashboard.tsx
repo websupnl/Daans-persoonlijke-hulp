@@ -1,9 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, Users, Euro, Activity, AlertCircle, TrendingUp, Clock } from 'lucide-react'
+import { CheckSquare, FileText, Euro, Activity, AlertCircle, TrendingUp, Clock, Inbox, Zap } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
+
+interface PlanningData {
+  type: string
+  recommendation: string
+  overdueCount: number
+}
 
 interface DashboardData {
   stats: {
@@ -27,12 +33,30 @@ const PRIORITY_DOT: Record<string, string> = {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [todayMinutes, setTodayMinutes] = useState(0)
+  const [inboxCount, setInboxCount] = useState(0)
+  const [planning, setPlanning] = useState<PlanningData | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard')
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false))
+
+    fetch('/api/worklogs')
+      .then(r => r.json())
+      .then(d => setTodayMinutes(d.todayStats?.today_minutes ?? 0))
+      .catch(() => {})
+
+    fetch('/api/inbox')
+      .then(r => r.json())
+      .then(d => setInboxCount(d.pendingCount ?? 0))
+      .catch(() => {})
+
+    fetch('/api/planning?type=day')
+      .then(r => r.json())
+      .then(setPlanning)
+      .catch(() => {})
   }, [])
 
   const greeting = () => {
@@ -99,6 +123,24 @@ export default function Dashboard() {
           sub="vandaag gedaan"
           subColor="text-slate-500"
           accent="emerald"
+        />
+        <StatCard
+          href="/worklogs"
+          icon={<Clock size={18} />}
+          label="Werklog vandaag"
+          value={todayMinutes >= 60 ? `${Math.floor(todayMinutes / 60)}u ${todayMinutes % 60}m` : `${todayMinutes}m`}
+          sub="gelogd vandaag"
+          subColor="text-slate-500"
+          accent="brand"
+        />
+        <StatCard
+          href="/inbox"
+          icon={<Inbox size={18} />}
+          label="Inbox"
+          value={inboxCount}
+          sub={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
+          subColor={inboxCount > 0 ? 'text-amber-400' : 'text-slate-500'}
+          accent="amber"
         />
       </div>
 
@@ -171,6 +213,19 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* Planning widget */}
+          {planning && (
+            <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <Zap size={14} className="text-amber-400" />
+                  Dagplanning
+                </h2>
+              </div>
+              <p className="text-xs text-slate-400 whitespace-pre-wrap leading-relaxed line-clamp-6">{planning.recommendation.replace(/\*\*/g, '')}</p>
+            </div>
+          )}
 
           {/* Recente notes */}
           <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">

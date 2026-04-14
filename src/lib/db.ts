@@ -164,6 +164,57 @@ function initSchema(db: Database.Database) {
       content_rowid=id
     );
 
+    -- Conversation log (full audit trail)
+    CREATE TABLE IF NOT EXISTS conversation_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_message TEXT NOT NULL,
+      assistant_message TEXT,
+      raw_ai_result TEXT,
+      parser_type TEXT NOT NULL DEFAULT 'rule',
+      confidence REAL,
+      actions TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Work logs / time tracking
+    CREATE TABLE IF NOT EXISTS work_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL DEFAULT (date('now')),
+      context TEXT NOT NULL DEFAULT 'overig',
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      duration_minutes INTEGER NOT NULL,
+      energy_level INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Inbox / capture system
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL DEFAULT 'chat',
+      raw_text TEXT NOT NULL,
+      parsed_status TEXT NOT NULL DEFAULT 'pending',
+      suggested_type TEXT,
+      suggested_context TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      processed_at TEXT
+    );
+
+    -- Memory log (durable context)
+    CREATE TABLE IF NOT EXISTS memory_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      confidence REAL NOT NULL DEFAULT 0.8,
+      source_message_id INTEGER,
+      last_reinforced_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Triggers voor FTS sync
     CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
       INSERT INTO notes_fts(rowid, title, content_text, tags)

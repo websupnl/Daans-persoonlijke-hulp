@@ -156,6 +156,54 @@ export interface ChatAction {
   data?: unknown
 }
 
+export interface WorkLog {
+  id: number
+  date: string
+  context: string
+  project_id?: number
+  project_title?: string
+  title: string
+  description?: string
+  duration_minutes: number
+  energy_level?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface InboxItem {
+  id: number
+  source: string
+  raw_text: string
+  parsed_status: string
+  suggested_type?: string
+  suggested_context?: string
+  created_at: string
+  processed_at?: string
+}
+
+export interface MemoryLog {
+  id: number
+  key: string
+  value: string
+  category: string
+  confidence: number
+  source_message_id?: number
+  last_reinforced_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConversationLog {
+  id: number
+  user_message: string
+  assistant_message?: string
+  raw_ai_result?: string
+  parser_type: string
+  confidence?: number
+  actions?: string
+  created_at: string
+}
+
 // ─── API response shapes ───────────────────────────────────────────────────────
 
 export interface ApiResponse<T> {

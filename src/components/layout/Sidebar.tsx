@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen
+  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +18,8 @@ const nav = [
   { href: '/habits', label: 'Gewoontes', icon: Activity },
   { href: '/journal', label: 'Dagboek', icon: BookOpen },
   { href: '/projects', label: 'Projecten', icon: FolderOpen },
+  { href: '/worklogs', label: 'Werklog', icon: Clock },
+  { href: '/inbox', label: 'Inbox', icon: Inbox },
 ]
 
 export default function Sidebar() {

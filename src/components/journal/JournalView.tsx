@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, subDays } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X } from 'lucide-react'
@@ -25,6 +25,7 @@ export default function JournalView() {
   const [saving, setSaving] = useState(false)
   const [newGratitude, setNewGratitude] = useState('')
   const [recentDates, setRecentDates] = useState<string[]>([])
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchEntry = useCallback(async (d: string) => {
     const res = await fetch(`/api/journal?date=${d}`)
@@ -53,17 +54,16 @@ export default function JournalView() {
     setTimeout(() => setSaving(false), 500)
   }, [entry])
 
-  // Debounced text save
-  const debouncedSave = useCallback(
-    (() => {
-      let timer: ReturnType<typeof setTimeout>
-      return (updates: Partial<JournalEntry>) => {
-        clearTimeout(timer)
-        timer = setTimeout(() => save(updates), 800)
-      }
-    })(),
-    [save]
-  )
+  const debouncedSave = useCallback((updates: Partial<JournalEntry>) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => save(updates), 800)
+  }, [save])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
 
   const navigate = (delta: number) => {
     const d = new Date(date + 'T12:00:00')
