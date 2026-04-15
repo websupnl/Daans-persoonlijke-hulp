@@ -9,6 +9,10 @@ import { parseIntent, generateResponse } from '@/lib/chat-parser'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions } from '@/lib/ai/execute-actions'
 import { generateAIResponse } from '@/lib/ai/generate-response'
+import { runSilentCorrelation } from '@/lib/ai/correlation-engine'
+import type { AIAction } from '@/lib/ai/action-schema'
+import type { ActionResult } from '@/lib/ai/execute-actions'
+import type { InlineKeyboardMarkup } from '@/lib/telegram/send-message'
 
 export interface IngestRequest {
   message: string
@@ -22,12 +26,56 @@ export interface IngestResponse {
   actions: unknown[]
   parserType: string
   confidence: number
+  replyMarkup?: InlineKeyboardMarkup
+}
+
+/**
+ * Build Telegram inline keyboard buttons based on executed actions and their results.
+ * Returns undefined when no relevant buttons should be shown.
+ */
+function generateTelegramUI(
+  actions: AIAction[],
+  actionResults: ActionResult[]
+): InlineKeyboardMarkup | undefined {
+  const buttons: Array<{ text: string; callback_data: string }> = []
+
+  for (let i = 0; i < actions.length; i++) {
+    const action = actions[i]
+    const result = actionResults[i]
+    if (!result?.success) continue
+
+    if (action.type === 'todo_create') {
+      const id = (result.data as { id?: number })?.id
+      if (id) {
+        buttons.push({ text: `✅ Klaar \`[ID: ${id}]\``, callback_data: `todo_complete:${id}` })
+      }
+    }
+
+    if (action.type === 'note_create') {
+      const id = (result.data as { id?: number })?.id
+      if (id) {
+        buttons.push({ text: `📌 Vastpinnen`, callback_data: `note_pin:${id}` })
+      }
+    }
+
+    if (action.type === 'worklog_create') {
+      const id = (result.data as { id?: number })?.id
+      if (id) {
+        buttons.push({ text: `📊 Werkstatus`, callback_data: `worklog_status:${id}` })
+      }
+    }
+  }
+
+  if (buttons.length === 0) return undefined
+
+  return {
+    inline_keyboard: [buttons],
+  }
 }
 
 export async function ingestMessage(req: IngestRequest): Promise<IngestResponse> {
   const { message, source, senderPhone, senderName } = req
 
-  // Save incoming message in chat history
   await execute(
     'INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)',
     ['user', `[${source}${senderName ? ` - ${senderName}` : ''}] ${message}`, '[]']
@@ -38,6 +86,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
   let parserType = 'rule'
   let confidence = parsed.confidence ?? 0.5
   let actionsJson = '[]'
+  let replyMarkup: InlineKeyboardMarkup | undefined
 
   const useAI = !process.env.OPENAI_API_KEY
     ? false
@@ -152,7 +201,6 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
     } else {
       confidence = aiResult.confidence
 
-      // Store memory candidates
       if (aiResult.memory_candidates) {
         for (const candidate of aiResult.memory_candidates) {
           if (candidate.confidence >= 0.7) {
@@ -172,16 +220,18 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
       const rawReply = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
       assistantMessage = stripMarkdown(rawReply)
       actionsJson = JSON.stringify(aiResult.actions)
+
+      if (source === 'telegram' && !aiResult.requires_confirmation) {
+        replyMarkup = generateTelegramUI(aiResult.actions, actionResults)
+      }
     }
   }
 
-  // Save assistant reply
   await execute(
     'INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)',
     ['assistant', assistantMessage, actionsJson]
   )
 
-  // Conversation log
   await execute(`
     INSERT INTO conversation_log (user_message, assistant_message, parser_type, confidence, actions)
     VALUES ($1, $2, $3, $4, $5)
@@ -193,11 +243,17 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
     actionsJson,
   ])
 
+  // Fire-and-forget: Silent Correlation Engine (20% chance, async)
+  runSilentCorrelation().catch(err =>
+    console.error('[Ingest] Correlation engine error:', err instanceof Error ? err.message : err)
+  )
+
   return {
     reply: assistantMessage,
     actions: JSON.parse(actionsJson),
     parserType,
     confidence,
+    replyMarkup,
   }
 }
 
