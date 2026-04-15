@@ -187,6 +187,21 @@ async function initSchema(db: Client): Promise<void> {
       INSERT INTO notes_fts(rowid, title, content_text, tags)
       VALUES (new.id, new.title, new.content_text, new.tags);
     END;
+
+    CREATE TABLE IF NOT EXISTS events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      date TEXT NOT NULL,
+      time TEXT,
+      duration INTEGER DEFAULT 60,
+      type TEXT DEFAULT 'algemeen' CHECK(type IN ('vergadering','deadline','afspraak','herinnering','algemeen')),
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+      all_day INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `)
 }
 

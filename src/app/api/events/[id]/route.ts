@@ -8,7 +8,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const id = parseInt(params.id)
   const body = await req.json()
 
-  const fields = ['title', 'description', 'amount', 'contact_id', 'project_id', 'status', 'due_date', 'paid_date', 'category']
+  const fields = ['title', 'description', 'date', 'time', 'duration', 'type', 'project_id', 'contact_id', 'all_day']
   const updates: string[] = []
   const values: (string | number | null)[] = []
 
@@ -19,23 +19,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  if (body.status === 'betaald' && !body.paid_date) {
-    updates.push("paid_date = date('now')")
-  }
-
+  if (updates.length === 0) return NextResponse.json({ error: 'Geen velden' }, { status: 400 })
   updates.push("updated_at = datetime('now')")
   values.push(id)
 
-  await db.execute({ sql: `UPDATE finance_items SET ${updates.join(', ')} WHERE id = ?`, args: values })
-  const updated = toRow(await db.execute({
-    sql: `SELECT f.*, c.name as contact_name FROM finance_items f LEFT JOIN contacts c ON f.contact_id = c.id WHERE f.id = ?`,
-    args: [id],
-  }))
+  await db.execute({ sql: `UPDATE events SET ${updates.join(', ')} WHERE id = ?`, args: values })
+  const updated = toRow(await db.execute({ sql: 'SELECT * FROM events WHERE id = ?', args: [id] }))
   return NextResponse.json({ data: updated })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const db = await getDb()
-  await db.execute({ sql: 'DELETE FROM finance_items WHERE id = ?', args: [parseInt(params.id)] })
-  return NextResponse.json({ message: 'Item verwijderd' })
+  await db.execute({ sql: 'DELETE FROM events WHERE id = ?', args: [parseInt(params.id)] })
+  return NextResponse.json({ message: 'Event verwijderd' })
 }

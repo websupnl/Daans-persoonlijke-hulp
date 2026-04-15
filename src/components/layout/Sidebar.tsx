@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen
+  Users, Euro, Activity, BookOpen, FolderOpen, CalendarDays
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/agenda', label: 'Agenda', icon: CalendarDays },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
   { href: '/notes', label: 'Notes', icon: FileText },
   { href: '/contacts', label: 'Contacten', icon: Users },
@@ -28,7 +29,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/5">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-sm">
+          <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center text-sm font-bold text-white">
             D
           </div>
           <div>

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import getDb, { toRows, toRow } from '@/lib/db'
 import { getUserContext, contextToPrompt } from '@/lib/context-builder'

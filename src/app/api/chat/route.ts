@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import getDb, { toRows, toRow } from '@/lib/db'
 import { parseIntent, COMMAND_INTENTS } from '@/lib/chat-parser'
