@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays, Lightbulb, Brain, Search, History
+  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ const nav = [
   { href: '/worklogs', label: 'Werklog', icon: Clock },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays },
   { href: '/inbox', label: 'Inbox', icon: Inbox },
+  { href: '/uitleg', label: 'Hoe werkt het?', icon: Sparkles },
 ]
 
 export default function Sidebar({
