@@ -10,13 +10,14 @@ export interface AIContext {
   recentInbox: Array<{ id: number; raw_text: string; suggested_type?: string }>
   todayWorklogs: Array<{ title: string; duration_minutes: number; context: string }>
   upcomingEvents: Array<{ title: string; date: string; time?: string; type: string }>
+  habits: Array<{ name: string; icon: string; completedToday: boolean; streak: number }>
 }
 
 export async function buildContext(lastN: number = 5): Promise<AIContext> {
   const now = new Date()
   const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
 
-  const [recentTodos, activeProjects, memories, recentMessages, recentInbox, todayWorklogs, upcomingEvents] = await Promise.all([
+  const [recentTodos, activeProjects, memories, recentMessages, recentInbox, todayWorklogs, upcomingEvents, habitsRaw] = await Promise.all([
     query<AIContext['recentTodos'][number]>(`
       SELECT id, title, priority, due_date, category
       FROM todos WHERE completed = 0
@@ -44,7 +45,20 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
       FROM events WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + INTERVAL '7 days'
       ORDER BY date ASC, time ASC NULLS LAST LIMIT 8
     `).catch(() => [] as AIContext['upcomingEvents']),
+    query<{ id: number; name: string; icon: string; logs: string }>(`
+      SELECT h.id, h.name, h.icon,
+        (SELECT COUNT(*) FROM habit_logs hl WHERE hl.habit_id = h.id AND hl.logged_date = CURRENT_DATE) as completed_today,
+        (SELECT COUNT(*) FROM habit_logs hl2 WHERE hl2.habit_id = h.id AND hl2.logged_date >= CURRENT_DATE - INTERVAL '30 days') as recent_count
+      FROM habits h WHERE h.active = 1 ORDER BY h.name LIMIT 10
+    `).catch(() => []),
   ])
+
+  const habits = (habitsRaw as Array<{ id: number; name: string; icon: string; completed_today: number; recent_count: number }>).map(h => ({
+    name: h.name,
+    icon: h.icon,
+    completedToday: Number(h.completed_today) > 0,
+    streak: Number(h.recent_count),
+  }))
 
   return {
     currentDate: now.toISOString().split('T')[0],
@@ -56,6 +70,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     recentInbox,
     todayWorklogs,
     upcomingEvents,
+    habits,
   }
 }
 
@@ -97,6 +112,14 @@ export function formatContextForPrompt(ctx: AIContext): string {
       const h = Math.floor((w.duration_minutes || 0) / 60)
       const m = (w.duration_minutes || 0) % 60
       parts.push(`- ${w.title} (${h > 0 ? h + 'u ' : ''}${m > 0 ? m + 'm' : ''}, ${w.context})`)
+    })
+  }
+
+  if (ctx.habits.length > 0) {
+    parts.push('\nGewoontes vandaag:')
+    ctx.habits.forEach(h => {
+      const status = h.completedToday ? '✓' : '○'
+      parts.push(`- ${status} ${h.icon} ${h.name}`)
     })
   }
 

@@ -336,6 +336,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     response: assistantMessage,
     intent: parsed.intent,
+    parser: parserType,
+    confidence: confidence,
     actions: JSON.parse(actionsJson),
   })
 }

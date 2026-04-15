@@ -258,13 +258,15 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
-  // ── Uitgave loggen ──
-  if (/\b(uitgave|uitgegeven|betaald|kosten|expense|heb betaald|heb uitgegeven)\b/i.test(text)) {
+  // ── Uitgave loggen — breed patroon: "10 euro aan ontbijt", "€5 koffie", etc. ──
+  if (/\b(uitgave|uitge[a-z]+|betaald|kosten|expense|heb betaald|besteed|gespendeerd|gekost)\b/i.test(text)
+    || /\b(zonet|net|vandaag|gisteren)\b.{0,30}\b(euro|eur|€|\d+)\b/i.test(text)
+    || /\b(euro|eur|€|\d+)\b.{0,30}\b(aan|voor|bij|op)\b/i.test(text)) {
     const amount = extractAmount(text)
-    const descMatch = text.match(/(?:voor|aan|for)\s+(.+?)(?:\s+[€\d]|$)/i)
+    const descMatch = text.match(/(?:voor|aan|bij|op)\s+(.{3,40})$/i) || text.match(/\d+\s*(?:euro|eur|€)?\s+(.{3,40})$/i)
     return {
       intent: 'finance_add_expense',
-      confidence: 0.85,
+      confidence: 0.83,
       params: {
         title: descMatch?.[1]?.trim() || text.slice(0, 60),
         amount,
