@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, Euro, Activity, AlertCircle, TrendingUp, Clock, Sparkles, MessageSquare } from 'lucide-react'
+import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
-import type { Insight } from '@/app/api/ai/insights/route'
+
+interface PlanningData {
+  type: string
+  recommendation: string
+  overdueCount: number
+}
 
 interface DashboardData {
   stats: {
@@ -19,11 +24,9 @@ interface DashboardData {
   openInvoices: Array<{ id: number; title: string; amount: number; due_date?: string; status: string; contact_name?: string }>
 }
 
-interface InsightsData {
-  insights: Insight[]
-  aiFocus: string | null
-  ai_powered: boolean
-  summary: { habitsToday: string; openTodos: number; overdueTodos: number; openFinance: number }
+interface FinanceStats {
+  month_income: number
+  month_expenses: number
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -32,28 +35,44 @@ const PRIORITY_DOT: Record<string, string> = {
   laag: 'bg-emerald-400',
 }
 
-const INSIGHT_STYLES: Record<Insight['type'], string> = {
-  success: 'border-emerald-800/40 bg-emerald-950/30 text-emerald-300',
-  warning: 'border-amber-800/40 bg-amber-950/30 text-amber-300',
-  error: 'border-red-800/40 bg-red-950/30 text-red-300',
-  info: 'border-brand-800/40 bg-brand-950/20 text-brand-300',
-}
-
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
-  const [insights, setInsights] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [todayMinutes, setTodayMinutes] = useState(0)
+  const [inboxCount, setInboxCount] = useState(0)
+  const [planning, setPlanning] = useState<PlanningData | null>(null)
+  const [financeStats, setFinanceStats] = useState<FinanceStats | null>(null)
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
 
   useEffect(() => {
-    // Laad dashboard en insights parallel
     Promise.all([
       fetch('/api/dashboard').then(r => r.json()),
-      fetch('/api/ai/insights').then(r => r.json()).catch(() => null),
-    ]).then(([dashData, insightsData]) => {
-      setData(dashData)
-      setInsights(insightsData)
-      setLoading(false)
+      fetch('/api/worklogs').then(r => r.json()).catch(() => ({})),
+      fetch('/api/inbox').then(r => r.json()).catch(() => ({})),
+      fetch('/api/planning?type=day').then(r => r.json()).catch(() => null),
+      fetch('/api/finance').then(r => r.json()).catch(() => ({})),
+    ]).then(([dash, worklogs, inbox, plan, finance]) => {
+      setData(dash)
+      setTodayMinutes(worklogs.todayStats?.today_minutes ?? 0)
+      setInboxCount(inbox.pendingCount ?? 0)
+      setPlanning(plan)
+      if (finance.stats) {
+        setFinanceStats({
+          month_income: finance.stats.month_income ?? 0,
+          month_expenses: finance.stats.month_expenses ?? 0,
+        })
+      }
+    }).finally(() => setLoading(false))
+
+    // AI briefing
+    fetch('/api/ai/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'dashboard' }),
     })
+      .then(r => r.json())
+      .then(d => setAiSummary(d.summary ?? null))
+      .catch(() => {})
   }, [])
 
   const greeting = () => {
@@ -68,62 +87,57 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
       </div>
     )
   }
 
   const stats = data?.stats
+  const net = (financeStats?.month_income ?? 0) - (financeStats?.month_expenses ?? 0)
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-4 sm:p-8 max-w-6xl">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">{greeting()}, Daan</h1>
-        <p className="text-slate-500 text-sm mt-0.5 capitalize">{today}</p>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gradient leading-tight">
+          {greeting()}, Daan
+        </h1>
+        <p className="text-gray-400 text-sm mt-1 capitalize font-medium">{today}</p>
       </div>
 
-      {/* AI Focus tip */}
-      {insights?.aiFocus && (
-        <div className="mb-5 p-4 rounded-xl bg-brand-950/40 border border-brand-800/30 flex items-start gap-3">
-          <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Sparkles size={14} className="text-brand-400" />
-          </div>
-          <div>
-            <p className="text-[11px] text-brand-500 font-medium mb-0.5">AI Focus voor vandaag</p>
-            <p className="text-sm text-slate-300">{insights.aiFocus}</p>
-          </div>
+      {/* AI briefing */}
+      {aiSummary && (
+        <div className="mb-5 px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
+          <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-gray-600 leading-relaxed">{aiSummary}</p>
         </div>
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <StatCard
           href="/todos"
           icon={<CheckSquare size={18} />}
           label="Open todos"
           value={stats?.todos.open ?? 0}
           sub={stats?.todos.overdue ? `${stats.todos.overdue} te laat` : stats?.todos.dueToday ? `${stats.todos.dueToday} vandaag` : 'Alles op schema'}
-          subColor={stats?.todos.overdue ? 'text-red-400' : 'text-slate-500'}
-          accent="brand"
+          alert={!!stats?.todos.overdue}
         />
         <StatCard
           href="/finance"
-          icon={<Euro size={18} />}
-          label="Open facturen"
-          value={formatCurrency(stats?.finance.openAmount ?? 0)}
-          sub={`${stats?.finance.openInvoices ?? 0} facturen open`}
-          subColor={stats?.finance.openInvoices ? 'text-amber-400' : 'text-slate-500'}
-          accent="amber"
+          icon={<TrendingUp size={18} />}
+          label="Netto deze maand"
+          value={formatCurrency(Math.abs(net))}
+          sub={net >= 0 ? 'positief saldo' : 'negatief saldo'}
+          alert={net < 0}
+          prefix={net >= 0 ? '+' : '-'}
         />
         <StatCard
           href="/notes"
           icon={<FileText size={18} />}
           label="Notes"
           value={stats?.notes.total ?? 0}
-          sub="kennisbank"
-          subColor="text-slate-500"
-          accent="violet"
+          sub="in kennisbank"
         />
         <StatCard
           href="/habits"
@@ -131,158 +145,138 @@ export default function Dashboard() {
           label="Gewoontes"
           value={`${stats?.habits.completedToday ?? 0}/${stats?.habits.total ?? 0}`}
           sub="vandaag gedaan"
-          subColor={
-            stats && stats.habits.total > 0 && stats.habits.completedToday === stats.habits.total
-              ? 'text-emerald-400'
-              : 'text-slate-500'
-          }
-          accent="emerald"
+          alert={(stats?.habits.completedToday ?? 0) < (stats?.habits.total ?? 0) && new Date().getHours() >= 20}
+        />
+        <StatCard
+          href="/worklogs"
+          icon={<Clock size={18} />}
+          label="Werklog vandaag"
+          value={todayMinutes >= 60 ? `${Math.floor(todayMinutes / 60)}u ${todayMinutes % 60}m` : `${todayMinutes}m`}
+          sub="gelogd vandaag"
+        />
+        <StatCard
+          href="/inbox"
+          icon={<Inbox size={18} />}
+          label="Inbox"
+          value={inboxCount}
+          sub={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
+          alert={inboxCount > 0}
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Urgent todos */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                <Clock size={14} className="text-brand-400" />
-                Urgent & Vandaag
-              </h2>
-              <Link href="/todos" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                Alle todos →
-              </Link>
-            </div>
-            <div className="space-y-1.5">
-              {!data?.urgentTodos?.length ? (
-                <div className="text-center py-6">
-                  <p className="text-slate-600 text-sm">Niets urgent — lekker bezig! 🎉</p>
-                </div>
-              ) : (
-                data.urgentTodos.map(todo => (
-                  <div key={todo.id} className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-slate-500')} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-300 truncate">{todo.title}</p>
-                      {todo.due_date && (
-                        <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400' : 'text-slate-600')}>
-                          {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
-                        </p>
-                      )}
-                    </div>
-                    {todo.project_title && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: todo.project_color + '22', color: todo.project_color }}>
-                        {todo.project_title}
-                      </span>
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
+              <Clock size={14} />
+              Urgent &amp; Vandaag
+            </h2>
+            <Link href="/todos" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">
+              Alle todos →
+            </Link>
+          </div>
+          <div className="space-y-1">
+            {!data?.urgentTodos?.length ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 text-sm font-medium">Niets urgent — lekker bezig! 🎉</p>
+              </div>
+            ) : (
+              data.urgentTodos.map(todo => (
+                <div key={todo.id} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
+                  <span className={cn('w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700 font-medium truncate">{todo.title}</p>
+                    {todo.due_date && (
+                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400 font-medium' : 'text-gray-400')}>
+                        {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
+                      </p>
                     )}
                   </div>
-                ))
-              )}
-            </div>
+                  {todo.project_title && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: (todo.project_color ?? '#888') + '18', color: todo.project_color ?? '#888' }}>
+                      {todo.project_title}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
           </div>
-
-          {/* AI Insights */}
-          {insights?.insights && insights.insights.length > 0 && (
-            <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                  <Sparkles size={14} className="text-brand-400" />
-                  Inzichten
-                </h2>
-                {insights.ai_powered && (
-                  <span className="text-[10px] text-brand-500">AI-aangedreven</span>
-                )}
-              </div>
-              <div className="space-y-2">
-                {insights.insights.map((insight, i) => (
-                  <div key={i} className={cn('text-xs px-3 py-2 rounded-lg border', INSIGHT_STYLES[insight.type])}>
-                    {insight.icon} {insight.text}
-                  </div>
-                ))}
-              </div>
-              <Link
-                href="/chat"
-                className="mt-3 flex items-center gap-2 text-xs text-slate-600 hover:text-brand-400 transition-colors"
-              >
-                <MessageSquare size={11} />
-                Vraag de AI om meer uitleg →
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Right column */}
-        <div className="space-y-4">
-          {/* Open facturen */}
-          <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                <AlertCircle size={14} className="text-amber-400" />
-                Open facturen
-              </h2>
-              <Link href="/finance" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                Alles →
-              </Link>
-            </div>
-            {!data?.openInvoices?.length ? (
-              <p className="text-slate-600 text-xs text-center py-3">Geen openstaande facturen</p>
-            ) : (
-              <div className="space-y-1.5">
-                {data.openInvoices.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between py-1">
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-300 truncate">{inv.contact_name || inv.title}</p>
-                      {inv.due_date && (
-                        <p className={cn('text-[10px]', isOverdue(inv.due_date) ? 'text-red-400' : 'text-slate-600')}>
-                          {formatDate(inv.due_date)}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-xs font-medium text-amber-400 ml-2 flex-shrink-0">{formatCurrency(inv.amount)}</span>
-                  </div>
-                ))}
+        <div className="space-y-4 sm:space-y-5">
+          {/* Finance summary */}
+          {financeStats && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
+                  <TrendingUp size={14} />
+                  Financiën deze maand
+                </h2>
+                <Link href="/finance" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">Alles →</Link>
               </div>
-            )}
-          </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400">Inkomsten</span>
+                  <span className="text-sm font-bold text-emerald-600">+{formatCurrency(financeStats.month_income)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400">Uitgaven</span>
+                  <span className="text-sm font-bold text-red-500">-{formatCurrency(financeStats.month_expenses)}</span>
+                </div>
+                <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
+                  <span className="text-xs font-semibold text-gray-500">Netto</span>
+                  <span className={cn('text-sm font-extrabold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                    {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
+                  </span>
+                </div>
+                {/* Mini bar */}
+                {(financeStats.month_income > 0 || financeStats.month_expenses > 0) && (
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+                    <div
+                      className={cn('h-full rounded-full', net >= 0 ? 'bg-emerald-400' : 'bg-red-400')}
+                      style={{ width: `${Math.min(100, Math.round(Math.abs(net) / Math.max(financeStats.month_income, financeStats.month_expenses) * 100))}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Planning widget */}
+          {planning && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap size={14} className="flex-shrink-0" style={{ color: '#ec4899' }} />
+                <h2 className="text-sm font-bold text-gradient">Dagplanning</h2>
+              </div>
+              <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed line-clamp-6">{planning.recommendation.replace(/\*\*/g, '')}</p>
+            </div>
+          )}
 
           {/* Recente notes */}
-          <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                <TrendingUp size={14} className="text-violet-400" />
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
+                <FileText size={14} />
                 Recente notes
               </h2>
-              <Link href="/notes" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                Alles →
-              </Link>
+              <Link href="/notes" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">Alles →</Link>
             </div>
             {!data?.recentNotes?.length ? (
-              <p className="text-slate-600 text-xs text-center py-3">Nog geen notes</p>
+              <p className="text-gray-400 text-xs text-center py-3">Nog geen notes</p>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {data.recentNotes.map(note => (
-                  <Link key={note.id} href={`/notes/${note.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-white/5 transition-colors">
-                    <FileText size={12} className="text-slate-600 flex-shrink-0" />
-                    <span className="text-xs text-slate-400 truncate">{note.title}</span>
+                  <Link key={note.id} href={`/notes/${note.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded-lg hover:bg-gray-50 transition-colors">
+                    <FileText size={12} className="text-gray-300 flex-shrink-0" />
+                    <span className="text-xs text-gray-600 font-medium truncate hover:text-gradient">{note.title}</span>
                   </Link>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Snel naar chat */}
-          <Link
-            href="/chat"
-            className="flex items-center gap-3 p-3 bg-brand-950/30 border border-brand-800/20 rounded-xl hover:bg-brand-950/50 transition-colors group"
-          >
-            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center">
-              <Sparkles size={14} className="text-brand-400" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300 group-hover:text-white transition-colors">Vraag de AI</p>
-              <p className="text-[10px] text-slate-600">Analyseer je dag of stel vragen</p>
-            </div>
-          </Link>
         </div>
       </div>
     </div>
@@ -290,31 +284,27 @@ export default function Dashboard() {
 }
 
 function StatCard({
-  href, icon, label, value, sub, subColor, accent,
+  href, icon, label, value, sub, alert = false, prefix,
 }: {
   href: string
   icon: React.ReactNode
   label: string
   value: string | number
   sub: string
-  subColor: string
-  accent: 'brand' | 'amber' | 'violet' | 'emerald'
+  alert?: boolean
+  prefix?: string
 }) {
-  const accentClasses = {
-    brand: 'text-brand-400 bg-brand-950/50',
-    amber: 'text-amber-400 bg-amber-950/40',
-    violet: 'text-violet-400 bg-violet-950/40',
-    emerald: 'text-emerald-400 bg-emerald-950/40',
-  }
-
   return (
-    <Link href={href} className="bg-[#13151c] rounded-xl border border-white/5 p-4 hover:border-white/10 transition-all hover:-translate-y-0.5 duration-150">
-      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center mb-3', accentClasses[accent])}>
+    <Link href={href} className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm card-hover block">
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center mb-3 sm:mb-4 text-white shadow-sm"
+        style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
+      >
         {icon}
       </div>
-      <p className="text-xl font-bold text-white">{value}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-      <p className={cn('text-xs mt-1', subColor)}>{sub}</p>
+      <p className="text-xl sm:text-2xl font-extrabold text-gradient leading-none mb-1">{prefix}{value}</p>
+      <p className="text-xs text-gray-400 font-medium">{label}</p>
+      <p className={cn('text-xs mt-1 font-medium', alert ? 'text-red-400' : 'text-gray-400')}>{sub}</p>
     </Link>
   )
 }
