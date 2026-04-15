@@ -17,6 +17,14 @@ export interface HabitWithStatus {
   frequency: string
 }
 
+export interface WorklogSummary {
+  todayHours: number
+  todayLogs: number
+  weekHours: number
+  topProject: string | null
+  focusScore: number
+}
+
 export interface UserContext {
   habits: HabitWithStatus[]
   openTodos: Array<{ title: string; priority: string; due_date?: string; category: string }>
@@ -29,12 +37,13 @@ export interface UserContext {
   contactCount: number
   todayHabitsCompleted: number
   todayHabitsTotal: number
+  worklog: WorklogSummary
 }
 
 export async function getUserContext(db: Client): Promise<UserContext> {
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  const [habitsRaw, todosRaw, financeRow, journalRow, notesRaw, memoriesRaw, contactRow] = await Promise.all([
+  const [habitsRaw, todosRaw, financeRow, journalRow, notesRaw, memoriesRaw, contactRow, worklogTodayRow, worklogWeekRow, worklogTopRow] = await Promise.all([
     toRows(await db.execute('SELECT * FROM habits WHERE active = 1 ORDER BY created_at')),
     toRows(await db.execute(`
       SELECT title, priority, due_date, category FROM todos
@@ -55,6 +64,22 @@ export async function getUserContext(db: Client): Promise<UserContext> {
     toRows(await db.execute('SELECT title FROM notes ORDER BY updated_at DESC LIMIT 8')),
     toRows(await db.execute('SELECT value FROM memories ORDER BY updated_at DESC LIMIT 25')),
     toRow(await db.execute('SELECT COUNT(*) as c FROM contacts')),
+    toRow(await db.execute({
+      sql: `SELECT COALESCE(ROUND(SUM(COALESCE(actual_duration_minutes,duration_minutes,0))/60.0,1),0) as hours, COUNT(*) as logs
+            FROM worklogs WHERE date(start_time) = date('now')`,
+      args: [],
+    })),
+    toRow(await db.execute({
+      sql: `SELECT COALESCE(ROUND(SUM(COALESCE(actual_duration_minutes,duration_minutes,0))/60.0,1),0) as hours
+            FROM worklogs WHERE date(start_time) >= date('now','-7 days')`,
+      args: [],
+    })),
+    toRow(await db.execute({
+      sql: `SELECT p.title FROM worklogs w LEFT JOIN projects p ON w.project_id = p.id
+            WHERE date(w.start_time) >= date('now','-7 days') AND p.title IS NOT NULL
+            GROUP BY w.project_id ORDER BY SUM(COALESCE(w.actual_duration_minutes,w.duration_minutes,0)) DESC LIMIT 1`,
+      args: [],
+    })),
   ])
 
   // Bereken streaks en vandaag-status per gewoonte
@@ -96,6 +121,16 @@ export async function getUserContext(db: Client): Promise<UserContext> {
   const overdueTodos = openTodos.filter(t => t.due_date && t.due_date < today2).length
   const highPriorityTodos = openTodos.filter(t => t.priority === 'hoog').length
 
+  // Focus score (simplified, matches stats endpoint logic)
+  const todayHours = (worklogTodayRow?.hours as number) ?? 0
+  const todayLogs = (worklogTodayRow?.logs as number) ?? 0
+  const avgDur = todayLogs > 0 ? (todayHours * 60) / todayLogs : 0
+  let focusScore = 70
+  if (avgDur >= 90) focusScore += 20
+  else if (avgDur >= 60) focusScore += 10
+  else if (avgDur > 0 && avgDur < 30) focusScore -= 15
+  focusScore = Math.max(0, Math.min(100, focusScore))
+
   return {
     habits,
     openTodos,
@@ -118,6 +153,13 @@ export async function getUserContext(db: Client): Promise<UserContext> {
     contactCount: (contactRow?.c as number) ?? 0,
     todayHabitsCompleted: habits.filter(h => h.completedToday).length,
     todayHabitsTotal: habits.length,
+    worklog: {
+      todayHours,
+      todayLogs,
+      weekHours: (worklogWeekRow?.hours as number) ?? 0,
+      topProject: (worklogTopRow?.title as string) ?? null,
+      focusScore,
+    },
   }
 }
 
@@ -174,6 +216,17 @@ export function contextToPrompt(ctx: UserContext): string {
     ctx.recentNotes.forEach(t => lines.push(`- ${t}`))
   } else {
     lines.push('Geen notes.')
+  }
+
+  // Worklog
+  lines.push('', 'WORKLOG VANDAAG:')
+  if (ctx.worklog.todayLogs === 0) {
+    lines.push('Nog geen tijdregistraties vandaag.')
+  } else {
+    lines.push(`- Vandaag gelogd: ${ctx.worklog.todayHours}u in ${ctx.worklog.todayLogs} sessies`)
+    lines.push(`- Deze week totaal: ${ctx.worklog.weekHours}u`)
+    if (ctx.worklog.topProject) lines.push(`- Meeste tijd aan: ${ctx.worklog.topProject}`)
+    lines.push(`- Focus score: ${ctx.worklog.focusScore}/100`)
   }
 
   // Contacten

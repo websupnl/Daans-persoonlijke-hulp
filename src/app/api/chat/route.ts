@@ -243,6 +243,75 @@ export async function POST(req: NextRequest) {
         }
         break
       }
+
+      case 'worklog_add': {
+        const rawText = String(parsed.params.raw_text || message)
+        const actualDur = parsed.params.actual_duration_minutes
+          ? parseInt(String(parsed.params.actual_duration_minutes))
+          : parsed.params.duration_minutes
+            ? parseInt(String(parsed.params.duration_minutes))
+            : null
+        const expectedDur = parsed.params.expected_duration_minutes
+          ? parseInt(String(parsed.params.expected_duration_minutes))
+          : null
+
+        if (actualDur || expectedDur) {
+          // Match project by name
+          const allProjects = toRows(await db.execute({ sql: "SELECT id, title FROM projects WHERE status = 'actief'", args: [] }))
+          let projectId: number | null = null
+          for (const p of allProjects) {
+            if (rawText.toLowerCase().includes(String(p.title).toLowerCase())) {
+              projectId = p.id as number
+              break
+            }
+          }
+
+          // Infer category: Bouma = work, rest = business, evening = business
+          let category = 'business'
+          if (projectId) {
+            const p = allProjects.find(x => x.id === projectId)
+            if (p && String(p.title).toLowerCase().includes('bouma')) category = 'work'
+          }
+
+          const dur = actualDur || expectedDur!
+          const startTime = new Date(Date.now() - dur * 60000).toISOString()
+          const id = `wl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+
+          await db.execute({
+            sql: `INSERT INTO worklogs
+              (id, title, project_id, category, type, start_time,
+               duration_minutes, expected_duration_minutes, actual_duration_minutes,
+               interruptions, source)
+              VALUES (?, ?, ?, ?, 'deep_work', ?, ?, ?, ?, ?, 'chat')`,
+            args: [
+              id,
+              rawText.slice(0, 80),
+              projectId,
+              category,
+              startTime,
+              dur,
+              expectedDur,
+              actualDur,
+              parsed.params.interruptions ? String(parsed.params.interruptions) : null,
+            ],
+          })
+
+          const wlog = toRow(await db.execute({
+            sql: 'SELECT w.*, p.title as project_title FROM worklogs w LEFT JOIN projects p ON w.project_id = p.id WHERE w.id = ?',
+            args: [id],
+          }))
+          actions.push({ type: 'worklog_created', data: wlog })
+
+          const projName = wlog?.project_title ? ` voor ${wlog.project_title}` : ''
+          const durStr = dur >= 60 ? `${Math.floor(dur / 60)}u${dur % 60 > 0 ? ` ${dur % 60}m` : ''}` : `${dur}m`
+          const deviation = expectedDur && actualDur && actualDur > expectedDur
+            ? ` (${Math.round((actualDur - expectedDur) / 60 * 10) / 10}u langer dan verwacht)`
+            : ''
+          const interruption = parsed.params.interruptions ? ` · onderbreking: ${parsed.params.interruptions}` : ''
+          actionContext = `Worklog aangemaakt: ${durStr}${projName}${deviation}${interruption}.`
+        }
+        break
+      }
     }
   }
 

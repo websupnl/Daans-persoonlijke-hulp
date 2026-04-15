@@ -202,6 +202,27 @@ async function initSchema(db: Client): Promise<void> {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS worklogs (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      description TEXT,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      category TEXT DEFAULT 'business' CHECK(category IN ('work','business','private')),
+      type TEXT DEFAULT 'deep_work' CHECK(type IN ('deep_work','meeting','admin','physical','chill')),
+      start_time TEXT,
+      end_time TEXT,
+      duration_minutes INTEGER,
+      expected_duration_minutes INTEGER,
+      actual_duration_minutes INTEGER,
+      difficulty TEXT DEFAULT 'normal' CHECK(difficulty IN ('easy','normal','hard')),
+      context_notes TEXT,
+      interruptions TEXT,
+      billable INTEGER DEFAULT 0,
+      hourly_rate REAL,
+      source TEXT DEFAULT 'manual' CHECK(source IN ('manual','timer','ai','chat')),
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `)
 }
 

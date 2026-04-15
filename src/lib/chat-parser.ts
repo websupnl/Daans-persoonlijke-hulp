@@ -26,6 +26,8 @@ export type Intent =
   | 'habit_query'
   | 'journal_open'
   | 'memory_add'
+  | 'worklog_add'
+  | 'worklog_query'
   | 'stats'
   | 'day_plan'
   | 'week_summary'
@@ -48,7 +50,7 @@ export const COMMAND_INTENTS: Intent[] = [
   'todo_add', 'todo_complete', 'todo_delete', 'todo_update',
   'note_add', 'contact_add',
   'finance_add_invoice', 'finance_add_expense', 'finance_add_income',
-  'habit_log', 'memory_add',
+  'habit_log', 'memory_add', 'worklog_add',
 ]
 
 // ─── Datum extractie ──────────────────────────────────────────────────────────
@@ -106,6 +108,69 @@ export function extractCategory(text: string): string {
   if (/\b(boodschappen|eten|koken|schoonmaken|huis|thuis|wassen|opruimen)\b/.test(lower)) return 'persoonlijk'
   if (/\b(studie|leren|lezen|cursus|training|boek)\b/.test(lower)) return 'studie'
   return 'overig'
+}
+
+// ─── Worklog extractie ───────────────────────────────────────────────────────
+
+export interface WorklogParams {
+  duration_minutes?: number
+  expected_duration_minutes?: number
+  actual_duration_minutes?: number
+  interruptions?: string
+  raw_text: string
+}
+
+export function extractWorklogParams(text: string): WorklogParams {
+  const lower = text.toLowerCase()
+
+  let expectedMinutes: number | undefined
+  let actualMinutes: number | undefined
+  let durationMinutes: number | undefined
+
+  // "dacht X uur, werd/duurde Y uur"
+  const diffMatch = lower.match(/dacht.{0,15}(\d+(?:[,.]\d+)?)\s*(?:uur|u\b).{0,40}(?:werd|duurde|bleek).{0,15}(\d+(?:[,.]\d+)?)\s*(?:uur|u\b)/)
+  if (diffMatch) {
+    expectedMinutes = Math.round(parseFloat(diffMatch[1].replace(',', '.')) * 60)
+    actualMinutes = Math.round(parseFloat(diffMatch[2].replace(',', '.')) * 60)
+    durationMinutes = actualMinutes
+  }
+
+  // "van HH:MM tot HH:MM"
+  if (!durationMinutes) {
+    const timeRange = lower.match(/van\s+(\d{1,2}):(\d{2})\s+tot\s+(\d{1,2}):(\d{2})/)
+    if (timeRange) {
+      const startM = parseInt(timeRange[1]) * 60 + parseInt(timeRange[2])
+      const endM = parseInt(timeRange[3]) * 60 + parseInt(timeRange[4])
+      durationMinutes = endM > startM ? endM - startM : endM + 1440 - startM
+      actualMinutes = durationMinutes
+    }
+  }
+
+  // "X uur" or "X.5 uur"
+  if (!durationMinutes) {
+    const hoursM = lower.match(/(\d+(?:[,.]\d+)?)\s*(?:uur|u\b|h\b)/)
+    if (hoursM) {
+      durationMinutes = Math.round(parseFloat(hoursM[1].replace(',', '.')) * 60)
+      actualMinutes = durationMinutes
+    }
+    const minsM = lower.match(/(\d+)\s*(?:min(?:uten?)?)/)
+    if (minsM && !durationMinutes) {
+      durationMinutes = parseInt(minsM[1])
+      actualMinutes = durationMinutes
+    }
+  }
+
+  // Interruptions: "door X", "omdat X langskwam/belde/crashte"
+  const intMatch = text.match(/(?:door|vanwege|omdat|want)\s+([^.!?,]{4,60}?)(?:\s+(?:langs|kwamen?|belde?|crashte|onderbrak)|[.,!?]|$)/i)
+  const interruptions = intMatch?.[1]?.trim()
+
+  return {
+    duration_minutes: durationMinutes,
+    expected_duration_minutes: expectedMinutes,
+    actual_duration_minutes: actualMinutes,
+    interruptions,
+    raw_text: text,
+  }
 }
 
 // ─── Bedrag extractie ─────────────────────────────────────────────────────────
@@ -292,6 +357,31 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
+  // ── Worklog toevoegen ──
+  // Detecteer: "X uur aan [project] gewerkt", "van HH:MM tot HH:MM", "dacht X uur werd Y uur"
+  const hasWorkDuration = /\b(\d+(?:[,.]\d+)?)\s*(?:uur|u\b|h\b)/.test(lower)
+  const hasWorkKeyword = /\b(gewerkt|bezig geweest|gecodeerd|gebouwd|ontworpen|bezig|sessie|gefocust|gedaan aan)\b/.test(lower)
+  const hasTimeRange = /\bvan\s+\d{1,2}:\d{2}\s+tot\s+\d{1,2}:\d{2}\b/.test(lower)
+  const hasExpectationDiff = /\bdacht.{0,15}\d.{0,30}(?:werd|duurde)\b/i.test(lower)
+
+  if ((hasWorkDuration && hasWorkKeyword) || hasTimeRange || hasExpectationDiff) {
+    const wlParams = extractWorklogParams(text)
+    return {
+      intent: 'worklog_add',
+      confidence: 0.88,
+      params: {
+        ...wlParams,
+        raw_text: text,
+      },
+      raw: text,
+    }
+  }
+
+  // ── Worklog overzicht ──
+  if (/\b(hoeveel uur|worklog|tijdregistratie|gewerkt vandaag|gewerkt deze week|focus score|mijn uren)\b/i.test(lower)) {
+    return { intent: 'worklog_query', confidence: 0.87, params: {}, raw: text }
+  }
+
   // ── Gewoonte loggen ──
   if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen|heb gemediteerd|heb gelezen)\b/i.test(text)) {
     const habitMatch = text.match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen)\b/i)
@@ -440,6 +530,19 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
     case 'memory_add':
       return `🧠 Onthouden: "${params.fact}"`
 
+    case 'worklog_add': {
+      const dur = params.actual_duration_minutes || params.duration_minutes
+      const durStr = dur ? `${Math.floor(Number(dur) / 60)}u${Number(dur) % 60 > 0 ? ` ${Number(dur) % 60}m` : ''}` : ''
+      if (params.expected_duration_minutes && params.actual_duration_minutes && Number(params.actual_duration_minutes) > Number(params.expected_duration_minutes)) {
+        const diff = Number(params.actual_duration_minutes) - Number(params.expected_duration_minutes)
+        return `⏱️ Worklog opgeslagen${durStr ? ` (${durStr})` : ''}. ${Math.round(diff / 60 * 10) / 10}u langer dan verwacht${params.interruptions ? ` — onderbreking: ${params.interruptions}` : ''}.`
+      }
+      return `⏱️ Worklog opgeslagen${durStr ? ` · ${durStr}` : ''}${params.interruptions ? ` (⚠️ ${params.interruptions})` : ''}.`
+    }
+
+    case 'worklog_query':
+      return `📊 Bekijk je worklog in het Worklog tabblad voor een volledig tijdoverzicht en focus score.`
+
     case 'help':
       return `**Wat ik kan doen:**
 
@@ -466,6 +569,11 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 • _"Hoe gaan mijn gewoontes?"_
 • _"Hoe staan mijn financiën?"_
 • _"Hoe ga ik ervoor?"_
+
+⏱️ **Worklog**
+• _"Ik heb 2 uur aan Prime Animals gewerkt"_
+• _"Van 19:00 tot 22:00 Sjoeli"_
+• _"Dacht 1 uur, werd 2 uur door buurman"_
 
 🧠 **Geheugen**
 • _"Onthoud dat mijn uurtarief €95 is"_`
