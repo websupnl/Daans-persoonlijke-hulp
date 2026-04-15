@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -66,6 +67,24 @@ export async function POST(req: NextRequest) {
     invoiceNumber, due_date || null,
     category || 'overig',
   ])
+
+  if (item && 'id' in item) {
+    await syncEntityLinks({
+      sourceType: 'finance',
+      sourceId: Number(item.id),
+      projectId: project_id || null,
+      contactId: contact_id || null,
+      tags: [category || 'overig', type],
+    })
+    await logActivity({
+      entityType: 'finance',
+      entityId: Number(item.id),
+      action: 'created',
+      title: String(title),
+      summary: `${type} opgeslagen`,
+      metadata: { amount: amount || 0, type, status: status || (type === 'factuur' ? 'concept' : 'betaald') },
+    })
+  }
 
   return NextResponse.json({ data: item }, { status: 201 })
 }

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)
@@ -33,10 +34,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     LEFT JOIN contacts c ON f.contact_id = c.id
     WHERE f.id = $1
   `, [id])
+  await syncEntityLinks({
+    sourceType: 'finance',
+    sourceId: id,
+    projectId: Number((updated as Record<string, unknown> | undefined)?.project_id || 0) || null,
+    contactId: Number((updated as Record<string, unknown> | undefined)?.contact_id || 0) || null,
+    tags: [
+      String((updated as Record<string, unknown> | undefined)?.category || 'overig'),
+      String((updated as Record<string, unknown> | undefined)?.type || 'item'),
+    ],
+  })
+  await logActivity({
+    entityType: 'finance',
+    entityId: id,
+    action: 'updated',
+    title: String((updated as Record<string, unknown> | undefined)?.title || `Finance ${id}`),
+    summary: 'Financieel item bijgewerkt',
+  })
   return NextResponse.json({ data: updated })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   await execute('DELETE FROM finance_items WHERE id = $1', [parseInt(params.id)])
+  await logActivity({ entityType: 'finance', entityId: parseInt(params.id), action: 'deleted', title: `Finance ${params.id}`, summary: 'Financieel item verwijderd' })
   return NextResponse.json({ message: 'Item verwijderd' })
 }

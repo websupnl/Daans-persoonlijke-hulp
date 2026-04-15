@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity } from '@/lib/activity'
 
 export async function GET() {
   const projects = await query(`
@@ -27,6 +28,17 @@ export async function POST(req: NextRequest) {
   const project = await queryOne(`
     INSERT INTO projects (title, description, status, color) VALUES ($1, $2, $3, $4) RETURNING *
   `, [title.trim(), description || null, status || 'actief', color || '#6172f3'])
+
+  if (project && 'id' in project) {
+    await logActivity({
+      entityType: 'project',
+      entityId: Number(project.id),
+      action: 'created',
+      title: String(project.title || title),
+      summary: 'Project aangemaakt',
+      metadata: { status: status || 'actief' },
+    })
+  }
 
   return NextResponse.json({ data: project }, { status: 201 })
 }

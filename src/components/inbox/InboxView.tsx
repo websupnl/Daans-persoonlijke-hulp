@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Inbox, Plus, Check, Tag } from 'lucide-react'
+import { Inbox, Plus, Check, Tag, Sparkles } from 'lucide-react'
 
 interface InboxItem {
   id: number
@@ -19,6 +19,7 @@ export default function InboxView() {
   const [pendingCount, setPendingCount] = useState(0)
   const [newText, setNewText] = useState('')
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
+  const [triage, setTriage] = useState<Record<number, Record<string, unknown>>>({})
 
   async function load() {
     const res = await fetch('/api/inbox')
@@ -48,6 +49,18 @@ export default function InboxView() {
       body: JSON.stringify({ id, parsed_status: 'processed' }),
     })
     load()
+  }
+
+  async function handleTriage(item: InboxItem) {
+    const res = await fetch('/api/inbox/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw_text: item.raw_text }),
+    })
+    const data = await res.json()
+    if (data.suggestion) {
+      setTriage((prev) => ({ ...prev, [item.id]: data.suggestion }))
+    }
   }
 
   const filtered = filter === 'pending' ? items.filter(i => i.parsed_status === 'pending') : items
@@ -130,15 +143,32 @@ export default function InboxView() {
                 </div>
               </div>
               {item.parsed_status === 'pending' && (
-                <button
-                  onClick={() => handleProcess(item.id)}
-                  className="shrink-0 p-2 text-gray-300 hover:text-emerald-500 transition-colors"
-                  title="Markeer als verwerkt"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleTriage(item)}
+                    className="p-2 text-gray-300 hover:text-pink-500 transition-colors"
+                    title="Laat AI triage doen"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleProcess(item.id)}
+                    className="p-2 text-gray-300 hover:text-emerald-500 transition-colors"
+                    title="Markeer als verwerkt"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </div>
               )}
             </div>
+            {triage[item.id] && (
+              <div className="mt-3 rounded-2xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-3">
+                <p className="text-xs font-bold text-gray-700">AI voorstel</p>
+                <p className="mt-1 text-xs text-gray-600">Type: {String(triage[item.id].type || 'onbekend')}</p>
+                <p className="mt-1 text-xs text-gray-600">Samenvatting: {String(triage[item.id].summary || '')}</p>
+                <p className="mt-1 text-xs text-gray-600">Advies: {String(triage[item.id].action_advice || '')}</p>
+              </div>
+            )}
           </div>
         ))}
       </div>

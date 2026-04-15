@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -85,6 +86,23 @@ export async function POST(request: NextRequest) {
     billable ? 1 : 0,
     hourly_rate ?? null,
   ])
+
+  if (log && 'id' in log) {
+    await syncEntityLinks({
+      sourceType: 'worklog',
+      sourceId: Number(log.id),
+      projectId: project_id ?? null,
+      tags: [context, type ?? 'deep_work'],
+    })
+    await logActivity({
+      entityType: 'worklog',
+      entityId: Number(log.id),
+      action: 'created',
+      title: String(title),
+      summary: 'Werklog opgeslagen',
+      metadata: { context, duration_minutes, source: source ?? 'manual' },
+    })
+  }
 
   return NextResponse.json({ log }, { status: 201 })
 }

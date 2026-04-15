@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { execute, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10)
@@ -31,6 +32,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   await execute(`UPDATE ideas SET ${updates.join(', ')} WHERE id = $${i}`, values)
   const updated = await queryOne<Record<string, unknown>>('SELECT * FROM ideas WHERE id = $1', [id])
+  await syncEntityLinks({
+    sourceType: 'idea',
+    sourceId: id,
+    tags: JSON.parse(String(updated?.tags || '[]')),
+  })
+  await logActivity({
+    entityType: 'idea',
+    entityId: id,
+    action: 'updated',
+    title: String(updated?.title || `Idee ${id}`),
+    summary: 'Idee bijgewerkt',
+  })
   return NextResponse.json({
     data: {
       ...updated,
@@ -42,5 +55,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   await execute('DELETE FROM ideas WHERE id = $1', [parseInt(params.id, 10)])
+  await logActivity({ entityType: 'idea', entityId: parseInt(params.id, 10), action: 'deleted', title: `Idee ${params.id}`, summary: 'Idee verwijderd' })
   return NextResponse.json({ success: true })
 }

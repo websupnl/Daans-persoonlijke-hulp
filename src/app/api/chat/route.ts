@@ -7,6 +7,7 @@ import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions } from '@/lib/ai/execute-actions'
 import { generateAIResponse } from '@/lib/ai/generate-response'
 import { format } from 'date-fns'
+import { logActivity } from '@/lib/activity'
 
 export async function GET() {
   const messages = await query<Record<string, unknown>>(`
@@ -23,6 +24,12 @@ export async function POST(req: NextRequest) {
 
   // Sla gebruikersbericht op
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', message, '[]'])
+  await logActivity({
+    entityType: 'chat',
+    action: 'user_message',
+    title: message.slice(0, 80),
+    summary: 'Nieuw chatbericht van gebruiker',
+  })
 
   const parsed = parseIntent(message)
   let assistantMessage = ''
@@ -445,6 +452,13 @@ export async function POST(req: NextRequest) {
 
   // Sla assistant response op
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['assistant', assistantMessage, actionsJson])
+  await logActivity({
+    entityType: 'chat',
+    action: 'assistant_message',
+    title: assistantMessage.slice(0, 80),
+    summary: `Chat verwerkt via ${parserType}`,
+    metadata: { parserType, confidence },
+  })
 
   // Sla op in conversation_log
   await execute(`

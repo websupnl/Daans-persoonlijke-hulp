@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne, execute } from '@/lib/db'
 import { format } from 'date-fns'
+import { logActivity } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -51,5 +52,15 @@ export async function POST(req: NextRequest) {
   ])
 
   const entry = await queryOne<Record<string, unknown>>('SELECT * FROM journal_entries WHERE date = $1', [entryDate])
+  if (entry?.id) {
+    await logActivity({
+      entityType: 'journal',
+      entityId: Number(entry.id),
+      action: 'saved',
+      title: `Dagboek ${entryDate}`,
+      summary: 'Dagboek bijgewerkt',
+      metadata: { mood: mood || null, energy: energy || null },
+    })
+  }
   return NextResponse.json({ data: { ...entry, gratitude: JSON.parse(entry?.gratitude as string || '[]') } })
 }

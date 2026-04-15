@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -52,6 +53,24 @@ export async function POST(req: NextRequest) {
     RETURNING *, TO_CHAR(date, 'YYYY-MM-DD') as date
   `, [title.trim(), description ?? null, date, time ?? null, duration, type,
       project_id ?? null, contact_id ?? null, all_day ? 1 : 0])
+
+  if (event && 'id' in event) {
+    await syncEntityLinks({
+      sourceType: 'event',
+      sourceId: Number(event.id),
+      projectId: project_id ?? null,
+      contactId: contact_id ?? null,
+      tags: [type],
+    })
+    await logActivity({
+      entityType: 'event',
+      entityId: Number(event.id),
+      action: 'created',
+      title: title.trim(),
+      summary: 'Agenda-item aangemaakt',
+      metadata: { date, time: time ?? null, type },
+    })
+  }
 
   return NextResponse.json({ data: event }, { status: 201 })
 }

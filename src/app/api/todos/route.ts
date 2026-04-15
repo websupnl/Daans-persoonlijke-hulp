@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -52,5 +53,22 @@ export async function POST(req: NextRequest) {
      RETURNING *`,
     [title.trim(), description || null, category || 'overig', priority || 'medium', due_date || null, project_id || null, contact_id || null, recurring || null]
   )
+  if ((todo as Record<string, unknown> | undefined)?.id) {
+    await syncEntityLinks({
+      sourceType: 'todo',
+      sourceId: Number((todo as Record<string, unknown>).id),
+      projectId: project_id || null,
+      contactId: contact_id || null,
+      tags: category ? [category] : [],
+    })
+    await logActivity({
+      entityType: 'todo',
+      entityId: Number((todo as Record<string, unknown>).id),
+      action: 'created',
+      title: title.trim(),
+      summary: 'Todo aangemaakt',
+      metadata: { priority: priority || 'medium', due_date: due_date || null },
+    })
+  }
   return NextResponse.json({ data: todo }, { status: 201 })
 }

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -61,6 +62,24 @@ export async function POST(req: NextRequest) {
     contact_id || null,
     pinned ? 1 : 0,
   ])
+
+  if (note?.id) {
+    await syncEntityLinks({
+      sourceType: 'note',
+      sourceId: Number(note.id),
+      projectId: project_id || null,
+      contactId: contact_id || null,
+      tags: tags || [],
+    })
+    await logActivity({
+      entityType: 'note',
+      entityId: Number(note.id),
+      action: 'created',
+      title: String(note.title || title || 'Naamloze note'),
+      summary: 'Note opgeslagen',
+      metadata: { project_id: project_id || null, contact_id: contact_id || null },
+    })
+  }
 
   return NextResponse.json({ data: { ...note, tags: JSON.parse(note?.tags as string || '[]') } }, { status: 201 })
 }

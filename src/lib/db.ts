@@ -228,6 +228,27 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id SERIAL PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER,
+      action TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT,
+      metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS entity_links (
+      id SERIAL PRIMARY KEY,
+      source_type TEXT NOT NULL,
+      source_id INTEGER NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id INTEGER,
+      target_text TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE work_logs
       ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'business',
       ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'deep_work',

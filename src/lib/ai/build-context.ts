@@ -11,13 +11,14 @@ export interface AIContext {
   todayWorklogs: Array<{ title: string; duration_minutes: number; context: string }>
   upcomingEvents: Array<{ title: string; date: string; time?: string; type: string }>
   habits: Array<{ name: string; icon: string; completedToday: boolean; streak: number }>
+  recentActivity: Array<{ entity_type: string; action: string; title: string; summary?: string }>
 }
 
 export async function buildContext(lastN: number = 5): Promise<AIContext> {
   const now = new Date()
   const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
 
-  const [recentTodos, activeProjects, memories, recentMessages, recentInbox, todayWorklogs, upcomingEvents, habitsRaw] = await Promise.all([
+  const [recentTodos, activeProjects, memories, recentMessages, recentInbox, todayWorklogs, upcomingEvents, habitsRaw, recentActivity] = await Promise.all([
     query<AIContext['recentTodos'][number]>(`
       SELECT id, title, priority, due_date, category
       FROM todos WHERE completed = 0
@@ -51,6 +52,12 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
         (SELECT COUNT(*) FROM habit_logs hl2 WHERE hl2.habit_id = h.id AND hl2.logged_date >= CURRENT_DATE - INTERVAL '30 days') as recent_count
       FROM habits h WHERE h.active = 1 ORDER BY h.name LIMIT 10
     `).catch(() => []),
+    query<AIContext['recentActivity'][number]>(`
+      SELECT entity_type, action, title, summary
+      FROM activity_log
+      ORDER BY created_at DESC
+      LIMIT 12
+    `).catch(() => []),
   ])
 
   const habits = (habitsRaw as Array<{ id: number; name: string; icon: string; completed_today: number; recent_count: number }>).map(h => ({
@@ -71,6 +78,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     todayWorklogs,
     upcomingEvents,
     habits,
+    recentActivity,
   }
 }
 
@@ -126,6 +134,11 @@ export function formatContextForPrompt(ctx: AIContext): string {
   if (ctx.recentInbox.length > 0) {
     parts.push('\nInbox (onverwerkt):')
     ctx.recentInbox.forEach(i => parts.push(`- [${i.id}] ${i.raw_text}`))
+  }
+
+  if (ctx.recentActivity.length > 0) {
+    parts.push('\nRecente activiteit:')
+    ctx.recentActivity.forEach((item) => parts.push(`- ${item.entity_type}/${item.action}: ${item.title}${item.summary ? ` - ${item.summary}` : ''}`))
   }
 
   return parts.join('\n')

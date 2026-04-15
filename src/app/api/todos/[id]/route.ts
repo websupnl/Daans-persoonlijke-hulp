@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)
@@ -37,6 +38,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   await execute(`UPDATE todos SET ${updates.join(', ')} WHERE id = $${i}`, values)
   const updated = await queryOne('SELECT * FROM todos WHERE id = $1', [id])
+  await syncEntityLinks({
+    sourceType: 'todo',
+    sourceId: id,
+    projectId: Number((updated as Record<string, unknown> | undefined)?.project_id || 0) || null,
+    contactId: Number((updated as Record<string, unknown> | undefined)?.contact_id || 0) || null,
+    tags: [String((updated as Record<string, unknown> | undefined)?.category || 'overig')],
+  })
+  await logActivity({
+    entityType: 'todo',
+    entityId: id,
+    action: body.completed ? 'completed' : 'updated',
+    title: String((updated as Record<string, unknown> | undefined)?.title || `Todo ${id}`),
+    summary: body.completed ? 'Todo afgerond' : 'Todo bijgewerkt',
+  })
   return NextResponse.json({ data: updated })
 }
 
@@ -44,5 +59,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const id = parseInt(params.id)
   const rowCount = await execute('DELETE FROM todos WHERE id = $1', [id])
   if (rowCount === 0) return NextResponse.json({ error: 'Todo niet gevonden' }, { status: 404 })
+  await logActivity({ entityType: 'todo', entityId: id, action: 'deleted', title: `Todo ${id}`, summary: 'Todo verwijderd' })
   return NextResponse.json({ message: 'Todo verwijderd' })
 }

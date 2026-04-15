@@ -4,16 +4,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays, Lightbulb
+  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays, Lightbulb, Brain, Search, History
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/search', label: 'Zoeken', icon: Search },
+  { href: '/timeline', label: 'Timeline', icon: History },
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
   { href: '/notes', label: 'Notes', icon: FileText },
   { href: '/ideas', label: 'Ideeën', icon: Lightbulb },
+  { href: '/memory', label: 'Memory', icon: Brain },
   { href: '/contacts', label: 'Contacten', icon: Users },
   { href: '/finance', label: 'Financiën', icon: Euro },
   { href: '/habits', label: 'Gewoontes', icon: Activity },

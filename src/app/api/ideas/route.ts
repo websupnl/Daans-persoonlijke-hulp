@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 interface IdeaAnalysis {
   title: string
@@ -122,6 +123,22 @@ export async function POST(req: NextRequest) {
     JSON.stringify(analysis.tags),
     body.status || 'nieuw',
   ])
+
+  if (row?.id) {
+    await syncEntityLinks({
+      sourceType: 'idea',
+      sourceId: Number(row.id),
+      tags: analysis.tags,
+    })
+    await logActivity({
+      entityType: 'idea',
+      entityId: Number(row.id),
+      action: 'created',
+      title: analysis.title,
+      summary: `Idee beoordeeld als ${analysis.verdict}`,
+      metadata: { verdict: analysis.verdict, score: analysis.score, status: body.status || 'nieuw' },
+    })
+  }
 
   return NextResponse.json({
     data: {
