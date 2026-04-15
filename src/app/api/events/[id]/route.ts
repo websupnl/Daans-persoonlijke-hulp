@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { queryOne, execute } from '@/lib/db'
+import { execute, queryOne } from '@/lib/db'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id)
   const body = await req.json()
+  const id = parseInt(params.id)
 
-  const fields = ['title', 'description', 'status', 'color']
+  const fields = ['title', 'description', 'date', 'time', 'duration', 'type', 'project_id', 'contact_id', 'all_day']
   const updates: string[] = []
   const values: unknown[] = []
   let i = 1
@@ -19,15 +19,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  if (updates.length === 0) return NextResponse.json({ error: 'Geen velden' }, { status: 400 })
   updates.push(`updated_at = NOW()`)
   values.push(id)
 
-  await execute(`UPDATE projects SET ${updates.join(', ')} WHERE id = $${i}`, values)
-  const updated = await queryOne('SELECT * FROM projects WHERE id = $1', [id])
+  await execute(`UPDATE events SET ${updates.join(', ')} WHERE id = $${i}`, values)
+  const updated = await queryOne(`SELECT *, TO_CHAR(date,'YYYY-MM-DD') as date FROM events WHERE id = $1`, [id])
   return NextResponse.json({ data: updated })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  await execute('DELETE FROM projects WHERE id = $1', [parseInt(params.id)])
-  return NextResponse.json({ message: 'Project verwijderd' })
+  await execute(`DELETE FROM events WHERE id = $1`, [parseInt(params.id)])
+  return NextResponse.json({ message: 'Event verwijderd' })
 }

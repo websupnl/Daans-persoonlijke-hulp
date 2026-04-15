@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * Outbound WhatsApp notifications endpoint
  *

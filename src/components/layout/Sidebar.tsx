@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox
+  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,7 @@ const nav = [
   { href: '/journal', label: 'Dagboek', icon: BookOpen },
   { href: '/projects', label: 'Projecten', icon: FolderOpen },
   { href: '/worklogs', label: 'Werklog', icon: Clock },
+  { href: '/agenda', label: 'Agenda', icon: CalendarDays },
   { href: '/inbox', label: 'Inbox', icon: Inbox },
 ]
 

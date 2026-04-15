@@ -187,6 +187,31 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS events (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      date DATE NOT NULL,
+      time TEXT,
+      duration INTEGER DEFAULT 60,
+      type TEXT DEFAULT 'algemeen' CHECK(type IN ('vergadering','deadline','afspraak','herinnering','algemeen')),
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+      all_day SMALLINT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    ALTER TABLE work_logs
+      ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'business',
+      ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'deep_work',
+      ADD COLUMN IF NOT EXISTS expected_duration_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS actual_duration_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS interruptions TEXT,
+      ADD COLUMN IF NOT EXISTS billable SMALLINT DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(8,2),
+      ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
   `)
 }
 
