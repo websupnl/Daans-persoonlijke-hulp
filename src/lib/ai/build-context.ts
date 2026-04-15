@@ -3,7 +3,9 @@ import { query } from '../db'
 export interface AIContext {
   currentDate: string
   currentDay: string
+  currentHour: number
   recentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; category?: string }>
+  overdueTodoCount: number
   activeProjects: Array<{ id: number; title: string; status: string }>
   memories: Array<{ key: string; value: string; category: string }>
   recentMessages: Array<{ role: string; content: string }>
@@ -12,18 +14,40 @@ export interface AIContext {
   upcomingEvents: Array<{ title: string; date: string; time?: string; type: string }>
   habits: Array<{ name: string; icon: string; completedToday: boolean; streak: number }>
   recentActivity: Array<{ entity_type: string; action: string; title: string; summary?: string }>
+  historicalResonance: Array<{ type: string; date: string; excerpt: string }>
+  irritationLevel: number
+  todayMood?: number
 }
 
 export async function buildContext(lastN: number = 5): Promise<AIContext> {
   const now = new Date()
   const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
+  const currentHour = now.getHours()
 
-  const [recentTodos, activeProjects, memories, recentMessages, recentInbox, todayWorklogs, upcomingEvents, habitsRaw, recentActivity] = await Promise.all([
+  const [
+    recentTodos,
+    overdueTodosRaw,
+    activeProjects,
+    memories,
+    recentMessages,
+    recentInbox,
+    todayWorklogs,
+    upcomingEvents,
+    habitsRaw,
+    recentActivity,
+    historicalJournal,
+    nostalgiaProject,
+    todayJournal,
+  ] = await Promise.all([
     query<AIContext['recentTodos'][number]>(`
       SELECT id, title, priority, due_date, category
       FROM todos WHERE completed = 0
       ORDER BY CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, due_date ASC
       LIMIT 10
+    `),
+    query<{ count: string }>(`
+      SELECT COUNT(*) as count FROM todos
+      WHERE completed = 0 AND due_date IS NOT NULL AND due_date < CURRENT_DATE
     `),
     query<AIContext['activeProjects'][number]>(`
       SELECT id, title, status FROM projects WHERE status = 'actief' LIMIT 8
@@ -58,6 +82,24 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
       ORDER BY created_at DESC
       LIMIT 12
     `).catch(() => []),
+    query<{ date: string; content: string; mood: number }>(`
+      SELECT TO_CHAR(date, 'YYYY-MM-DD') as date,
+             LEFT(content, 200) as content,
+             mood
+      FROM journal_entries
+      WHERE date BETWEEN (CURRENT_DATE - INTERVAL '1 year' - INTERVAL '3 days')
+                     AND (CURRENT_DATE - INTERVAL '1 year' + INTERVAL '3 days')
+      ORDER BY ABS(EXTRACT(DOY FROM date) - EXTRACT(DOY FROM CURRENT_DATE)) ASC
+      LIMIT 2
+    `).catch(() => []),
+    query<{ id: number; title: string; updated_at: string }>(`
+      SELECT id, title, TO_CHAR(updated_at, 'YYYY-MM-DD') as updated_at
+      FROM projects WHERE status = 'afgerond'
+      ORDER BY RANDOM() LIMIT 1
+    `).catch(() => []),
+    query<{ mood: number; energy: number }>(`
+      SELECT mood, energy FROM journal_entries WHERE date = CURRENT_DATE LIMIT 1
+    `).catch(() => []),
   ])
 
   const habits = (habitsRaw as Array<{ id: number; name: string; icon: string; completed_today: number; recent_count: number }>).map(h => ({
@@ -67,10 +109,47 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     streak: Number(h.recent_count),
   }))
 
+  const overdueTodoCount = parseInt(overdueTodosRaw[0]?.count ?? '0', 10)
+
+  const totalWorkMinutesToday = (todayWorklogs as AIContext['todayWorklogs']).reduce(
+    (s, w) => s + (w.duration_minutes || 0), 0
+  )
+  const workHoursToday = totalWorkMinutesToday / 60
+
+  const todayMoodValue = (todayJournal as Array<{ mood: number; energy: number }>)[0]?.mood
+
+  let irritationLevel = 0
+  irritationLevel += Math.min(overdueTodoCount * 1.5, 4)
+  irritationLevel += workHoursToday >= 8 ? 3 : workHoursToday >= 6 ? 1.5 : 0
+  if (currentHour >= 22 || currentHour < 6) irritationLevel += 2
+  else if (currentHour >= 20) irritationLevel += 1
+  if (todayMoodValue !== undefined && todayMoodValue <= 2) irritationLevel += 1.5
+  irritationLevel = Math.min(Math.round(irritationLevel), 10)
+
+  const historicalResonance: AIContext['historicalResonance'] = []
+  for (const j of historicalJournal as Array<{ date: string; content: string; mood: number }>) {
+    if (j.content?.trim()) {
+      historicalResonance.push({
+        type: 'journal',
+        date: j.date,
+        excerpt: j.content.slice(0, 150),
+      })
+    }
+  }
+  for (const p of nostalgiaProject as Array<{ id: number; title: string; updated_at: string }>) {
+    historicalResonance.push({
+      type: 'project',
+      date: p.updated_at,
+      excerpt: `Afgerond project: ${p.title}`,
+    })
+  }
+
   return {
     currentDate: now.toISOString().split('T')[0],
     currentDay: days[now.getDay()],
+    currentHour,
     recentTodos,
+    overdueTodoCount,
     activeProjects,
     memories,
     recentMessages: recentMessages.reverse(),
@@ -79,13 +158,31 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     upcomingEvents,
     habits,
     recentActivity,
+    historicalResonance,
+    irritationLevel,
+    todayMood: todayMoodValue,
   }
 }
 
 export function formatContextForPrompt(ctx: AIContext): string {
   const parts: string[] = [
-    `Huidige datum: ${ctx.currentDate} (${ctx.currentDay})`,
+    `Huidige datum: ${ctx.currentDate} (${ctx.currentDay}), ${ctx.currentHour}:00u`,
   ]
+
+  const irritationLabel =
+    ctx.irritationLevel >= 8 ? 'KRITIEK — Zeurbak modus actief' :
+    ctx.irritationLevel >= 5 ? 'Verhoogd — licht chagrijnig' :
+    ctx.irritationLevel >= 3 ? 'Matig — milde stress' :
+    'Normaal — ontspannen'
+
+  parts.push(`\nSysteem status:`)
+  parts.push(`- Irritatieniveau: ${ctx.irritationLevel}/10 (${irritationLabel})`)
+  parts.push(`- Achterstallige taken: ${ctx.overdueTodoCount}`)
+  const workH = Math.round(ctx.todayWorklogs.reduce((s, w) => s + (w.duration_minutes || 0), 0) / 60 * 10) / 10
+  parts.push(`- Gewerkt vandaag: ${workH}u`)
+  if (ctx.todayMood !== undefined) {
+    parts.push(`- Stemming vandaag: ${ctx.todayMood}/5`)
+  }
 
   if (ctx.memories.length > 0) {
     parts.push('\nBekende context over Daan:')
@@ -139,6 +236,11 @@ export function formatContextForPrompt(ctx: AIContext): string {
   if (ctx.recentActivity.length > 0) {
     parts.push('\nRecente activiteit:')
     ctx.recentActivity.forEach((item) => parts.push(`- ${item.entity_type}/${item.action}: ${item.title}${item.summary ? ` - ${item.summary}` : ''}`))
+  }
+
+  if (ctx.historicalResonance.length > 0) {
+    parts.push('\nFlarden uit het verleden (een jaar geleden / nostalgie):')
+    ctx.historicalResonance.forEach(h => parts.push(`- [${h.date}] ${h.excerpt}`))
   }
 
   return parts.join('\n')
