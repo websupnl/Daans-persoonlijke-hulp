@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send } from 'lucide-react'
+import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface WorkLog {
@@ -50,6 +50,14 @@ const CONTEXT_COLORS: Record<string, string> = {
   overig: 'text-gray-500 bg-gray-100',
 }
 
+const CONTEXT_BAR_COLORS: Record<string, string> = {
+  Bouma: 'bg-blue-400',
+  WebsUp: 'bg-violet-400',
+  privé: 'bg-amber-400',
+  studie: 'bg-emerald-400',
+  overig: 'bg-gray-300',
+}
+
 const TYPE_ICONS: Record<string, string> = {
   deep_work: '🎯', meeting: '📅', admin: '📋', physical: '💪', chill: '🛋️',
 }
@@ -81,6 +89,8 @@ export default function WorklogsView() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', duration_minutes: '', context: 'WebsUp', description: '' })
   const [loading, setLoading] = useState(true)
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false)
 
   // Timer
   const [isRunning, setIsRunning] = useState(false)
@@ -89,7 +99,7 @@ export default function WorklogsView() {
   const [timerContext, setTimerContext] = useState('WebsUp')
   const [timerTitle, setTimerTitle] = useState('')
 
-  // AI
+  // AI quick-add
   const [aiText, setAiText] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
@@ -99,7 +109,7 @@ export default function WorklogsView() {
     try {
       const saved = localStorage.getItem('werklog_timer')
       if (saved) {
-        const { startTime, context, title } = JSON.parse(saved)
+        const { startTime, context, title } = JSON.parse(saved) as { startTime: string; context: string; title: string }
         setTimerStart(new Date(startTime))
         setIsRunning(true)
         setTimerContext(context ?? 'WebsUp')
@@ -133,6 +143,21 @@ export default function WorklogsView() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Load AI summary after data loads
+  useEffect(() => {
+    if (loading) return
+    setAiSummaryLoading(true)
+    fetch('/api/ai/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'worklogs' }),
+    })
+      .then(r => r.json())
+      .then(d => setAiSummary(d.summary ?? null))
+      .catch(() => {})
+      .finally(() => setAiSummaryLoading(false))
+  }, [loading])
 
   function startTimer() {
     const now = new Date()
@@ -218,9 +243,11 @@ export default function WorklogsView() {
   }, {} as Record<string, WorkLog[]>)
 
   const todayStr = new Date().toISOString().split('T')[0]
+  const maxStatMinutes = stats.reduce((m, s) => Math.max(m, s.total_minutes), 1)
+  void projects
 
   return (
-    <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-6 bg-white p-6">
+    <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-5 bg-white p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -233,11 +260,28 @@ export default function WorklogsView() {
           style={{ background: GRAD }}
         >
           <Plus className="w-4 h-4" />
-          Log toevoegen
+          <span className="hidden sm:inline">Log toevoegen</span>
+          <span className="sm:hidden">Log</span>
         </button>
       </div>
 
-      {/* Stats */}
+      {/* AI Summary */}
+      {(aiSummary || aiSummaryLoading) && (
+        <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
+          <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
+          {aiSummaryLoading ? (
+            <div className="flex gap-1 mt-1">
+              {[0, 1, 2].map(i => (
+                <span key={i} className="w-1.5 h-1.5 rounded-full bg-pink-300 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-600 leading-relaxed">{aiSummary}</p>
+          )}
+        </div>
+      )}
+
+      {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
           <p className="text-gray-400 text-xs mb-1 font-medium">Vandaag</p>
@@ -271,6 +315,32 @@ export default function WorklogsView() {
           </div>
         ))}
       </div>
+
+      {/* Weekly context breakdown chart */}
+      {stats.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-bold text-gray-700">Tijdverdeling (totaal)</span>
+          </div>
+          <div className="space-y-3">
+            {stats.map(s => {
+              const pct = Math.round((s.total_minutes / maxStatMinutes) * 100)
+              const barColor = CONTEXT_BAR_COLORS[s.context] ?? 'bg-gray-300'
+              return (
+                <div key={s.context} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500 w-14 font-medium">{s.context}</span>
+                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={cn('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-gradient w-14 text-right">{formatDuration(s.total_minutes)}</span>
+                  <span className="text-[10px] text-gray-300 w-8 text-right">{s.count}x</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Detections */}
       {focusStats?.detections && focusStats.detections.length > 0 && (
@@ -311,7 +381,7 @@ export default function WorklogsView() {
               onClick={stopTimer}
               className="px-6 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
             >
-              ⏹ Stop & Opslaan
+              ⏹ Stop &amp; Opslaan
             </button>
           </div>
         ) : (
@@ -321,12 +391,14 @@ export default function WorklogsView() {
               onChange={e => setTimerTitle(e.target.value)}
               placeholder="Beschrijving (optioneel)"
               className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
+              style={{ fontSize: '16px' }}
             />
             <div className="flex gap-3">
               <select
                 value={timerContext}
                 onChange={e => setTimerContext(e.target.value)}
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
+                style={{ fontSize: '16px' }}
               >
                 {CONTEXT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -355,6 +427,7 @@ export default function WorklogsView() {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiInput()}
             placeholder='"2u aan Prime Animals", "Van 19:00 tot 21:30 Sjoeli"...'
             className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
+            style={{ fontSize: '16px' }}
           />
           <button
             onClick={handleAiInput}
@@ -375,37 +448,34 @@ export default function WorklogsView() {
           </button>
         </div>
         {aiStatus && (
-          <p className={cn(
-            'text-xs mt-2 font-medium',
-            aiStatus.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600'
-          )}>
+          <p className={cn('text-xs mt-2 font-medium', aiStatus.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>
             {aiStatus}
           </p>
         )}
       </div>
 
-      {/* Add form */}
+      {/* Manual add form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
           <h2 className="text-sm font-bold text-gradient">Werklog toevoegen</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-gray-400 text-xs font-medium">Omschrijving *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="Wat heb je gedaan?" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="Wat heb je gedaan?" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-gray-400 text-xs font-medium">Duur (minuten) *</label>
-              <input type="number" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))} required placeholder="120" min="1" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
+              <input type="number" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))} required placeholder="120" min="1" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-gray-400 text-xs font-medium">Context *</label>
-              <select value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors">
+              <select value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }}>
                 {CONTEXT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-gray-400 text-xs font-medium">Notitie</label>
-              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optioneel" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" />
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optioneel" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
             </div>
           </div>
           <div className="flex gap-3">
@@ -453,9 +523,7 @@ export default function WorklogsView() {
                                   ⏰ Verwacht {formatDuration(log.expected_duration_minutes)}, werd {formatDuration(actualDur)}
                                 </p>
                               )}
-                              {log.interruptions && (
-                                <p className="text-red-500 text-xs mt-0.5">⚠️ {log.interruptions}</p>
-                              )}
+                              {log.interruptions && <p className="text-red-500 text-xs mt-0.5">⚠️ {log.interruptions}</p>}
                               {log.source === 'ai' && <p className="text-gray-300 text-xs mt-0.5">· AI</p>}
                               {log.source === 'timer' && <p className="text-gray-300 text-xs mt-0.5">· Timer</p>}
                             </div>

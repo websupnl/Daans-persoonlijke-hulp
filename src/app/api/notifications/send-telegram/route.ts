@@ -1,26 +1,24 @@
 export const dynamic = 'force-dynamic'
 
 /**
- * Outbound WhatsApp notifications endpoint
+ * POST /api/notifications/send-telegram
  *
- * POST /api/notifications/send-whatsapp
+ * Send a notification to Daan's Telegram.
+ * Secured with INTERNAL_API_KEY.
  *
- * Beveiligd met INTERNAL_API_KEY.
- * Kan gebruikt worden voor reminders, dagoverzichten, weekoverzichten, etc.
+ * Required env vars: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { sendTextMessage } from '@/lib/whatsapp/send-message'
+import { sendTelegramMessage } from '@/lib/telegram/send-message'
 import { execute } from '@/lib/db'
 
 interface SendRequest {
-  to: string
   message: string
   type?: 'reminder' | 'daily_summary' | 'weekly_summary' | 'finance_alert' | 'custom'
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
   const apiKey = request.headers.get('x-api-key')
   if (apiKey !== process.env.INTERNAL_API_KEY) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,32 +31,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { to, message, type = 'custom' } = body
-  if (!to || !message) {
-    return NextResponse.json({ error: 'to en message zijn verplicht' }, { status: 400 })
+  const { message, type = 'custom' } = body
+  if (!message) {
+    return NextResponse.json({ error: 'message is verplicht' }, { status: 400 })
+  }
+
+  const chatId = process.env.TELEGRAM_CHAT_ID
+  if (!chatId) {
+    return NextResponse.json({ error: 'TELEGRAM_CHAT_ID is not configured' }, { status: 500 })
   }
 
   try {
-    const result = await sendTextMessage({ to, text: message })
+    await sendTelegramMessage(chatId, message)
 
-    // Log de notificatie
     await execute(`
       INSERT INTO conversation_log (user_message, assistant_message, parser_type, confidence, actions)
       VALUES ($1, $2, $3, $4, $5)
     `, [
-      `[outbound_notification:${type}] → ${to}`,
+      `[outbound_notification:${type}] → telegram:${chatId}`,
       message,
       'notification',
       1.0,
-      JSON.stringify([{ type: 'whatsapp_sent', to, messageId: result.messages?.[0]?.id }]),
+      JSON.stringify([{ type: 'telegram_sent', chatId }]),
     ])
 
-    return NextResponse.json({
-      success: true,
-      messageId: result.messages?.[0]?.id,
-    })
+    return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[notifications/send-whatsapp] Error:', err)
+    console.error('[notifications/send-telegram] Error:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Verzenden mislukt' },
       { status: 500 }

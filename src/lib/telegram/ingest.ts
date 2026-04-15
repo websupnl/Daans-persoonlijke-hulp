@@ -1,7 +1,7 @@
 /**
- * WhatsApp ingest engine.
- * Hergebruikt de bestaande chat/AI logica en slaat resultaten op in de DB.
- * Dit is de brug tussen het WhatsApp-kanaal en het brein van de app.
+ * Message ingest engine — shared by Telegram, chat, and future channels.
+ * Processes a plain-text message through the rule-based + AI pipeline
+ * and returns a reply string + metadata.
  */
 
 import { query, queryOne, execute } from '@/lib/db'
@@ -9,12 +9,25 @@ import { parseIntent, generateResponse } from '@/lib/chat-parser'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions } from '@/lib/ai/execute-actions'
 import { generateAIResponse } from '@/lib/ai/generate-response'
-import type { IngestRequest, IngestResponse } from './types'
+
+export interface IngestRequest {
+  message: string
+  source: 'telegram' | 'chat' | string
+  senderPhone?: string
+  senderName?: string
+}
+
+export interface IngestResponse {
+  reply: string
+  actions: unknown[]
+  parserType: string
+  confidence: number
+}
 
 export async function ingestMessage(req: IngestRequest): Promise<IngestResponse> {
   const { message, source, senderPhone, senderName } = req
 
-  // Sla inkomend bericht op als chat_message (met source context)
+  // Save incoming message in chat history
   await execute(
     'INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)',
     ['user', `[${source}${senderName ? ` - ${senderName}` : ''}] ${message}`, '[]']
@@ -31,7 +44,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
     : parsed.intent === 'unknown' || confidence < 0.75
 
   if (!useAI) {
-    // Rule-based pad — zelfde logica als de chat route
+    // ── Rule-based path ──────────────────────────────────────────────────────
     parserType = 'rule'
     let actionResult: unknown = undefined
     const actions: unknown[] = []
@@ -41,8 +54,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
         if (parsed.params.title) {
           const inserted = await queryOne<Record<string, unknown>>(`
             INSERT INTO todos (title, category, priority, due_date)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *
+            VALUES ($1, $2, $3, $4) RETURNING *
           `, [
             String(parsed.params.title),
             parsed.params.category || 'overig',
@@ -62,7 +74,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
             [`%${q}%`]
           )
           if (todo) {
-            await execute(`UPDATE todos SET completed = 1, completed_at = NOW() WHERE id = $1`, [todo.id])
+            await execute('UPDATE todos SET completed = 1, completed_at = NOW() WHERE id = $1', [todo.id])
             actionResult = todo
             actions.push({ type: 'todo_completed', data: todo })
           }
@@ -105,24 +117,31 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
       }
       case 'stats': {
         const todoCount = await queryOne<{ c: number }>('SELECT COUNT(*) as c FROM todos WHERE completed = 0')
-        const financeOpen = await queryOne<{ c: number; total: number }>(
-          "SELECT COUNT(*) as c, SUM(amount) as total FROM finance_items WHERE type='factuur' AND status IN ('verstuurd','verlopen')"
+        const monthIncome = await queryOne<{ total: number }>(
+          "SELECT SUM(amount) as total FROM finance_items WHERE type='inkomst' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')"
         )
-        actionResult = { todoCount: todoCount?.c ?? 0, openInvoices: financeOpen?.c ?? 0, openAmount: financeOpen?.total || 0 }
+        const monthExpenses = await queryOne<{ total: number }>(
+          "SELECT SUM(amount) as total FROM finance_items WHERE type='uitgave' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')"
+        )
+        actionResult = {
+          todoCount: todoCount?.c ?? 0,
+          monthIncome: monthIncome?.total || 0,
+          monthExpenses: monthExpenses?.total || 0,
+        }
         break
       }
     }
 
     let responseText = generateResponse(parsed, actionResult)
     if (parsed.intent === 'stats' && actionResult) {
-      const r = actionResult as { todoCount: number; openInvoices: number; openAmount: number }
-      responseText += `\n\n📋 ${r.todoCount} open todos\n💸 ${r.openInvoices} open facturen (€${r.openAmount.toFixed(2)})`
+      const r = actionResult as { todoCount: number; monthIncome: number; monthExpenses: number }
+      responseText += `\n\n📋 ${r.todoCount} open todos\n💰 Inkomsten: €${Number(r.monthIncome).toFixed(2)}\n💸 Uitgaven: €${Number(r.monthExpenses).toFixed(2)}`
     }
 
     assistantMessage = stripMarkdown(responseText)
     actionsJson = JSON.stringify(actions)
   } else {
-    // AI pad
+    // ── AI path ──────────────────────────────────────────────────────────────
     parserType = 'ai'
     const aiResult = await parseCommandWithAI(message)
 
@@ -133,7 +152,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
     } else {
       confidence = aiResult.confidence
 
-      // Memory candidates opslaan
+      // Store memory candidates
       if (aiResult.memory_candidates) {
         for (const candidate of aiResult.memory_candidates) {
           if (candidate.confidence >= 0.7) {
@@ -156,7 +175,7 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
     }
   }
 
-  // Sla assistant reply op
+  // Save assistant reply
   await execute(
     'INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)',
     ['assistant', assistantMessage, actionsJson]
@@ -183,14 +202,13 @@ export async function ingestMessage(req: IngestRequest): Promise<IngestResponse>
 }
 
 /**
- * Verwijder markdown opmaak voor WhatsApp plain text.
- * WhatsApp ondersteunt *bold* en _italic_ maar geen **double** of `code`.
+ * Strip markdown formatting for plain-text channels (Telegram supports *bold* and _italic_)
  */
 function stripMarkdown(text: string): string {
   return text
     .replace(/\*\*(.*?)\*\*/g, '*$1*')   // **bold** → *bold*
-    .replace(/__(.*?)__/g, '_$1_')         // __bold__ → _bold_
-    .replace(/`([^`]+)`/g, '$1')           // `code` → code
-    .replace(/#{1,6}\s/g, '')              // headers verwijderen
+    .replace(/__(.*?)__/g, '_$1_')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/#{1,6}\s/g, '')
     .trim()
 }
