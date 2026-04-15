@@ -14,12 +14,45 @@ interface ParsedRow {
 /** Parse Dutch amount string "1.234,56" or "1234.56" → number */
 function parseDutchAmount(s: string): number {
   const cleaned = s.trim().replace(/[€$\s]/g, '')
+  if (!cleaned) return 0
+  
+  const isNegative = cleaned.startsWith('-')
+  const absCleaned = isNegative ? cleaned.slice(1) : cleaned
+  
+  let value: number
   // Dutch format: 1.234,56 → remove dots, replace comma with dot
-  if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned)) {
-    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'))
+  if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(absCleaned)) {
+    value = parseFloat(absCleaned.replace(/\./g, '').replace(',', '.'))
+  } else {
+    // English/generic: 1234.56
+    value = parseFloat(absCleaned.replace(',', '.')) || 0
   }
-  // English/generic: 1234.56
-  return parseFloat(cleaned.replace(',', '.')) || 0
+  return isNegative ? -value : value
+}
+
+/** Normalize various date formats to YYYY-MM-DD */
+function normalizeDate(s: string): string {
+  if (!s) return new Date().toISOString().split('T')[0]
+  const clean = s.trim()
+  
+  // DD-MM-YYYY or D-M-YYYY
+  const dmy = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (dmy) {
+    return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
+  }
+  
+  // DD/MM/YYYY or D/M/YYYY
+  const dmy2 = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy2) {
+    return `${dmy2[3]}-${dmy2[2].padStart(2, '0')}-${dmy2[1].padStart(2, '0')}`
+  }
+
+  // YYYYMMDD
+  if (/^\d{8}$/.test(clean)) {
+    return `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}`
+  }
+  
+  return clean
 }
 
 /** Detect CSV delimiter by counting occurrences in first line */
@@ -83,15 +116,9 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
       const afBij = (cols[idxAfBij] ?? '').toLowerCase()
       const amount = parseDutchAmount(cols[idxBedrag] ?? '0')
 
-      // ING date format: YYYYMMDD
-      let date = rawDate
-      if (/^\d{8}$/.test(rawDate)) {
-        date = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
-      }
-
       if (amount <= 0) continue
       rows.push({
-        date,
+        date: normalizeDate(rawDate),
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type: afBij.startsWith('bij') ? 'inkomst' : 'uitgave',
@@ -116,11 +143,11 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
       const amount = Math.abs(rawAmount)
       const type: 'inkomst' | 'uitgave' = rawAmount >= 0 ? 'inkomst' : 'uitgave'
       const desc = cols[idxDesc] ?? ''
-      const date = cols[idxDate] ?? new Date().toISOString().split('T')[0]
+      const date = cols[idxDate] ?? ''
 
       if (amount <= 0) continue
       rows.push({
-        date,
+        date: normalizeDate(date),
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
@@ -150,7 +177,49 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
 
       if (amount <= 0) continue
       rows.push({
-        date: cols[idxDate] ?? new Date().toISOString().split('T')[0],
+        date: normalizeDate(cols[idxDate] ?? ''),
+        description: desc.trim().slice(0, 120) || 'Transactie',
+        amount,
+        type,
+        category: guessCategory(desc),
+      })
+    }
+    return rows
+  }
+
+  // ── Custom format (user provided) ──
+  const isCustom = headers.includes('datum_volledig') && (headers.includes('bedrag_genormaliseerd') || headers.includes('richting'))
+  if (isCustom) {
+    const idxDate = headers.findIndex(h => h === 'datum_volledig' || h === 'datum')
+    const idxDesc = headers.findIndex(h => h === 'omschrijving')
+    const idxAmountNormal = headers.findIndex(h => h === 'bedrag_genormaliseerd')
+    const idxAmount = headers.findIndex(h => h === 'bedrag')
+    const idxRichting = headers.findIndex(h => h === 'richting')
+
+    for (const line of lines.slice(1)) {
+      if (!line.trim()) continue
+      const cols = splitCsvLine(line, delimiter)
+      
+      let amount = 0
+      let type: 'inkomst' | 'uitgave' = 'uitgave'
+
+      if (idxAmountNormal >= 0 && cols[idxAmountNormal]) {
+        const raw = parseDutchAmount(cols[idxAmountNormal])
+        amount = Math.abs(raw)
+        type = raw >= 0 ? 'inkomst' : 'uitgave'
+      } else if (idxAmount >= 0) {
+        amount = Math.abs(parseDutchAmount(cols[idxAmount] ?? '0'))
+        if (idxRichting >= 0) {
+          const richting = (cols[idxRichting] ?? '').toLowerCase()
+          type = richting.includes('bij') || richting === 'credit' ? 'inkomst' : 'uitgave'
+        }
+      }
+
+      if (amount <= 0) continue
+      
+      const desc = cols[idxDesc] ?? ''
+      rows.push({
+        date: normalizeDate(cols[idxDate] ?? ''),
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
@@ -162,22 +231,33 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
 
   // ── Generic fallback: look for date, amount, description columns ──
   const idxDate = headers.findIndex(h => /datum|date/.test(h))
+  const idxAmountNormal = headers.findIndex(h => h.includes('genormaliseerd'))
   const idxAmount = headers.findIndex(h => /bedrag|amount|euro|eur/.test(h))
   const idxDesc = headers.findIndex(h => /omschrijving|description|naam|name|detail/.test(h))
+  const idxRichting = headers.findIndex(h => /richting|type|af.?bij/.test(h))
 
-  if (idxAmount >= 0) {
+  if (idxAmount >= 0 || idxAmountNormal >= 0) {
+    const bestAmtIdx = idxAmountNormal >= 0 ? idxAmountNormal : idxAmount
     for (const line of lines.slice(1)) {
       if (!line.trim()) continue
       const cols = splitCsvLine(line, delimiter)
-      const rawAmount = parseDutchAmount(cols[idxAmount] ?? '0')
+      const rawAmount = parseDutchAmount(cols[bestAmtIdx] ?? '0')
       const amount = Math.abs(rawAmount)
       if (amount <= 0) continue
+      
+      let type: 'inkomst' | 'uitgave' = rawAmount >= 0 ? 'inkomst' : 'uitgave'
+      if (idxRichting >= 0 && idxAmountNormal < 0) {
+        const richting = (cols[idxRichting] ?? '').toLowerCase()
+        if (richting.includes('bij') || richting.includes('in') || richting.includes('credit')) type = 'inkomst'
+        else if (richting.includes('af') || richting.includes('uit') || richting.includes('debet')) type = 'uitgave'
+      }
+
       const desc = idxDesc >= 0 ? (cols[idxDesc] ?? '') : line.slice(0, 60)
       rows.push({
-        date: idxDate >= 0 ? (cols[idxDate] ?? new Date().toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+        date: normalizeDate(idxDate >= 0 ? (cols[idxDate] ?? '') : ''),
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
-        type: rawAmount >= 0 ? 'inkomst' : 'uitgave',
+        type,
         category: guessCategory(desc),
       })
     }
