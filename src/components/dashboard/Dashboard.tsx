@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, Users, Euro, Activity, AlertCircle, TrendingUp, Clock } from 'lucide-react'
+import { CheckSquare, FileText, Euro, Activity, AlertCircle, TrendingUp, Clock, Sparkles, MessageSquare } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
+import type { Insight } from '@/app/api/ai/insights/route'
 
 interface DashboardData {
   stats: {
@@ -18,21 +19,41 @@ interface DashboardData {
   openInvoices: Array<{ id: number; title: string; amount: number; due_date?: string; status: string; contact_name?: string }>
 }
 
+interface InsightsData {
+  insights: Insight[]
+  aiFocus: string | null
+  ai_powered: boolean
+  summary: { habitsToday: string; openTodos: number; overdueTodos: number; openFinance: number }
+}
+
 const PRIORITY_DOT: Record<string, string> = {
   hoog: 'bg-red-400',
   medium: 'bg-amber-400',
   laag: 'bg-emerald-400',
 }
 
+const INSIGHT_STYLES: Record<Insight['type'], string> = {
+  success: 'border-emerald-800/40 bg-emerald-950/30 text-emerald-300',
+  warning: 'border-amber-800/40 bg-amber-950/30 text-amber-300',
+  error: 'border-red-800/40 bg-red-950/30 text-red-300',
+  info: 'border-brand-800/40 bg-brand-950/20 text-brand-300',
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [insights, setInsights] = useState<InsightsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard')
-      .then(r => r.json())
-      .then(setData)
-      .finally(() => setLoading(false))
+    // Laad dashboard en insights parallel
+    Promise.all([
+      fetch('/api/dashboard').then(r => r.json()),
+      fetch('/api/ai/insights').then(r => r.json()).catch(() => null),
+    ]).then(([dashData, insightsData]) => {
+      setData(dashData)
+      setInsights(insightsData)
+      setLoading(false)
+    })
   }, [])
 
   const greeting = () => {
@@ -62,8 +83,21 @@ export default function Dashboard() {
         <p className="text-slate-500 text-sm mt-0.5 capitalize">{today}</p>
       </div>
 
+      {/* AI Focus tip */}
+      {insights?.aiFocus && (
+        <div className="mb-5 p-4 rounded-xl bg-brand-950/40 border border-brand-800/30 flex items-start gap-3">
+          <div className="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Sparkles size={14} className="text-brand-400" />
+          </div>
+          <div>
+            <p className="text-[11px] text-brand-500 font-medium mb-0.5">AI Focus voor vandaag</p>
+            <p className="text-sm text-slate-300">{insights.aiFocus}</p>
+          </div>
+        </div>
+      )}
+
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <StatCard
           href="/todos"
           icon={<CheckSquare size={18} />}
@@ -97,49 +131,84 @@ export default function Dashboard() {
           label="Gewoontes"
           value={`${stats?.habits.completedToday ?? 0}/${stats?.habits.total ?? 0}`}
           sub="vandaag gedaan"
-          subColor="text-slate-500"
+          subColor={
+            stats && stats.habits.total > 0 && stats.habits.completedToday === stats.habits.total
+              ? 'text-emerald-400'
+              : 'text-slate-500'
+          }
           accent="emerald"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Urgent todos */}
-        <div className="lg:col-span-2 bg-[#13151c] rounded-xl border border-white/5 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <Clock size={14} className="text-brand-400" />
-              Urgent & Vandaag
-            </h2>
-            <Link href="/todos" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-              Alle todos →
-            </Link>
-          </div>
-          <div className="space-y-1.5">
-            {!data?.urgentTodos?.length ? (
-              <div className="text-center py-6">
-                <p className="text-slate-600 text-sm">Niets urgent — lekker bezig! 🎉</p>
-              </div>
-            ) : (
-              data.urgentTodos.map(todo => (
-                <div key={todo.id} className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-white/5 transition-colors group">
-                  <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-slate-500')} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-300 truncate">{todo.title}</p>
-                    {todo.due_date && (
-                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400' : 'text-slate-600')}>
-                        {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
-                      </p>
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                <Clock size={14} className="text-brand-400" />
+                Urgent & Vandaag
+              </h2>
+              <Link href="/todos" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                Alle todos →
+              </Link>
+            </div>
+            <div className="space-y-1.5">
+              {!data?.urgentTodos?.length ? (
+                <div className="text-center py-6">
+                  <p className="text-slate-600 text-sm">Niets urgent — lekker bezig! 🎉</p>
+                </div>
+              ) : (
+                data.urgentTodos.map(todo => (
+                  <div key={todo.id} className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-white/5 transition-colors">
+                    <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-slate-500')} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-300 truncate">{todo.title}</p>
+                      {todo.due_date && (
+                        <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400' : 'text-slate-600')}>
+                          {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
+                        </p>
+                      )}
+                    </div>
+                    {todo.project_title && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: todo.project_color + '22', color: todo.project_color }}>
+                        {todo.project_title}
+                      </span>
                     )}
                   </div>
-                  {todo.project_title && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: todo.project_color + '22', color: todo.project_color }}>
-                      {todo.project_title}
-                    </span>
-                  )}
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
+
+          {/* AI Insights */}
+          {insights?.insights && insights.insights.length > 0 && (
+            <div className="bg-[#13151c] rounded-xl border border-white/5 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                  <Sparkles size={14} className="text-brand-400" />
+                  Inzichten
+                </h2>
+                {insights.ai_powered && (
+                  <span className="text-[10px] text-brand-500">AI-aangedreven</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                {insights.insights.map((insight, i) => (
+                  <div key={i} className={cn('text-xs px-3 py-2 rounded-lg border', INSIGHT_STYLES[insight.type])}>
+                    {insight.icon} {insight.text}
+                  </div>
+                ))}
+              </div>
+              <Link
+                href="/chat"
+                className="mt-3 flex items-center gap-2 text-xs text-slate-600 hover:text-brand-400 transition-colors"
+              >
+                <MessageSquare size={11} />
+                Vraag de AI om meer uitleg →
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Right column */}
@@ -163,7 +232,11 @@ export default function Dashboard() {
                   <div key={inv.id} className="flex items-center justify-between py-1">
                     <div className="min-w-0">
                       <p className="text-xs text-slate-300 truncate">{inv.contact_name || inv.title}</p>
-                      {inv.due_date && <p className={cn('text-[10px]', isOverdue(inv.due_date) ? 'text-red-400' : 'text-slate-600')}>{formatDate(inv.due_date)}</p>}
+                      {inv.due_date && (
+                        <p className={cn('text-[10px]', isOverdue(inv.due_date) ? 'text-red-400' : 'text-slate-600')}>
+                          {formatDate(inv.due_date)}
+                        </p>
+                      )}
                     </div>
                     <span className="text-xs font-medium text-amber-400 ml-2 flex-shrink-0">{formatCurrency(inv.amount)}</span>
                   </div>
@@ -196,6 +269,20 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* Snel naar chat */}
+          <Link
+            href="/chat"
+            className="flex items-center gap-3 p-3 bg-brand-950/30 border border-brand-800/20 rounded-xl hover:bg-brand-950/50 transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center">
+              <Sparkles size={14} className="text-brand-400" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-300 group-hover:text-white transition-colors">Vraag de AI</p>
+              <p className="text-[10px] text-slate-600">Analyseer je dag of stel vragen</p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
@@ -203,7 +290,7 @@ export default function Dashboard() {
 }
 
 function StatCard({
-  href, icon, label, value, sub, subColor, accent
+  href, icon, label, value, sub, subColor, accent,
 }: {
   href: string
   icon: React.ReactNode

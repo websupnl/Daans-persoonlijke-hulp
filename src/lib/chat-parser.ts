@@ -3,8 +3,7 @@
  * Herkent intenties en extraheert entiteiten zonder AI API.
  */
 
-import { format, addDays, addWeeks, nextFriday, nextMonday, parseISO, isValid } from 'date-fns'
-import { nl } from 'date-fns/locale'
+import { format, addDays, addWeeks, nextFriday, nextMonday, isValid } from 'date-fns'
 
 export type Intent =
   | 'todo_add'
@@ -24,9 +23,16 @@ export type Intent =
   | 'finance_list'
   | 'habit_log'
   | 'habit_list'
+  | 'habit_query'
   | 'journal_open'
   | 'memory_add'
   | 'stats'
+  | 'day_plan'
+  | 'week_summary'
+  | 'mood_query'
+  | 'todo_query'
+  | 'finance_query'
+  | 'advice_request'
   | 'help'
   | 'unknown'
 
@@ -36,6 +42,14 @@ export interface ParsedIntent {
   params: Record<string, string | number | boolean | undefined>
   raw: string
 }
+
+/** Intenties die een echte actie uitvoeren (vs vragen/analyse) */
+export const COMMAND_INTENTS: Intent[] = [
+  'todo_add', 'todo_complete', 'todo_delete', 'todo_update',
+  'note_add', 'contact_add',
+  'finance_add_invoice', 'finance_add_expense', 'finance_add_income',
+  'habit_log', 'memory_add',
+]
 
 // ─── Datum extractie ──────────────────────────────────────────────────────────
 
@@ -54,7 +68,6 @@ export function extractDate(text: string): string | undefined {
     [/\bover (\d+) dagen?\b/, (m?: RegExpMatchArray) => addDays(today, parseInt(m?.[1] || '1'))],
     [/\bover (\d+) weken?\b/, (m?: RegExpMatchArray) => addWeeks(today, parseInt(m?.[1] || '1'))],
     [/\beinde (van de )?maand\b/, () => new Date(today.getFullYear(), today.getMonth() + 1, 0)],
-    // DD-MM of DD/MM of DD-MM-YYYY
     [/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/, (m?: RegExpMatchArray) => {
       if (!m) return today
       const year = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : today.getFullYear()
@@ -239,7 +252,6 @@ export function parseIntent(input: string): ParsedIntent {
   if (/\b(factuur|invoice|stuur.{0,20}factuur|maak.{0,10}factuur|nieuwe factuur)\b/i.test(text)) {
     const amount = extractAmount(text)
     const clientMatch = text.match(/(?:voor|aan|naar|to|for)\s+([A-Za-z][A-Za-z0-9\s]{1,30}?)(?:\s+(?:voor|van|€|\d)|$)/i)
-    const descMatch = text.match(/(?:voor|for)\s+(.+?)(?:\s+(?:van|€|\d+)|$)/i)
     return {
       intent: 'finance_add_invoice',
       confidence: 0.9,
@@ -247,7 +259,6 @@ export function parseIntent(input: string): ParsedIntent {
         title: text.slice(0, 80),
         amount,
         client: clientMatch?.[1]?.trim(),
-        description: descMatch?.[1]?.trim(),
         due_date: extractDate(text),
       },
       raw: text,
@@ -276,33 +287,50 @@ export function parseIntent(input: string): ParsedIntent {
     return {
       intent: 'finance_add_income',
       confidence: 0.85,
-      params: {
-        title: text.slice(0, 60),
-        amount,
-      },
+      params: { title: text.slice(0, 60), amount },
       raw: text,
     }
   }
 
-  // ── Financiën overzicht ──
-  if (/\b(financieel overzicht|mijn financiën|open facturen|openstaand|toon facturen|show invoices)\b/i.test(text)) {
-    return { intent: 'finance_list', confidence: 0.88, params: {}, raw: text }
-  }
-
   // ── Gewoonte loggen ──
-  if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen)\b/i.test(text)) {
+  if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen|heb gemediteerd|heb gelezen)\b/i.test(text)) {
     const habitMatch = text.match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen)\b/i)
     return {
       intent: 'habit_log',
-      confidence: 0.85,
+      confidence: 0.88,
       params: { habit_name: habitMatch?.[1] },
       raw: text,
     }
   }
 
-  // ── Gewoontes overzicht ──
-  if (/\b(gewoontes?|habits?|toon gewoontes?|mijn gewoontes?|streak)\b/i.test(text)) {
-    return { intent: 'habit_list', confidence: 0.85, params: {}, raw: text }
+  // ── Gewoonte vraag/analyse ──
+  if (/\b(hoe gaan mijn gewoontes?|gewoontes? overzicht|hoe is mijn streak|toon gewoontes?|mijn gewoontes?|habit(s)? overzicht|hoe doe ik het met|streak overzicht)\b/i.test(lower)) {
+    return { intent: 'habit_query', confidence: 0.9, params: {}, raw: text }
+  }
+
+  // ── Dagplan ──
+  if (/\b(wat moet ik vandaag doen|dagplan|wat staat er vandaag|planning voor vandaag|focus vandaag|prioriteiten vandaag|wat zijn mijn priorities|what should i do today|today('s)? plan|day plan)\b/i.test(lower)) {
+    return { intent: 'day_plan', confidence: 0.9, params: {}, raw: text }
+  }
+
+  // ── Week samenvatting ──
+  if (/\b(week samenvatting|hoe ging deze week|weekly summary|week review|terugblik|this week('s)? summary|samenvatting van (de|deze) week)\b/i.test(lower)) {
+    return { intent: 'week_summary', confidence: 0.88, params: {}, raw: text }
+  }
+
+  // ── Stemming/energie vraag ──
+  if (/\b(hoe voel ik me|mijn stemming|mood check|hoe is mijn energie|hoe ga ik er(voor)?|hoe is het met me|hoe gaat het)\b/i.test(lower)) {
+    return { intent: 'mood_query', confidence: 0.85, params: {}, raw: text }
+  }
+
+  // ── Taken analyse ──
+  if (/\b(welke taken zijn urgent|wat zijn mijn priorities|todo analyse|taak overzicht|what('s)? urgent|mijn workload|hoeveel taken)\b/i.test(lower)) {
+    return { intent: 'todo_query', confidence: 0.87, params: {}, raw: text }
+  }
+
+  // ── Financiën vraag ──
+  if (/\b(financieel overzicht|mijn financiën|open facturen|openstaand|toon facturen|hoe staan mijn financiën|cashflow|financiële situatie|hoeveel verdien|hoe staat het financieel)\b/i.test(lower)) {
+    return { intent: 'finance_query', confidence: 0.88, params: {}, raw: text }
   }
 
   // ── Dagboek ──
@@ -311,7 +339,7 @@ export function parseIntent(input: string): ParsedIntent {
   }
 
   // ── Statistieken / dashboard ──
-  if (/\b(statistieken|stats|dashboard|overzicht|samenvatting|summary|hoe gaat het)\b/i.test(text)) {
+  if (/\b(statistieken|stats|dashboard|overzicht|samenvatting|summary)\b/i.test(text)) {
     return { intent: 'stats', confidence: 0.85, params: {}, raw: text }
   }
 
@@ -326,6 +354,11 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
+  // ── Advies ──
+  if (/\b(geef me advies|wat zou jij doen|aanbeveling|tip|suggestie|hoe kan ik|what do you suggest|advise me|help me with)\b/i.test(lower)) {
+    return { intent: 'advice_request', confidence: 0.8, params: {}, raw: text }
+  }
+
   // ── Help ──
   if (/\b(help|wat kan je|what can you|commando's?|commands?|hoe gebruik|how to use)\b/i.test(text)) {
     return { intent: 'help', confidence: 0.95, params: {}, raw: text }
@@ -334,7 +367,7 @@ export function parseIntent(input: string): ParsedIntent {
   return { intent: 'unknown', confidence: 0, params: {}, raw: text }
 }
 
-// ─── Response generator ───────────────────────────────────────────────────────
+// ─── Response generator voor eenvoudige commando's ───────────────────────────
 
 export function generateResponse(intent: ParsedIntent, actionResult?: unknown): string {
   const { params } = intent
@@ -376,7 +409,7 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 
     case 'contact_list': {
       const contacts = actionResult as Array<{ name: string }> | undefined
-      if (!contacts || contacts.length === 0) return 'Nog geen contacten. Typ "voeg contact toe [naam]" om te beginnen.'
+      if (!contacts || contacts.length === 0) return 'Nog geen contacten.'
       return `👥 **${contacts.length} contacten** in je adresboek.`
     }
 
@@ -398,11 +431,8 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
     case 'habit_log':
       return `✅ Gewoonte gelogd! ${params.habit_name ? `"${params.habit_name}"` : ''} Keep it up! 🔥`
 
-    case 'habit_list':
-      return `🎯 Je gewoontes zijn te zien in het Gewoontes-tabblad.`
-
     case 'journal_open':
-      return `📖 Dagboek geopend voor vandaag.`
+      return `📖 Ga naar het Dagboek tabblad om je entry voor vandaag bij te houden.`
 
     case 'stats':
       return `📊 Hier is je overzicht:`
@@ -420,10 +450,9 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 
 📝 **Notes**
 • _"Noteer: idee voor nieuw project"_
-• _"Toon mijn notes"_
 
 👤 **Contacten**
-• _"Voeg contact toe Jan Jansen jan@example.com"_
+• _"Voeg contact toe Jan Jansen"_
 
 💰 **Financiën**
 • _"Factuur voor MCE hosting €150"_
@@ -432,13 +461,16 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 🎯 **Gewoontes**
 • _"Heb gesport vandaag"_
 
-📖 **Dagboek**
-• _"Open dagboek"_
+**Vragen stellen:**
+• _"Wat moet ik vandaag doen?"_
+• _"Hoe gaan mijn gewoontes?"_
+• _"Hoe staan mijn financiën?"_
+• _"Hoe ga ik ervoor?"_
 
 🧠 **Geheugen**
 • _"Onthoud dat mijn uurtarief €95 is"_`
 
     default:
-      return `Hmm, dat begreep ik niet helemaal. Typ **help** voor een overzicht van commando's, of gebruik de modules aan de linkerkant.`
+      return `Hmm, dat begreep ik niet helemaal. Typ **help** voor een overzicht, of stel me een vraag over je gewoontes, todos of financiën.`
   }
 }
