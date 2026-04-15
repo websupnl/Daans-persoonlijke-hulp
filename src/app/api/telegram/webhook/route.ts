@@ -27,10 +27,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Telegram expects 200 quickly; process async
-  handleUpdate(update).catch(err => {
+  // Process synchronously — Vercel kills the lambda after response, so await first
+  try {
+    await handleUpdate(update)
+  } catch (err) {
     console.error('[Telegram webhook] Processing error:', err)
-  })
+  }
 
   return NextResponse.json({ ok: true })
 }
@@ -55,6 +57,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   console.log(`[Telegram webhook] Message from ${senderName} (${chatId}): "${text}"`)
+  console.log(`[Telegram webhook] BOT_TOKEN set: ${!!process.env.TELEGRAM_BOT_TOKEN}, CHAT_ID: ${process.env.TELEGRAM_CHAT_ID}`)
 
   try {
     const result = await ingestMessage({
@@ -63,16 +66,18 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       senderName: senderName || undefined,
     })
 
-    console.log(`[Telegram webhook] Reply (${result.parserType}, conf=${result.confidence.toFixed(2)}): "${result.reply}"`)
+    console.log(`[Telegram webhook] Reply (${result.parserType}, conf=${result.confidence.toFixed(2)}): "${result.reply?.slice(0, 80)}"`)
 
     if (result.reply) {
       await sendTelegramMessage(chatId, result.reply)
+      console.log('[Telegram webhook] Message sent successfully')
     }
   } catch (err) {
-    console.error('[Telegram webhook] Error processing message:', err)
-    await sendTelegramMessage(
-      chatId,
-      '❌ Er ging iets mis bij het verwerken van je bericht. Probeer het opnieuw.'
-    ).catch(() => {})
+    console.error('[Telegram webhook] Error:', err instanceof Error ? err.message : err)
+    try {
+      await sendTelegramMessage(chatId, '❌ Er ging iets mis. Probeer het opnieuw.')
+    } catch (sendErr) {
+      console.error('[Telegram webhook] Also failed to send error message:', sendErr instanceof Error ? sendErr.message : sendErr)
+    }
   }
 }
