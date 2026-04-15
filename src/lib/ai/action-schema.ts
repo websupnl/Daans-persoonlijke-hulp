@@ -147,6 +147,18 @@ export const InboxCaptureAction = z.object({
   }),
 })
 
+export const EventCreateAction = z.object({
+  type: z.literal('event_create'),
+  payload: z.object({
+    title: z.string(),
+    date: z.string(), // YYYY-MM-DD
+    time: z.string().optional(),
+    type: z.enum(['vergadering', 'deadline', 'afspraak', 'herinnering', 'algemeen']).optional(),
+    description: z.string().optional(),
+    duration: z.number().optional(),
+  }),
+})
+
 export const DailyPlanRequestAction = z.object({
   type: z.literal('daily_plan_request'),
   payload: z.object({}),
@@ -173,6 +185,7 @@ export const AnyAction = z.discriminatedUnion('type', [
   HabitLogAction,
   MemoryStoreAction,
   InboxCaptureAction,
+  EventCreateAction,
   DailyPlanRequestAction,
   WeeklyPlanRequestAction,
 ])

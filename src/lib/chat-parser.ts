@@ -26,6 +26,10 @@ export type Intent =
   | 'habit_list'
   | 'journal_open'
   | 'memory_add'
+  | 'worklog_add'
+  | 'worklog_list'
+  | 'event_add'
+  | 'event_list'
   | 'stats'
   | 'help'
   | 'unknown'
@@ -326,6 +330,63 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
+  // ── Werklog toevoegen ──
+  if (/\b(gewerkt aan|heb gewerkt|werklog|uren gelogd?|gelogd|time log|tijdlog|heb.{0,20}uur.{0,20}gewerkt|heb.{0,20}min.{0,20}gewerkt)\b/i.test(text)
+    || /\b\d+[.,]?\d*\s*(uur|u|h|uren|min|minuten|minuut)\b.{0,30}\b(aan|bij|voor|op|gewerkt|gesleuteld|gebouwd|geschreven|gecoded|gemaild|gebeld)\b/i.test(text)) {
+    const durationMatch = text.match(/(\d+)[.,]?(\d*)\s*(uur|u|h|uren)/) || text.match(/(\d+)\s*(min|minuten|minuut)/)
+    let duration: number | undefined
+    if (durationMatch) {
+      if (/uur|u|h|uren/.test(durationMatch[3] ?? '')) {
+        duration = parseInt(durationMatch[1]) * 60 + (durationMatch[2] ? parseInt(durationMatch[2]) * 6 : 0)
+      } else {
+        duration = parseInt(durationMatch[1])
+      }
+    }
+    const contextMatch = text.match(/\b(bouma|websup|webdesign|privé|prive|studie)\b/i)
+    const contextMap: Record<string, string> = { bouma: 'Bouma', websup: 'WebsUp', webdesign: 'WebsUp', privé: 'privé', prive: 'privé', studie: 'studie' }
+    return {
+      intent: 'worklog_add',
+      confidence: 0.85,
+      params: {
+        title: text.slice(0, 80),
+        duration_minutes: duration,
+        context: contextMatch ? contextMap[contextMatch[1].toLowerCase()] : undefined,
+      },
+      raw: text,
+    }
+  }
+
+  // ── Werklog lijst ──
+  if (/\b(toon werklogs?|mijn werklogs?|hoeveel gewerkt|werkuren|vandaag gewerkt|werklog overzicht)\b/i.test(text)) {
+    return { intent: 'worklog_list', confidence: 0.88, params: {}, raw: text }
+  }
+
+  // ── Event / agenda toevoegen ──
+  if (/\b(agenda|event|afspraak|vergadering|meeting|deadline|herinnering|reminder|zet in agenda|plan.{0,15}in|afgesproken met|gepland)\b/i.test(text)) {
+    const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\b/)
+    const typeMap: Record<string, string> = {
+      vergadering: 'vergadering', meeting: 'vergadering', call: 'vergadering',
+      deadline: 'deadline', afspraak: 'afspraak', herinnering: 'herinnering', reminder: 'herinnering',
+    }
+    const typeMatch = text.match(/\b(vergadering|meeting|call|deadline|afspraak|herinnering|reminder)\b/i)
+    return {
+      intent: 'event_add',
+      confidence: 0.85,
+      params: {
+        title: text.replace(/\b(agenda|event|zet in agenda|plan in|gepland|vergadering|meeting|afspraak|deadline|herinnering)\b/gi, '').trim().slice(0, 80) || text.slice(0, 80),
+        date: extractDate(text) || new Date().toISOString().split('T')[0],
+        time: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : undefined,
+        type: typeMatch ? (typeMap[typeMatch[1].toLowerCase()] || 'algemeen') : 'algemeen',
+      },
+      raw: text,
+    }
+  }
+
+  // ── Event lijst / agenda bekijken ──
+  if (/\b(toon agenda|mijn agenda|agenda vandaag|agenda deze week|komende events?|aankomende afspraken|wat staat er op de agenda)\b/i.test(text)) {
+    return { intent: 'event_list', confidence: 0.88, params: {}, raw: text }
+  }
+
   // ── Help ──
   if (/\b(help|wat kan je|what can you|commando's?|commands?|hoe gebruik|how to use)\b/i.test(text)) {
     return { intent: 'help', confidence: 0.95, params: {}, raw: text }
@@ -410,6 +471,42 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
     case 'memory_add':
       return `🧠 Onthouden: "${params.fact}"`
 
+    case 'worklog_add':
+      if (actionResult) {
+        const log = actionResult as { title: string; duration_minutes: number }
+        const h = Math.floor((log.duration_minutes || 0) / 60)
+        const m = (log.duration_minutes || 0) % 60
+        return `⏱️ Werklog opgeslagen: **"${log.title}"** · ${h > 0 ? h + 'u ' : ''}${m > 0 ? m + 'm' : ''}`
+      }
+      return '⏱️ Werklog opgeslagen!'
+
+    case 'worklog_list': {
+      const result = actionResult as { total_minutes: number; count: number; entries: Array<{ title: string; duration_minutes: number; context: string }> } | undefined
+      if (!result || result.count === 0) return '📊 Geen werklogs gevonden voor vandaag. Start een timer of gebruik AI-invoer in het Werklog scherm.'
+      const h = Math.floor(result.total_minutes / 60)
+      const m = result.total_minutes % 60
+      const list = result.entries.slice(0, 5).map(e => {
+        const eh = Math.floor((e.duration_minutes || 0) / 60)
+        const em = (e.duration_minutes || 0) % 60
+        return `• ${e.title} (${eh > 0 ? eh + 'u ' : ''}${em > 0 ? em + 'm' : ''}, ${e.context})`
+      }).join('\n')
+      return `⏱️ **Vandaag gewerkt: ${h}u ${m}m** (${result.count} logs)\n${list}`
+    }
+
+    case 'event_add':
+      if (actionResult) {
+        const ev = actionResult as { title: string; date: string; time?: string }
+        return `📅 Event aangemaakt: **"${ev.title}"** op ${ev.date}${ev.time ? ` om ${ev.time}` : ''}`
+      }
+      return '📅 Event toegevoegd aan je agenda!'
+
+    case 'event_list': {
+      const evs = actionResult as Array<{ title: string; date: string; time?: string; type: string }> | undefined
+      if (!evs || evs.length === 0) return '📅 Geen komende events. Zeg _"plan vergadering morgen om 14:00"_ om iets toe te voegen.'
+      const list = evs.map(e => `• ${e.date}${e.time ? ` ${e.time}` : ''}: **${e.title}**`).join('\n')
+      return `📅 **Komende events:**\n${list}`
+    }
+
     case 'help':
       return `**Wat ik kan doen:**
 
@@ -420,7 +517,6 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 
 📝 **Notes**
 • _"Noteer: idee voor nieuw project"_
-• _"Toon mijn notes"_
 
 👤 **Contacten**
 • _"Voeg contact toe Jan Jansen jan@example.com"_
@@ -428,6 +524,15 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
 💰 **Financiën**
 • _"Factuur voor MCE hosting €150"_
 • _"Uitgave €45 voor kantoorspullen"_
+
+⏱️ **Werklog**
+• _"Heb 2 uur gewerkt aan WebsUp"_
+• _"Toon mijn werklogs vandaag"_
+
+📅 **Agenda**
+• _"Plan vergadering morgen om 10:00"_
+• _"Deadline project vrijdag"_
+• _"Toon agenda deze week"_
 
 🎯 **Gewoontes**
 • _"Heb gesport vandaag"_

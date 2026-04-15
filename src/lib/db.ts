@@ -2,17 +2,27 @@ import { Pool } from '@neondatabase/serverless'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
+// Auto-initialize schema on first request per process instance
+let _schemaReady = false
+async function ensureSchema() {
+  if (_schemaReady) return
+  try { await initSchema(); _schemaReady = true } catch { /* already migrated or transient error */ }
+}
+
 export async function query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]> {
+  await ensureSchema()
   const result = await pool.query(text, params)
   return result.rows as T[]
 }
 
 export async function queryOne<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T | undefined> {
+  await ensureSchema()
   const result = await pool.query(text, params)
   return result.rows[0] as T | undefined
 }
 
 export async function execute(text: string, params?: unknown[]): Promise<number> {
+  await ensureSchema()
   const result = await pool.query(text, params)
   return result.rowCount ?? 0
 }

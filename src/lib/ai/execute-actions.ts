@@ -160,6 +160,16 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: { id: row?.id } }
     }
 
+    case 'event_create': {
+      const { title, date, time, type, description, duration } = action.payload
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO events (title, date, time, type, description, duration)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `, [title, date, time ?? null, type ?? 'algemeen', description ?? null, duration ?? 60])
+      return { type: action.type, success: true, data: { id: row?.id, title, date } }
+    }
+
     case 'daily_plan_request':
     case 'weekly_plan_request':
       return { type: action.type, success: true, data: { requested: true } }

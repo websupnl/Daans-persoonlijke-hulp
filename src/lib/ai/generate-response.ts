@@ -38,6 +38,7 @@ function getActionLabel(type: string): string {
     habit_log: 'Gewoonte loggen',
     memory_store: 'Onthouden',
     inbox_capture: 'Opslaan in inbox',
+    event_create: 'Event aanmaken',
     daily_plan_request: 'Dagplanning maken',
     weekly_plan_request: 'Weekplanning maken',
   }

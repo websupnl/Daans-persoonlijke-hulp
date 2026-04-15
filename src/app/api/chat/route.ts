@@ -210,11 +210,66 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'worklog_add': {
+        const title = String(parsed.params.title || 'Werklog')
+        const durationMinutes = Number(parsed.params.duration_minutes || 60)
+        const context = String(parsed.params.context || 'overig')
+        const inserted = await queryOne<Record<string, unknown>>(`
+          INSERT INTO work_logs (title, duration_minutes, context, source, date)
+          VALUES ($1, $2, $3, 'chat', CURRENT_DATE)
+          RETURNING *
+        `, [title.slice(0, 120), durationMinutes, context])
+        actionResult = inserted
+        actions.push({ type: 'worklog_created', data: actionResult })
+        break
+      }
+
+      case 'worklog_list': {
+        const entries = await query<{ title: string; duration_minutes: number; context: string }>(`
+          SELECT title, COALESCE(actual_duration_minutes, duration_minutes) as duration_minutes, context
+          FROM work_logs WHERE date = CURRENT_DATE ORDER BY created_at DESC LIMIT 8
+        `)
+        const totalRow = await queryOne<{ total: number }>(`
+          SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes, 0)) as total
+          FROM work_logs WHERE date = CURRENT_DATE
+        `)
+        actionResult = { entries, count: entries.length, total_minutes: Number(totalRow?.total ?? 0) }
+        actions.push({ type: 'worklog_listed', data: actionResult })
+        break
+      }
+
+      case 'event_add': {
+        const evDate = String(parsed.params.date || new Date().toISOString().split('T')[0])
+        const evTitle = String(parsed.params.title || 'Nieuw event')
+        const evTime = parsed.params.time ? String(parsed.params.time) : null
+        const evType = String(parsed.params.type || 'algemeen')
+        const inserted = await queryOne<Record<string, unknown>>(`
+          INSERT INTO events (title, date, time, type)
+          VALUES ($1, $2, $3, $4)
+          RETURNING *, TO_CHAR(date, 'YYYY-MM-DD') as date
+        `, [evTitle.slice(0, 120), evDate, evTime, evType])
+        actionResult = inserted
+        actions.push({ type: 'event_created', data: actionResult })
+        break
+      }
+
+      case 'event_list': {
+        const evs = await query<{ title: string; date: string; time?: string; type: string }>(`
+          SELECT title, TO_CHAR(date, 'YYYY-MM-DD') as date, time, type
+          FROM events WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + INTERVAL '7 days'
+          ORDER BY date ASC, time ASC NULLS LAST LIMIT 10
+        `)
+        actionResult = evs
+        actions.push({ type: 'events_listed', data: evs })
+        break
+      }
+
       case 'stats': {
         const todoCount = await queryOne<{ c: number }>('SELECT COUNT(*) as c FROM todos WHERE completed = 0')
         const noteCount = await queryOne<{ c: number }>('SELECT COUNT(*) as c FROM notes')
         const financeOpen = await queryOne<{ c: number; total: number }>("SELECT COUNT(*) as c, SUM(amount) as total FROM finance_items WHERE type='factuur' AND status IN ('verstuurd','verlopen')")
-        actionResult = { todoCount: todoCount?.c ?? 0, noteCount: noteCount?.c ?? 0, openInvoices: financeOpen?.c ?? 0, openAmount: financeOpen?.total || 0 }
+        const workToday = await queryOne<{ total: number }>('SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes, 0)) as total FROM work_logs WHERE date = CURRENT_DATE')
+        actionResult = { todoCount: todoCount?.c ?? 0, noteCount: noteCount?.c ?? 0, openInvoices: financeOpen?.c ?? 0, openAmount: financeOpen?.total || 0, workTodayMinutes: Number(workToday?.total ?? 0) }
         break
       }
     }
@@ -222,8 +277,10 @@ export async function POST(req: NextRequest) {
     let responseText = generateResponse(parsed, actionResult)
 
     if (parsed.intent === 'stats' && actionResult) {
-      const r = actionResult as { todoCount: number; noteCount: number; openInvoices: number; openAmount: number }
-      responseText += `\n\n• **${r.todoCount}** open todos\n• **${r.noteCount}** notes\n• **${r.openInvoices}** open facturen (€${r.openAmount.toFixed(2)})`
+      const r = actionResult as { todoCount: number; noteCount: number; openInvoices: number; openAmount: number; workTodayMinutes: number }
+      const wh = Math.floor(r.workTodayMinutes / 60)
+      const wm = r.workTodayMinutes % 60
+      responseText += `\n\n• **${r.todoCount}** open todos\n• **${r.noteCount}** notes\n• **${r.openInvoices}** open facturen (€${Number(r.openAmount || 0).toFixed(2)})\n• **${wh}u ${wm}m** gewerkt vandaag`
     }
 
     assistantMessage = responseText
