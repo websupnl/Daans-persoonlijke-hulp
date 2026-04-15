@@ -76,11 +76,36 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'todo_delete': {
+        const q = String(parsed.params.query || '')
+        if (q) {
+          const todo = await queryOne<Record<string, unknown>>(`
+            SELECT * FROM todos WHERE title ILIKE $1 ORDER BY completed ASC, created_at DESC LIMIT 1
+          `, [`%${q}%`])
+          if (todo) {
+            await execute(`DELETE FROM todos WHERE id = $1`, [todo.id])
+            actionResult = todo
+            actions.push({ type: 'todo_deleted', data: todo })
+          }
+        }
+        break
+      }
+
+      case 'todo_delete_all': {
+        const rows = await query<Record<string, unknown>>(`SELECT id, title FROM todos`)
+        await execute(`DELETE FROM todos`)
+        actionResult = { count: rows.length }
+        actions.push({ type: 'todos_deleted_all', data: actionResult })
+        break
+      }
+
       case 'todo_list': {
         const filter = String(parsed.params.filter || '')
         let sql = 'SELECT * FROM todos WHERE completed = 0'
         if (filter === 'vandaag' || filter === 'today') sql += ' AND due_date::date = CURRENT_DATE'
         else if (filter === 'deze week' || filter === 'this week') sql += " AND due_date::date <= CURRENT_DATE + INTERVAL '7 days'"
+        else if (filter === 'afgerond' || filter === 'completed') sql = 'SELECT * FROM todos WHERE completed = 1'
+        else if (filter === 'te laat' || filter === 'overdue') sql += ' AND due_date::date < CURRENT_DATE'
         sql += " ORDER BY CASE priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, due_date ASC NULLS LAST LIMIT 10"
         actionResult = await query(sql)
         actions.push({ type: 'todo_listed', data: actionResult })
@@ -96,6 +121,24 @@ export async function POST(req: NextRequest) {
           actionResult = inserted
           actions.push({ type: 'note_created', data: actionResult })
         }
+        break
+      }
+
+      case 'note_list': {
+        actionResult = await query('SELECT id, title FROM notes ORDER BY pinned DESC, updated_at DESC LIMIT 10')
+        actions.push({ type: 'notes_listed', data: actionResult })
+        break
+      }
+
+      case 'note_search': {
+        const q = String(parsed.params.query || '')
+        actionResult = await query(`
+          SELECT id, title FROM notes
+          WHERE title ILIKE $1 OR content_text ILIKE $1
+          ORDER BY pinned DESC, updated_at DESC
+          LIMIT 10
+        `, [`%${q}%`])
+        actions.push({ type: 'notes_found', data: actionResult })
         break
       }
 
@@ -117,6 +160,36 @@ export async function POST(req: NextRequest) {
       case 'contact_list': {
         actionResult = await query('SELECT id, name, type, email FROM contacts ORDER BY name LIMIT 10')
         actions.push({ type: 'contact_listed', data: actionResult })
+        break
+      }
+
+      case 'contact_search': {
+        const q = String(parsed.params.query || '')
+        actionResult = await query(`
+          SELECT id, name, type, email FROM contacts
+          WHERE name ILIKE $1 OR email ILIKE $1 OR company ILIKE $1
+          ORDER BY name
+          LIMIT 10
+        `, [`%${q}%`])
+        actions.push({ type: 'contact_found', data: actionResult })
+        break
+      }
+
+      case 'project_add': {
+        const title = String(parsed.params.title || '').trim()
+        if (title) {
+          const inserted = await queryOne<Record<string, unknown>>(`
+            INSERT INTO projects (title) VALUES ($1) RETURNING *
+          `, [title])
+          actionResult = inserted
+          actions.push({ type: 'project_created', data: inserted })
+        }
+        break
+      }
+
+      case 'project_list': {
+        actionResult = await query('SELECT id, title, status FROM projects ORDER BY created_at DESC LIMIT 10')
+        actions.push({ type: 'projects_listed', data: actionResult })
         break
       }
 
@@ -175,6 +248,21 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'finance_add_income': {
+        const inserted = await queryOne<Record<string, unknown>>(`
+          INSERT INTO finance_items (type, title, amount, status, category, paid_date)
+          VALUES ('inkomst', $1, $2, 'betaald', $3, CURRENT_DATE)
+          RETURNING *
+        `, [
+          String(parsed.params.title || 'Inkomst'),
+          parsed.params.amount || 0,
+          String(parsed.params.category || 'overig'),
+        ])
+        actionResult = inserted
+        actions.push({ type: 'finance_created', data: actionResult })
+        break
+      }
+
       case 'habit_log': {
         const today = format(new Date(), 'yyyy-MM-dd')
         const habitName = String(parsed.params.habit_name || '')
@@ -197,13 +285,33 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'habit_list': {
+        actionResult = await query(`
+          SELECT h.*, EXISTS(
+            SELECT 1 FROM habit_logs hl WHERE hl.habit_id = h.id AND hl.logged_date = CURRENT_DATE
+          ) as completed_today
+          FROM habits h
+          WHERE h.active = 1
+          ORDER BY h.created_at
+        `)
+        actions.push({ type: 'habits_listed', data: actionResult })
+        break
+      }
+
       case 'memory_add': {
         const fact = String(parsed.params.fact || '')
         if (fact) {
           const key = fact.slice(0, 60)
           await execute(
-            'INSERT INTO memories (key, value, category) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()',
-            [key, fact, 'chat']
+            `INSERT INTO memory_log (key, value, category, confidence)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT(key) DO UPDATE SET
+               value = EXCLUDED.value,
+               category = EXCLUDED.category,
+               confidence = EXCLUDED.confidence,
+               last_reinforced_at = NOW(),
+               updated_at = NOW()`,
+            [key, fact, 'personal_context', 0.85]
           )
           actions.push({ type: 'memory_saved', data: { fact } })
         }
@@ -238,6 +346,14 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'journal_open': {
+        const date = format(new Date(), 'yyyy-MM-dd')
+        await execute(`INSERT INTO journal_entries (date, content, gratitude) VALUES ($1, '', '[]') ON CONFLICT(date) DO NOTHING`, [date])
+        actionResult = await queryOne<Record<string, unknown>>('SELECT * FROM journal_entries WHERE date = $1', [date])
+        actions.push({ type: 'journal_opened', data: actionResult })
+        break
+      }
+
       case 'event_add': {
         const evDate = String(parsed.params.date || new Date().toISOString().split('T')[0])
         const evTitle = String(parsed.params.title || 'Nieuw event')
@@ -254,9 +370,12 @@ export async function POST(req: NextRequest) {
       }
 
       case 'event_list': {
+        const filter = String(parsed.params.filter || 'deze week')
+        let rangeSql = `date >= CURRENT_DATE AND date <= CURRENT_DATE + INTERVAL '7 days'`
+        if (filter === 'vandaag') rangeSql = 'date = CURRENT_DATE'
         const evs = await query<{ title: string; date: string; time?: string; type: string }>(`
           SELECT title, TO_CHAR(date, 'YYYY-MM-DD') as date, time, type
-          FROM events WHERE date >= CURRENT_DATE AND date <= CURRENT_DATE + INTERVAL '7 days'
+          FROM events WHERE ${rangeSql}
           ORDER BY date ASC, time ASC NULLS LAST LIMIT 10
         `)
         actionResult = evs

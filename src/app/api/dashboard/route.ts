@@ -16,11 +16,12 @@ export async function GET() {
   const noteStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM notes')
   const contactStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM contacts')
 
-  const financeStats = await queryOne<{ open_amount: number; open_invoices: number; month_income: number }>(`
+  const financeStats = await queryOne<{ open_amount: number; open_invoices: number; month_income: number; month_expenses: number }>(`
     SELECT
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_invoices,
-      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(paid_date, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income
+      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(paid_date, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
+      SUM(CASE WHEN type='uitgave' AND TO_CHAR(created_at, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
     FROM finance_items
   `)
 
@@ -55,16 +56,33 @@ export async function GET() {
     ORDER BY f.due_date ASC LIMIT 5
   `)
 
+  const todayWork = await queryOne<{ total_minutes: number }>(`
+    SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes)) as total_minutes
+    FROM work_logs
+    WHERE date = CURRENT_DATE
+  `)
+
+  const inbox = await queryOne<{ total: number }>(`
+    SELECT COUNT(*) as total FROM inbox_items WHERE parsed_status = 'pending'
+  `)
+
   return NextResponse.json({
     stats: {
       todos: { total: todoStats?.total ?? 0, open: todoStats?.open ?? 0, dueToday: todoStats?.due_today ?? 0, overdue: todoStats?.overdue ?? 0 },
       notes: { total: noteStats?.total ?? 0 },
       contacts: { total: contactStats?.total ?? 0 },
-      finance: { openInvoices: financeStats?.open_invoices ?? 0, openAmount: financeStats?.open_amount || 0, monthIncome: financeStats?.month_income || 0 },
+      finance: {
+        openInvoices: financeStats?.open_invoices ?? 0,
+        openAmount: financeStats?.open_amount || 0,
+        monthIncome: financeStats?.month_income || 0,
+        monthExpenses: financeStats?.month_expenses || 0,
+      },
       habits: { total: habitStats?.total ?? 0, completedToday: habitStats?.completed_today ?? 0 },
     },
     urgentTodos,
     recentNotes,
     openInvoices,
+    todayWorkMinutes: todayWork?.total_minutes ?? 0,
+    inboxCount: inbox?.total ?? 0,
   })
 }

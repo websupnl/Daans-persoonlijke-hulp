@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
-  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays
+  Users, Euro, Activity, BookOpen, FolderOpen, Clock, Inbox, CalendarDays, Lightbulb
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +13,7 @@ const nav = [
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
   { href: '/notes', label: 'Notes', icon: FileText },
+  { href: '/ideas', label: 'Ideeën', icon: Lightbulb },
   { href: '/contacts', label: 'Contacten', icon: Users },
   { href: '/finance', label: 'Financiën', icon: Euro },
   { href: '/habits', label: 'Gewoontes', icon: Activity },

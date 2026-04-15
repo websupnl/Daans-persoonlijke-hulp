@@ -22,16 +22,16 @@ export async function GET(request: NextRequest) {
   const logs = await query(sql, params)
 
   const stats = await query(`
-    SELECT context, SUM(duration_minutes) as total_minutes, COUNT(*) as count
+    SELECT context, SUM(COALESCE(actual_duration_minutes, duration_minutes)) as total_minutes, COUNT(*) as count
     FROM work_logs GROUP BY context ORDER BY total_minutes DESC
   `)
 
   const todayStats = await queryOne<{ today_minutes: number }>(`
-    SELECT SUM(duration_minutes) as today_minutes FROM work_logs WHERE date = CURRENT_DATE
+    SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes)) as today_minutes FROM work_logs WHERE date = CURRENT_DATE
   `)
 
   const weekStats = await queryOne<{ week_minutes: number }>(`
-    SELECT SUM(duration_minutes) as week_minutes FROM work_logs WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+    SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes)) as week_minutes FROM work_logs WHERE date >= CURRENT_DATE - INTERVAL '7 days'
   `)
 
   return NextResponse.json({ logs, stats, todayStats, weekStats })
@@ -39,17 +39,52 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { title, duration_minutes, context, date, description, project_id, energy_level } = body
+  const {
+    title,
+    duration_minutes,
+    actual_duration_minutes,
+    expected_duration_minutes,
+    context,
+    date,
+    description,
+    project_id,
+    energy_level,
+    source,
+    category,
+    type,
+    interruptions,
+    billable,
+    hourly_rate,
+  } = body
 
   if (!title || !duration_minutes || !context) {
     return NextResponse.json({ error: 'title, duration_minutes en context zijn verplicht' }, { status: 400 })
   }
 
   const log = await queryOne(`
-    INSERT INTO work_logs (title, duration_minutes, context, date, description, project_id, energy_level)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO work_logs (
+      title, duration_minutes, actual_duration_minutes, expected_duration_minutes, context,
+      date, description, project_id, energy_level, source, category, type, interruptions, billable, hourly_rate
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *
-  `, [title, duration_minutes, context, date ?? new Date().toISOString().split('T')[0], description ?? null, project_id ?? null, energy_level ?? null])
+  `, [
+    title,
+    duration_minutes,
+    actual_duration_minutes ?? null,
+    expected_duration_minutes ?? null,
+    context,
+    date ?? new Date().toISOString().split('T')[0],
+    description ?? null,
+    project_id ?? null,
+    energy_level ?? null,
+    source ?? 'manual',
+    category ?? 'business',
+    type ?? 'deep_work',
+    interruptions ?? null,
+    billable ? 1 : 0,
+    hourly_rate ?? null,
+  ])
 
   return NextResponse.json({ log }, { status: 201 })
 }

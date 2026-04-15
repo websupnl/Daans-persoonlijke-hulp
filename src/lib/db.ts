@@ -213,6 +213,21 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS ideas (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      raw_input TEXT NOT NULL DEFAULT '',
+      refined_summary TEXT,
+      verdict TEXT DEFAULT 'nog beoordelen' CHECK(verdict IN ('super slim','kansrijk','twijfelachtig','niet waardig','nog beoordelen')),
+      score INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'nieuw' CHECK(status IN ('nieuw','uitwerken','valideren','wachten','archief')),
+      market_gap TEXT,
+      next_steps TEXT DEFAULT '[]',
+      tags TEXT DEFAULT '[]',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE work_logs
       ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'business',
       ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'deep_work',

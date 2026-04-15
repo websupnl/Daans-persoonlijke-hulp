@@ -16,17 +16,14 @@ interface DashboardData {
     todos: { total: number; open: number; dueToday: number; overdue: number }
     notes: { total: number }
     contacts: { total: number }
-    finance: { openInvoices: number; openAmount: number; monthIncome: number }
+    finance: { openInvoices: number; openAmount: number; monthIncome: number; monthExpenses: number }
     habits: { total: number; completedToday: number }
   }
   urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_color?: string; project_title?: string }>
   recentNotes: Array<{ id: number; title: string; updated_at: string }>
   openInvoices: Array<{ id: number; title: string; amount: number; due_date?: string; status: string; contact_name?: string }>
-}
-
-interface FinanceStats {
-  month_income: number
-  month_expenses: number
+  todayWorkMinutes: number
+  inboxCount: number
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -41,27 +38,17 @@ export default function Dashboard() {
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [inboxCount, setInboxCount] = useState(0)
   const [planning, setPlanning] = useState<PlanningData | null>(null)
-  const [financeStats, setFinanceStats] = useState<FinanceStats | null>(null)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
       fetch('/api/dashboard').then(r => r.json()),
-      fetch('/api/worklogs').then(r => r.json()).catch(() => ({})),
-      fetch('/api/inbox').then(r => r.json()).catch(() => ({})),
       fetch('/api/planning?type=day').then(r => r.json()).catch(() => null),
-      fetch('/api/finance').then(r => r.json()).catch(() => ({})),
-    ]).then(([dash, worklogs, inbox, plan, finance]) => {
+    ]).then(([dash, plan]) => {
       setData(dash)
-      setTodayMinutes(worklogs.todayStats?.today_minutes ?? 0)
-      setInboxCount(inbox.pendingCount ?? 0)
+      setTodayMinutes(dash.todayWorkMinutes ?? 0)
+      setInboxCount(dash.inboxCount ?? 0)
       setPlanning(plan)
-      if (finance.stats) {
-        setFinanceStats({
-          month_income: finance.stats.month_income ?? 0,
-          month_expenses: finance.stats.month_expenses ?? 0,
-        })
-      }
     }).finally(() => setLoading(false))
 
     // AI briefing
@@ -93,7 +80,7 @@ export default function Dashboard() {
   }
 
   const stats = data?.stats
-  const net = (financeStats?.month_income ?? 0) - (financeStats?.month_expenses ?? 0)
+  const net = (data?.stats.finance.monthIncome ?? 0) - (data?.stats.finance.monthExpenses ?? 0)
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl">
@@ -207,7 +194,7 @@ export default function Dashboard() {
         {/* Right column */}
         <div className="space-y-4 sm:space-y-5">
           {/* Finance summary */}
-          {financeStats && (
+          {data && (
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
@@ -219,11 +206,11 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-400">Inkomsten</span>
-                  <span className="text-sm font-bold text-emerald-600">+{formatCurrency(financeStats.month_income)}</span>
+                  <span className="text-sm font-bold text-emerald-600">+{formatCurrency(data.stats.finance.monthIncome)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-400">Uitgaven</span>
-                  <span className="text-sm font-bold text-red-500">-{formatCurrency(financeStats.month_expenses)}</span>
+                  <span className="text-sm font-bold text-red-500">-{formatCurrency(data.stats.finance.monthExpenses)}</span>
                 </div>
                 <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
                   <span className="text-xs font-semibold text-gray-500">Netto</span>
@@ -232,11 +219,11 @@ export default function Dashboard() {
                   </span>
                 </div>
                 {/* Mini bar */}
-                {(financeStats.month_income > 0 || financeStats.month_expenses > 0) && (
+                {(data.stats.finance.monthIncome > 0 || data.stats.finance.monthExpenses > 0) && (
                   <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
                     <div
                       className={cn('h-full rounded-full', net >= 0 ? 'bg-emerald-400' : 'bg-red-400')}
-                      style={{ width: `${Math.min(100, Math.round(Math.abs(net) / Math.max(financeStats.month_income, financeStats.month_expenses) * 100))}%` }}
+                      style={{ width: `${Math.min(100, Math.round(Math.abs(net) / Math.max(data.stats.finance.monthIncome, data.stats.finance.monthExpenses, 1) * 100))}%` }}
                     />
                   </div>
                 )}
