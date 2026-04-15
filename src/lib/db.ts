@@ -258,6 +258,49 @@ export async function initSchema(): Promise<void> {
       ADD COLUMN IF NOT EXISTS billable SMALLINT DEFAULT 0,
       ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(8,2),
       ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+
+    -- Proactive Brain: AI theories about the user (long-term pattern recognition)
+    CREATE TABLE IF NOT EXISTS ai_theories (
+      id SERIAL PRIMARY KEY,
+      category TEXT NOT NULL DEFAULT 'algemeen',
+      theory TEXT NOT NULL,
+      confidence NUMERIC(4,3) NOT NULL DEFAULT 0.5,
+      supporting_data TEXT DEFAULT '[]',
+      times_confirmed INTEGER DEFAULT 0,
+      last_updated TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Proactive Brain: log of all sent proactive messages (prevent spam)
+    CREATE TABLE IF NOT EXISTS proactive_log (
+      id SERIAL PRIMARY KEY,
+      trigger_type TEXT NOT NULL,
+      trigger_details TEXT DEFAULT '{}',
+      message_sent TEXT,
+      telegram_sent SMALLINT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Proactive Brain: nudge state per topic (track urgency decay)
+    CREATE TABLE IF NOT EXISTS nudge_state (
+      id SERIAL PRIMARY KEY,
+      topic TEXT NOT NULL UNIQUE,
+      nudge_count INTEGER DEFAULT 0,
+      last_nudged_at TIMESTAMPTZ,
+      resolved_at TIMESTAMPTZ,
+      metadata TEXT DEFAULT '{}'
+    );
+
+    -- Journal conversation state: pending follow-up questions
+    CREATE TABLE IF NOT EXISTS journal_conversation (
+      id SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL DEFAULT 'idle',
+      pending_question TEXT,
+      context_snapshot TEXT DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 }
 

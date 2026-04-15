@@ -39,6 +39,8 @@ export default function Dashboard() {
   const [inboxCount, setInboxCount] = useState(0)
   const [planning, setPlanning] = useState<PlanningData | null>(null)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [deepSyncLoading, setDeepSyncLoading] = useState(false)
+  const [deepSyncDone, setDeepSyncDone] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -94,11 +96,42 @@ export default function Dashboard() {
 
       {/* AI briefing */}
       {aiSummary && (
-        <div className="mb-5 px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
+        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
           <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-gray-600 leading-relaxed">{aiSummary}</p>
         </div>
       )}
+
+      {/* Proactive Brain Controls */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          onClick={async () => {
+            setDeepSyncLoading(true)
+            try {
+              await fetch('/api/telegram/deep-sync', { method: 'POST' })
+              setDeepSyncDone(true)
+              setTimeout(() => setDeepSyncDone(false), 5000)
+            } finally {
+              setDeepSyncLoading(false)
+            }
+          }}
+          disabled={deepSyncLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-semibold rounded-xl shadow hover:opacity-90 disabled:opacity-50 transition-all"
+        >
+          <Zap size={12} />
+          {deepSyncLoading ? 'Bezig...' : deepSyncDone ? '✓ Rapport verstuurd' : 'Deep Sync'}
+        </button>
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/cron/pulse')
+            if (res.ok) alert('Pulse uitgevoerd — check Telegram')
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-xl hover:bg-gray-200 transition-all"
+        >
+          <Activity size={12} />
+          Test Pulse
+        </button>
+      </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
