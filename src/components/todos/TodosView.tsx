@@ -83,6 +83,33 @@ export default function TodosView() {
     fetchTodos()
   }
 
+  async function moveTodo(id: number, column: typeof PIPELINE[number]['key']) {
+    const payload: Record<string, string | null> = {}
+
+    if (column === 'hoog') {
+      payload.priority = 'hoog'
+    } else if (column === 'today') {
+      payload.priority = 'medium'
+      payload.due_date = new Date().toISOString().split('T')[0]
+    } else if (column === 'planned') {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      payload.priority = 'medium'
+      payload.due_date = tomorrow.toISOString().split('T')[0]
+    } else if (column === 'later') {
+      payload.priority = 'laag'
+      payload.due_date = null
+    }
+
+    await fetch(`/api/todos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    fetchTodos()
+  }
+
   const openCount = todos.filter((t) => !t.completed).length
   const overdueCount = todos.filter((t) => !t.completed && isOverdue(t.due_date)).length
   const todayCount = todos.filter((t) => !t.completed && formatDate(t.due_date) === 'Vandaag').length
@@ -222,7 +249,16 @@ export default function TodosView() {
         ) : viewMode === 'board' && filter !== 'Afgerond' ? (
           <div className="grid gap-4 xl:grid-cols-4">
             {PIPELINE.map((column) => (
-              <div key={column.key} className="rounded-3xl border border-gray-100 bg-gray-50/60 p-3">
+              <div
+                key={column.key}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  const todoId = Number(event.dataTransfer.getData('text/plain'))
+                  if (todoId) moveTodo(todoId, column.key)
+                }}
+                className="rounded-3xl border border-gray-100 bg-gray-50/60 p-3"
+              >
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-gray-700">{column.label}</p>
@@ -268,7 +304,11 @@ function TodoCard({
   onDelete: (id: number) => void
 }) {
   return (
-    <div className="group rounded-2xl border border-white bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+    <div
+      draggable
+      onDragStart={(event) => event.dataTransfer.setData('text/plain', String(todo.id))}
+      className="group rounded-2xl border border-white bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+    >
       <div className="mb-2 flex items-start gap-2">
         <button
           onClick={() => onToggle(todo.id, todo.completed)}

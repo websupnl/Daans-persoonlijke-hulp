@@ -37,11 +37,43 @@ export async function POST(req: NextRequest) {
   let confidence = 0
   let actionsJson = '[]'
 
-  const useAI = !process.env.OPENAI_API_KEY
-    ? false
-    : parsed.intent === 'unknown' || (parsed.confidence ?? 0) < 0.75
+  const hasAI = !!process.env.OPENAI_API_KEY
+  const isGreeting = parsed.params.greeting === true
 
-  if (!useAI) {
+  if (hasAI) {
+    parserType = 'ai'
+    const aiResult = await parseCommandWithAI(message)
+
+    if (aiResult && aiResult.confidence >= 0.45) {
+      confidence = aiResult.confidence
+
+      if (aiResult.memory_candidates) {
+        for (const candidate of aiResult.memory_candidates) {
+          if (candidate.confidence >= 0.7) {
+            await execute(`
+              INSERT INTO memory_log (key, value, category, confidence)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, last_reinforced_at = NOW(), updated_at = NOW()
+            `, [candidate.key, candidate.value, candidate.category, candidate.confidence])
+          }
+        }
+      }
+
+      const shouldExecute = !aiResult.requires_confirmation
+      let actionResults: Awaited<ReturnType<typeof executeActions>> = []
+
+      if (shouldExecute && aiResult.actions.length > 0) {
+        actionResults = await executeActions(aiResult.actions)
+      }
+
+      assistantMessage = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
+      actionsJson = JSON.stringify(aiResult.actions)
+    } else {
+      parserType = 'rule'
+    }
+  }
+
+  if (!assistantMessage) {
     // Use rule-based parser
     parserType = 'rule'
     confidence = parsed.confidence ?? 0.5
@@ -244,12 +276,19 @@ export async function POST(req: NextRequest) {
       }
 
       case 'finance_list': {
-        const stats = await queryOne<{ amount: number; open: number }>(`
-          SELECT
-            SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as amount,
-            COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open
-          FROM finance_items
-        `)
+        const filter = String(parsed.params.filter || '')
+        const stats = filter === 'today_expenses'
+          ? await queryOne<{ spent_today: number }>(`
+              SELECT SUM(amount) as spent_today
+              FROM finance_items
+              WHERE type='uitgave' AND DATE(created_at) = CURRENT_DATE
+            `)
+          : await queryOne<{ amount: number; open: number }>(`
+              SELECT
+                SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as amount,
+                COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open
+              FROM finance_items
+            `)
         actionResult = stats
         actions.push({ type: 'finance_listed', data: stats })
         break
@@ -379,14 +418,30 @@ export async function POST(req: NextRequest) {
       case 'event_list': {
         const filter = String(parsed.params.filter || 'deze week')
         let rangeSql = `date >= CURRENT_DATE AND date <= CURRENT_DATE + INTERVAL '7 days'`
+        let todoRangeSql = `due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days'`
         if (filter === 'vandaag') rangeSql = 'date = CURRENT_DATE'
+        else if (filter === 'vandaag') todoRangeSql = 'due_date = CURRENT_DATE'
+        else if (filter === 'morgen') {
+          rangeSql = `date = CURRENT_DATE + INTERVAL '1 day'`
+          todoRangeSql = `due_date = CURRENT_DATE + INTERVAL '1 day'`
+        }
+        else if (['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'].includes(filter)) {
+          rangeSql = `TO_CHAR(date, 'FMDay') ILIKE '${filter}%'`
+          todoRangeSql = `TO_CHAR(due_date, 'FMDay') ILIKE '${filter}%'`
+        }
         const evs = await query<{ title: string; date: string; time?: string; type: string }>(`
           SELECT title, TO_CHAR(date, 'YYYY-MM-DD') as date, time, type
           FROM events WHERE ${rangeSql}
           ORDER BY date ASC, time ASC NULLS LAST LIMIT 10
         `)
-        actionResult = evs
-        actions.push({ type: 'events_listed', data: evs })
+        const todos = await query<{ title: string; due_date?: string }>(`
+          SELECT title, TO_CHAR(due_date, 'YYYY-MM-DD') as due_date
+          FROM todos
+          WHERE completed = 0 AND due_date IS NOT NULL AND ${todoRangeSql}
+          ORDER BY due_date ASC LIMIT 10
+        `).catch(() => [])
+        actionResult = { events: evs, todos }
+        actions.push({ type: 'events_listed', data: actionResult })
         break
       }
 
@@ -411,42 +466,12 @@ export async function POST(req: NextRequest) {
 
     assistantMessage = responseText
     actionsJson = JSON.stringify(actions)
-  } else {
-    // Use AI parser
-    parserType = 'ai'
-    const aiResult = await parseCommandWithAI(message)
-
-    if (!aiResult) {
-      // Fallback to rule-based
-      parserType = 'fallback'
-      assistantMessage = generateResponse(parsed, undefined)
-      confidence = 0.1
-    } else {
-      confidence = aiResult.confidence
-
-      // Store memory candidates if confidence is high enough
-      if (aiResult.memory_candidates) {
-        for (const candidate of aiResult.memory_candidates) {
-          if (candidate.confidence >= 0.7) {
-            await execute(`
-              INSERT INTO memory_log (key, value, category, confidence)
-              VALUES ($1, $2, $3, $4)
-              ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, last_reinforced_at = NOW(), updated_at = NOW()
-            `, [candidate.key, candidate.value, candidate.category, candidate.confidence])
-          }
-        }
-      }
-
-      // Execute actions
-      const shouldExecute = !aiResult.requires_confirmation
-      let actionResults: Awaited<ReturnType<typeof executeActions>> = []
-
-      if (shouldExecute) {
-        actionResults = await executeActions(aiResult.actions)
-      }
-
-      assistantMessage = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
-      actionsJson = JSON.stringify(aiResult.actions)
+    if ((parsed.intent === 'unknown' || isGreeting) && !assistantMessage) {
+      assistantMessage = isGreeting
+        ? 'Hey Daan, ik ben er. Zeg gewoon in normale taal wat je wil weten of doen.'
+        : 'Ik snap nog niet precies wat je bedoelt. Probeer het in gewone taal, dan pak ik het slimmer op.'
+      confidence = 0.2
+      actionsJson = '[]'
     }
   }
 

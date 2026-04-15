@@ -39,12 +39,29 @@ export interface ParsedIntent {
 }
 
 function normalize(text: string): string {
-  return text
+  let normalized = text
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
+
+  const typoFixes: Array<[RegExp, string]> = [
+    [/\bvamdaag\b/g, 'vandaag'],
+    [/\bvandaaf\b/g, 'vandaag'],
+    [/\buitgegevenm\b/g, 'uitgegeven'],
+    [/\bfinancienen\b/g, 'financien'],
+    [/\bfinancieen\b/g, 'financien'],
+    [/\bgewoontess?\b/g, 'gewoontes'],
+    [/\bmemmory\b/g, 'memory'],
+    [/\bwekrklog\b/g, 'werklog'],
+  ]
+
+  for (const [pattern, replacement] of typoFixes) {
+    normalized = normalized.replace(pattern, replacement)
+  }
+
+  return normalized
 }
 
 export function extractDate(text: string): string | undefined {
@@ -142,6 +159,10 @@ export function parseIntent(input: string): ParsedIntent {
   const text = input.trim()
   const lower = normalize(text)
 
+  if (/^(hey|hoi|hallo|yo|goedemorgen|goedemiddag|goedenavond)\b/.test(lower)) {
+    return { intent: 'unknown', confidence: 0.2, params: { greeting: true }, raw: text }
+  }
+
   if (/\b(help|wat kan je|what can you|commando'?s?|commands?|hoe gebruik|how to use)\b/.test(lower)) {
     return { intent: 'help', confidence: 0.95, params: {}, raw: text }
   }
@@ -150,8 +171,8 @@ export function parseIntent(input: string): ParsedIntent {
     return { intent: 'stats', confidence: 0.85, params: {}, raw: text }
   }
 
-  if (/\b(toon|laat|geef|welke|wat)\b.*\bagenda\b|\bagenda (vandaag|deze week|komende)\b|\btoon deze week\b/.test(lower)) {
-    const filterMatch = lower.match(/\b(vandaag|deze week|komende)\b/)
+  if (/\b(toon|laat|geef|welke|wat)\b.*\bagenda\b|\bagenda (vandaag|deze week|komende)\b|\btoon deze week\b|\b(wat heb ik|wat moet ik)\b.*\b(vandaag|morgen|vrijdag|maandag|dinsdag|woensdag|donderdag|zaterdag|zondag)\b/.test(lower)) {
+    const filterMatch = lower.match(/\b(vandaag|deze week|komende|morgen|vrijdag|maandag|dinsdag|woensdag|donderdag|zaterdag|zondag)\b/)
     return {
       intent: 'event_list',
       confidence: 0.95,
@@ -199,6 +220,15 @@ export function parseIntent(input: string): ParsedIntent {
 
   if (/\b(financieel overzicht|mijn financien|mijn financienen|open facturen|openstaand|toon facturen|toon mijn financien|show invoices|toon financien)\b/.test(lower)) {
     return { intent: 'finance_list', confidence: 0.93, params: {}, raw: text }
+  }
+
+  if (/\b(hoeveel|wat)\b.*\b(uitgegeven|uitgaven|besteed)\b|\bwat heb ik vandaag uitgegeven\b/.test(lower)) {
+    return {
+      intent: 'finance_list',
+      confidence: 0.96,
+      params: { filter: lower.includes('vandaag') ? 'today_expenses' : 'expenses' },
+      raw: text,
+    }
   }
 
   if (/\b(gewoontes?|habits?|toon gewoontes?|mijn gewoontes?|streak)\b/.test(lower)) {
@@ -335,8 +365,8 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
-  if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen|ik heb gelezen)\b/i.test(text)) {
-    const habitMatch = text.match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen)\b/i)
+  if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen|ik heb gelezen|water gedronken|gedronken water|genoeg water)\b/i.test(text)) {
+    const habitMatch = normalize(text).match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen|water)\b/i)
     return {
       intent: 'habit_log',
       confidence: 0.85,
@@ -458,7 +488,8 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
     case 'finance_add_income':
       return `Inkomst geregistreerd${params.amount ? `: EUR ${params.amount}` : ''}.`
     case 'finance_list': {
-      const items = actionResult as { open: number; amount: number } | undefined
+      const items = actionResult as { open?: number; amount?: number; spent_today?: number } | undefined
+      if (typeof items?.spent_today === 'number') return `Vandaag heb je EUR ${Number(items.spent_today || 0).toFixed(2)} uitgegeven.`
       return items ? `${items.open} openstaande facturen, totaal EUR ${Number(items.amount || 0).toFixed(2)}.` : 'Ga naar Financien voor het overzicht.'
     }
     case 'habit_log':
@@ -485,9 +516,15 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
       return `Event aangemaakt: "${ev?.title || params.title}" op ${ev?.date || params.date}${ev?.time ? ` om ${ev.time}` : ''}`
     }
     case 'event_list': {
-      const evs = actionResult as Array<{ title: string; date: string; time?: string }> | undefined
-      if (!evs?.length) return 'Geen komende events gevonden.'
-      return `Komende events:\n${evs.map((e) => `• ${e.date}${e.time ? ` ${e.time}` : ''}: ${e.title}`).join('\n')}`
+      const result = actionResult as { events?: Array<{ title: string; date: string; time?: string }>; todos?: Array<{ title: string; due_date?: string }> } | Array<{ title: string; date: string; time?: string }> | undefined
+      const events = Array.isArray(result) ? result : (result?.events || [])
+      const todos = Array.isArray(result) ? [] : (result?.todos || [])
+      if (!events.length && !todos.length) return 'Geen geplande dingen gevonden.'
+      const lines = [
+        ...events.map((e) => `• ${e.date}${e.time ? ` ${e.time}` : ''}: ${e.title}`),
+        ...todos.map((t) => `• Todo: ${t.title}${t.due_date ? ` (${t.due_date})` : ''}`),
+      ]
+      return `Geplande dingen:\n${lines.join('\n')}`
     }
     case 'help':
       return `Wat ik kan doen:

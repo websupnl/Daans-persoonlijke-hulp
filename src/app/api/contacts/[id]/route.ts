@@ -9,9 +9,42 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const contact = await queryOne<Record<string, unknown>>('SELECT * FROM contacts WHERE id = $1', [id])
   if (!contact) return NextResponse.json({ error: 'Contact niet gevonden' }, { status: 404 })
 
-  const todos = await query('SELECT id, title, priority, due_date, completed FROM todos WHERE contact_id = $1 ORDER BY completed, due_date', [id])
-  const notes = await query('SELECT id, title, updated_at FROM notes WHERE contact_id = $1 ORDER BY updated_at DESC', [id])
-  const finance = await query('SELECT id, title, type, amount, status, due_date FROM finance_items WHERE contact_id = $1 ORDER BY created_at DESC', [id])
+  let todos = await query('SELECT id, title, priority, due_date, completed FROM todos WHERE contact_id = $1 ORDER BY completed, due_date', [id])
+  let notes = await query('SELECT id, title, updated_at FROM notes WHERE contact_id = $1 ORDER BY updated_at DESC', [id])
+  let finance = await query('SELECT id, title, type, amount, status, due_date FROM finance_items WHERE contact_id = $1 ORDER BY created_at DESC', [id])
+
+  const name = String(contact.name || '')
+  const company = String(contact.company || '')
+
+  if (todos.length === 0 && name) {
+    todos = await query(`
+      SELECT id, title, priority, due_date, completed
+      FROM todos
+      WHERE title ILIKE $1 OR description ILIKE $1 ${company ? 'OR title ILIKE $2 OR description ILIKE $2' : ''}
+      ORDER BY completed, due_date
+      LIMIT 8
+    `, company ? [`%${name}%`, `%${company}%`] : [`%${name}%`])
+  }
+
+  if (notes.length === 0 && name) {
+    notes = await query(`
+      SELECT id, title, updated_at
+      FROM notes
+      WHERE title ILIKE $1 OR content_text ILIKE $1 ${company ? 'OR title ILIKE $2 OR content_text ILIKE $2' : ''}
+      ORDER BY updated_at DESC
+      LIMIT 8
+    `, company ? [`%${name}%`, `%${company}%`] : [`%${name}%`])
+  }
+
+  if (finance.length === 0 && name) {
+    finance = await query(`
+      SELECT id, title, type, amount, status, due_date
+      FROM finance_items
+      WHERE title ILIKE $1 OR description ILIKE $1 ${company ? 'OR title ILIKE $2 OR description ILIKE $2' : ''}
+      ORDER BY created_at DESC
+      LIMIT 8
+    `, company ? [`%${name}%`, `%${company}%`] : [`%${name}%`])
+  }
 
   return NextResponse.json({
     data: {
