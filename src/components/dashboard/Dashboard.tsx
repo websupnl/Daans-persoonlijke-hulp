@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles } from 'lucide-react'
+import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles, TrendingDown } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -22,6 +22,7 @@ interface DashboardData {
   urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_color?: string; project_title?: string }>
   recentNotes: Array<{ id: number; title: string; updated_at: string }>
   openInvoices: Array<{ id: number; title: string; amount: number; due_date?: string; status: string; contact_name?: string }>
+  recentFinance: Array<{ id: number; title: string; amount: number; type: string; category: string; due_date?: string; created_at: string }>
   todayWorkMinutes: number
   inboxCount: number
 }
@@ -85,25 +86,37 @@ export default function Dashboard() {
   const net = (data?.stats.finance.monthIncome ?? 0) - (data?.stats.finance.monthExpenses ?? 0)
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-gradient leading-tight">
+      <div className="mb-8">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-gradient leading-tight">
           {greeting()}, Daan
         </h1>
         <p className="text-gray-400 text-sm mt-1 capitalize font-medium">{today}</p>
       </div>
 
-      {/* AI briefing */}
+      {/* Daily AI Briefing */}
       {aiSummary && (
-        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
-          <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-gray-600 leading-relaxed">{aiSummary}</p>
+        <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 via-pink-50 to-white border border-pink-100 rounded-3xl shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Sparkles size={120} className="text-pink-400" />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center text-pink-500">
+                <Sparkles size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-pink-500 uppercase tracking-wider">Dagelijkse Briefing</h2>
+            </div>
+            <p className="text-lg sm:text-xl font-medium text-gray-700 leading-relaxed max-w-4xl">
+              {aiSummary}
+            </p>
+          </div>
         </div>
       )}
 
       {/* Proactive Brain Controls */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-8 flex flex-wrap gap-2">
         <button
           onClick={async () => {
             setDeepSyncLoading(true)
@@ -134,7 +147,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10">
         <StatCard
           href="/todos"
           icon={<CheckSquare size={18} />}
@@ -184,37 +197,37 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Urgent todos */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
-              <Clock size={14} />
+        <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <Clock size={16} className="text-pink-500" />
               Urgent &amp; Vandaag
             </h2>
-            <Link href="/todos" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">
+            <Link href="/todos" className="text-xs font-semibold text-pink-500 hover:opacity-70 transition-opacity">
               Alle todos →
             </Link>
           </div>
           <div className="space-y-1">
             {!data?.urgentTodos?.length ? (
-              <div className="text-center py-8">
+              <div className="text-center py-12">
                 <p className="text-gray-400 text-sm font-medium">Niets urgent — lekker bezig! 🎉</p>
               </div>
             ) : (
               data.urgentTodos.map(todo => (
-                <div key={todo.id} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
-                  <span className={cn('w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
+                <div key={todo.id} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 transition-colors group">
+                  <span className={cn('w-2 h-2 rounded-full mt-2 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 font-medium truncate">{todo.title}</p>
+                    <p className="text-sm text-gray-700 font-bold truncate">{todo.title}</p>
                     {todo.due_date && (
-                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400 font-medium' : 'text-gray-400')}>
+                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400 font-bold' : 'text-gray-400')}>
                         {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
                       </p>
                     )}
                   </div>
                   {todo.project_title && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: (todo.project_color ?? '#888') + '18', color: todo.project_color ?? '#888' }}>
+                    <span className="text-[10px] px-2.5 py-1 rounded-full font-bold" style={{ background: (todo.project_color ?? '#888') + '15', color: todo.project_color ?? '#888' }}>
                       {todo.project_title}
                     </span>
                   )}
@@ -225,39 +238,50 @@ export default function Dashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-4 sm:space-y-5">
+        <div className="space-y-6">
           {/* Finance summary */}
           {data && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
-                  <TrendingUp size={14} />
-                  Financiën deze maand
+            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                  <TrendingUp size={16} className="text-emerald-500" />
+                  Financiën
                 </h2>
-                <Link href="/finance" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">Alles →</Link>
+                <Link href="/finance" className="text-xs font-semibold text-emerald-500 hover:opacity-70 transition-opacity">Overzicht →</Link>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">Inkomsten</span>
+                  <span className="text-xs font-medium text-gray-400">Inkomsten</span>
                   <span className="text-sm font-bold text-emerald-600">+{formatCurrency(data.stats.finance.monthIncome)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-400">Uitgaven</span>
+                  <span className="text-xs font-medium text-gray-400">Uitgaven</span>
                   <span className="text-sm font-bold text-red-500">-{formatCurrency(data.stats.finance.monthExpenses)}</span>
                 </div>
-                <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
-                  <span className="text-xs font-semibold text-gray-500">Netto</span>
+                <div className="border-t border-gray-50 pt-3 flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-500">Netto</span>
                   <span className={cn('text-sm font-extrabold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
                     {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
                   </span>
                 </div>
-                {/* Mini bar */}
-                {(data.stats.finance.monthIncome > 0 || data.stats.finance.monthExpenses > 0) && (
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
-                    <div
-                      className={cn('h-full rounded-full', net >= 0 ? 'bg-emerald-400' : 'bg-red-400')}
-                      style={{ width: `${Math.min(100, Math.round(Math.abs(net) / Math.max(data.stats.finance.monthIncome, data.stats.finance.monthExpenses, 1) * 100))}%` }}
-                    />
+
+                {/* Recent transactions */}
+                {data.recentFinance && data.recentFinance.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-50">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Recente transacties</p>
+                    <div className="space-y-3">
+                      {data.recentFinance.map(f => (
+                        <div key={f.id} className="flex justify-between items-center group">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-gray-600 truncate">{f.title}</p>
+                            <p className="text-[10px] text-gray-400 capitalize">{f.category}</p>
+                          </div>
+                          <span className={cn('text-xs font-bold ml-2', f.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
+                            {f.type === 'inkomst' ? '+' : '-'}{formatCurrency(f.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -266,32 +290,34 @@ export default function Dashboard() {
 
           {/* Planning widget */}
           {planning && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap size={14} className="flex-shrink-0" style={{ color: '#ec4899' }} />
-                <h2 className="text-sm font-bold text-gradient">Dagplanning</h2>
+            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap size={16} className="text-violet-500" />
+                <h2 className="text-base font-bold text-gray-800">Dagplanning</h2>
               </div>
-              <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed line-clamp-6">{planning.recommendation.replace(/\*\*/g, '')}</p>
+              <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{planning.recommendation.replace(/\*\*/g, '')}</p>
             </div>
           )}
 
           {/* Recente notes */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm card-hover">
+          <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gradient flex items-center gap-2">
-                <FileText size={14} />
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <FileText size={16} className="text-blue-500" />
                 Recente notes
               </h2>
-              <Link href="/notes" className="text-xs font-medium text-gradient hover:opacity-70 transition-opacity">Alles →</Link>
+              <Link href="/notes" className="text-xs font-semibold text-blue-500 hover:opacity-70 transition-opacity">Alle →</Link>
             </div>
             {!data?.recentNotes?.length ? (
-              <p className="text-gray-400 text-xs text-center py-3">Nog geen notes</p>
+              <p className="text-gray-400 text-xs text-center py-4">Nog geen notes</p>
             ) : (
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {data.recentNotes.map(note => (
-                  <Link key={note.id} href={`/notes/${note.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded-lg hover:bg-gray-50 transition-colors">
-                    <FileText size={12} className="text-gray-300 flex-shrink-0" />
-                    <span className="text-xs text-gray-600 font-medium truncate hover:text-gradient">{note.title}</span>
+                  <Link key={note.id} href={`/notes/${note.id}`} className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-gray-50 transition-colors group">
+                    <div className="w-6 h-6 rounded-lg bg-blue-50 flex items-center justify-center text-blue-400 group-hover:bg-blue-100 transition-colors">
+                      <FileText size={12} />
+                    </div>
+                    <span className="text-xs text-gray-600 font-bold truncate group-hover:text-blue-500 transition-colors">{note.title}</span>
                   </Link>
                 ))}
               </div>
@@ -315,16 +341,16 @@ function StatCard({
   prefix?: string
 }) {
   return (
-    <Link href={href} className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm card-hover block">
+    <Link href={href} className="bg-white rounded-3xl border border-gray-100 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all block group">
       <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center mb-3 sm:mb-4 text-white shadow-sm"
+        className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 text-white shadow-sm group-hover:scale-110 transition-transform"
         style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
       >
         {icon}
       </div>
-      <p className="text-xl sm:text-2xl font-extrabold text-gradient leading-none mb-1">{prefix}{value}</p>
-      <p className="text-xs text-gray-400 font-medium">{label}</p>
-      <p className={cn('text-xs mt-1 font-medium', alert ? 'text-red-400' : 'text-gray-400')}>{sub}</p>
+      <p className="text-2xl sm:text-3xl font-extrabold text-gradient leading-none mb-1">{prefix}{value}</p>
+      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{label}</p>
+      <p className={cn('text-xs mt-2 font-medium', alert ? 'text-red-400' : 'text-gray-400')}>{sub}</p>
     </Link>
   )
 }

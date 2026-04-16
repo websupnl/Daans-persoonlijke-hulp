@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addWeeks, addMonths, format, startOfDay, endOfDay } from 'date-fns'
+import { nl } from 'date-fns/locale'
 
 interface FinanceItem {
   id: number
@@ -80,7 +82,32 @@ export default function FinanceView() {
   const [accountFilter, setAccountFilter] = useState('Alle rekeningen')
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+
+  const dateRange = useMemo(() => {
+    let start, end
+    if (viewMode === 'day') {
+      start = startOfDay(currentDate)
+      end = endOfDay(currentDate)
+    } else if (viewMode === 'week') {
+      start = startOfWeek(currentDate, { weekStartsOn: 1 })
+      end = endOfWeek(currentDate, { weekStartsOn: 1 })
+    } else {
+      start = startOfMonth(currentDate)
+      end = endOfMonth(currentDate)
+    }
+    return { start, end }
+  }, [viewMode, currentDate])
+
+  const navigate = (direction: 'prev' | 'next') => {
+    const amount = direction === 'prev' ? -1 : 1
+    if (viewMode === 'day') setCurrentDate(prev => addDays(prev, amount))
+    else if (viewMode === 'week') setCurrentDate(prev => addWeeks(prev, amount))
+    else setCurrentDate(prev => addMonths(prev, amount))
+  }
+
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
@@ -107,9 +134,12 @@ export default function FinanceView() {
     if (accountFilter === 'Privé') params.set('account', 'privé')
     else if (accountFilter === 'Zakelijk') params.set('account', 'zakelijk')
 
+    params.set('from', format(dateRange.start, 'yyyy-MM-dd'))
+    params.set('to', format(dateRange.end, 'yyyy-MM-dd'))
+
     const [financeRes, catRes] = await Promise.all([
       fetch(`/api/finance?${params}`).then(r => r.json()),
-      fetch('/api/finance/stats').then(r => r.json()).catch(() => ({ categories: [], monthly: [] })),
+      fetch(`/api/finance/stats?from=${format(dateRange.start, 'yyyy-MM-dd')}&to=${format(dateRange.end, 'yyyy-MM-dd')}`).then(r => r.json()).catch(() => ({ categories: [], monthly: [] })),
     ])
 
     const filtered = (financeRes.data || []).filter((i: FinanceItem) => i.type !== 'factuur' as string)
@@ -239,12 +269,9 @@ export default function FinanceView() {
   const maxMonthly = monthlyData.reduce((m, d) => Math.max(m, d.income, d.expenses), 1)
 
   // Format active_month (e.g. "2024-12") to readable label like "dec. 2024"
-  const now = new Date().toISOString().slice(0, 7)
-  const activePeriod = stats?.active_month
-    ? stats.active_month === now
-      ? 'deze maand'
-      : new Date(stats.active_month + '-01').toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' })
-    : 'deze maand'
+  const activePeriod = viewMode === 'month'
+    ? (format(currentDate, 'yyyy-MM') === format(new Date(), 'yyyy-MM') ? 'deze maand' : format(currentDate, 'MMM yyyy', { locale: nl }))
+    : viewMode === 'week' ? 'deze week' : 'vandaag'
 
   return (
     <div className="flex min-h-full flex-col bg-white">
@@ -286,6 +313,45 @@ export default function FinanceView() {
           >
             <Plus size={14} />
             <span className="hidden sm:inline">Toevoegen</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Date Navigation */}
+      <div className="px-4 sm:px-6 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200">
+          {(['day', 'week', 'month'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={cn(
+                'px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all',
+                viewMode === mode ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              )}
+              style={viewMode === mode ? { background: GRAD } : {}}
+            >
+              {mode === 'day' ? 'Dag' : mode === 'week' ? 'Week' : 'Maand'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('prev')} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-bold text-gray-700 min-w-[120px] text-center capitalize">
+            {viewMode === 'day' && format(currentDate, 'd MMMM yyyy', { locale: nl })}
+            {viewMode === 'week' && `${format(dateRange.start, 'd MMM')} - ${format(dateRange.end, 'd MMM')}`}
+            {viewMode === 'month' && format(currentDate, 'MMMM yyyy', { locale: nl })}
+          </span>
+          <button onClick={() => navigate('next')} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
+            <ChevronRight size={16} />
+          </button>
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="text-[10px] font-bold text-pink-500 hover:text-pink-600 uppercase tracking-wider ml-1 hidden sm:inline"
+          >
+            Vandaag
           </button>
         </div>
       </div>
