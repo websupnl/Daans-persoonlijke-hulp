@@ -12,23 +12,22 @@ export async function GET() {
   const habits = await query<Record<string, unknown>>('SELECT * FROM habits WHERE active = 1 ORDER BY created_at')
 
   const enriched = await Promise.all(habits.map(async (h) => {
-    const logs = await query(
-      'SELECT * FROM habit_logs WHERE habit_id = $1 AND logged_date >= $2 ORDER BY logged_date DESC',
+    const rawLogs = await query<{ logged_date: string | Date }>(
+      'SELECT logged_date FROM habit_logs WHERE habit_id = $1 AND logged_date >= $2 ORDER BY logged_date DESC',
       [h.id, monthAgo]
     )
+    // Normalize dates: pg returns DATE columns as JS Date objects or ISO strings
+    const normDate = (d: string | Date) => typeof d === 'string' ? d.slice(0, 10) : format(d, 'yyyy-MM-dd')
+    const logs = rawLogs.map(l => ({ logged_date: normDate(l.logged_date) }))
 
-    const todayLog = await queryOne(
-      'SELECT id FROM habit_logs WHERE habit_id = $1 AND logged_date = $2',
-      [h.id, today]
-    )
-    const completedToday = !!todayLog
+    const completedToday = logs.some(l => l.logged_date === today)
 
     // Fetch logs for last 60 days and calculate streak in JS
-    const recentLogs = await query<{ logged_date: string }>(
+    const recentLogs = await query<{ logged_date: string | Date }>(
       'SELECT logged_date FROM habit_logs WHERE habit_id = $1 AND logged_date >= $2 ORDER BY logged_date DESC',
       [h.id, sixtyDaysAgo]
     )
-    const logSet = new Set(recentLogs.map(l => l.logged_date))
+    const logSet = new Set(recentLogs.map(l => normDate(l.logged_date)))
 
     let streak = 0
     let checkDate = today

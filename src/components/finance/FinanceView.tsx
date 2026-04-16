@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 
 interface FinanceItem {
@@ -44,6 +44,15 @@ interface ImportRow {
   category: string
 }
 
+interface AnalyseResult {
+  subscriptions: Array<{ name: string; amount: number; frequency: string; monthlyEquivalent: number; lastSeen: string; count: number }>
+  patterns: Array<{ merchant: string; totalSpent: number; visits: number; avgAmount: number; category: string }>
+  trends: Array<{ month: string; income: number; expenses: number; net: number; topCategory: string }>
+  anomalies: Array<{ title: string; amount: number; date: string; reason: string; severity: 'low' | 'medium' | 'high' }>
+  summary: { totalIncome: number; totalExpenses: number; net: number; monthlySubCost: number; transactionCount: number }
+  aiInsights: string
+}
+
 const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
 const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk']
 const ACCOUNTS = ['privé', 'zakelijk']
@@ -75,6 +84,10 @@ export default function FinanceView() {
   const [aiLoading, setAiLoading] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
+  const [showAnalyse, setShowAnalyse] = useState(false)
+  const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
+  const [analyseLoading, setAnalyseLoading] = useState(false)
+  const [analyseError, setAnalyseError] = useState<string | null>(null)
 
   // Bank import state
   const [showImport, setShowImport] = useState(false)
@@ -197,6 +210,22 @@ export default function FinanceView() {
     }
   }
 
+  async function runAnalyse() {
+    setAnalyseLoading(true)
+    setAnalyseError(null)
+    try {
+      const res = await fetch('/api/finance/analyse', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { setAnalyseError(data.error ?? 'Analyse mislukt'); return }
+      setAnalyseResult(data)
+      setShowAnalyse(true)
+    } catch {
+      setAnalyseError('Verbindingsfout')
+    } finally {
+      setAnalyseLoading(false)
+    }
+  }
+
   function resetImport() {
     setImportFile(null)
     setImportPreview(null)
@@ -217,6 +246,16 @@ export default function FinanceView() {
           <p className="text-xs text-gray-400 mt-0.5 font-medium">Inkomsten &amp; uitgaven</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={runAnalyse}
+            disabled={analyseLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={{ background: GRAD }}
+            title="AI Analyse"
+          >
+            {analyseLoading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            <span className="hidden sm:inline">{analyseLoading ? 'Analyseren...' : 'Analyseer'}</span>
+          </button>
           <button
             onClick={() => setShowBulkDelete(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400 transition-colors"
@@ -276,6 +315,163 @@ export default function FinanceView() {
               Annuleer
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Analyse error */}
+      {analyseError && (
+        <div className="mx-4 sm:mx-6 mt-3 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-600">
+          ⚠️ {analyseError}
+        </div>
+      )}
+
+      {/* Deep Analysis Panel */}
+      {analyseResult && (
+        <div className="mx-4 sm:mx-6 mt-3 rounded-3xl border border-violet-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 overflow-hidden">
+          {/* Panel header */}
+          <button
+            onClick={() => setShowAnalyse(s => !s)}
+            className="w-full flex items-center justify-between px-5 py-4"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: GRAD }}>
+                <Sparkles size={13} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-gray-800">Financiële Analyse</p>
+                <p className="text-[10px] text-gray-400">{analyseResult.summary.transactionCount} transacties · €{analyseResult.summary.monthlySubCost}/mnd aan abonnementen</p>
+              </div>
+            </div>
+            {showAnalyse ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+          </button>
+
+          {showAnalyse && (
+            <div className="px-5 pb-5 space-y-5">
+
+              {/* AI Insights */}
+              {analyseResult.aiInsights && (
+                <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm">
+                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <Sparkles size={11} className="text-pink-400" />
+                    AI Inzichten
+                  </p>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{analyseResult.aiInsights}</p>
+                </div>
+              )}
+
+              {/* Subscriptions */}
+              {analyseResult.subscriptions.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <Repeat size={11} className="text-violet-400" />
+                    Abonnementen gevonden ({analyseResult.subscriptions.length})
+                    <span className="ml-auto text-[10px] text-violet-500 font-semibold">
+                      €{analyseResult.summary.monthlySubCost}/mnd totaal
+                    </span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {analyseResult.subscriptions.slice(0, 8).map((sub, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
+                        <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                          <Repeat size={11} className="text-violet-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-700 truncate">{sub.name}</p>
+                          <p className="text-[10px] text-gray-400">{sub.frequency} · {sub.count}x gezien · laatste: {sub.lastSeen}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs font-bold text-violet-600">€{sub.monthlyEquivalent.toFixed(2)}/mnd</p>
+                          <p className="text-[10px] text-gray-400">€{sub.amount.toFixed(2)} p/keer</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top merchants */}
+              {analyseResult.patterns.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <Eye size={11} className="text-pink-400" />
+                    Meest bij uitgegeven
+                  </p>
+                  <div className="space-y-1.5">
+                    {analyseResult.patterns.slice(0, 6).map((p, i) => {
+                      const maxSpent = analyseResult.patterns[0]?.totalSpent || 1
+                      const pct = Math.round((p.totalSpent / maxSpent) * 100)
+                      return (
+                        <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2 border border-white">
+                          <span className="text-[10px] text-gray-400 w-4 text-center">{i + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-xs font-medium text-gray-700 truncate">{p.merchant}</p>
+                              <p className="text-xs font-bold text-gray-800 ml-2 flex-shrink-0">€{p.totalSpent.toFixed(0)}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: GRAD }} />
+                              </div>
+                              <span className="text-[10px] text-gray-400">{p.visits}x</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Monthly trends */}
+              {analyseResult.trends.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <BarChart2 size={11} className="text-orange-400" />
+                    Maandtrend
+                  </p>
+                  <div className="space-y-1.5">
+                    {analyseResult.trends.slice(-4).map((t, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
+                        <span className="text-[10px] font-medium text-gray-500 w-14 flex-shrink-0">{t.month}</span>
+                        <div className="flex-1 flex gap-2 text-[10px]">
+                          <span className="text-emerald-600 font-semibold">+€{t.income.toFixed(0)}</span>
+                          <span className="text-red-400">-€{t.expenses.toFixed(0)}</span>
+                        </div>
+                        <span className={`text-xs font-bold flex-shrink-0 ${t.net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {t.net >= 0 ? '+' : ''}€{t.net.toFixed(0)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Anomalies */}
+              {analyseResult.anomalies.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                    <AlertTriangle size={11} className="text-amber-400" />
+                    Opvallende transacties ({analyseResult.anomalies.length})
+                  </p>
+                  <div className="space-y-1.5">
+                    {analyseResult.anomalies.map((a, i) => {
+                      const colors = { high: 'bg-red-50 border-red-100 text-red-600', medium: 'bg-amber-50 border-amber-100 text-amber-600', low: 'bg-gray-50 border-gray-100 text-gray-500' }
+                      return (
+                        <div key={i} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 border ${colors[a.severity]}`}>
+                          <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold truncate">{a.title}</p>
+                            <p className="text-[10px] opacity-70">{a.reason}</p>
+                          </div>
+                          <span className="text-xs font-bold flex-shrink-0">€{a.amount.toFixed(2)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
