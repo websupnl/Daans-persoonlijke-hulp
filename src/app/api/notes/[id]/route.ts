@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
+import { generateTags } from '@/lib/ai/note-utils'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const note = await queryOne<Record<string, unknown>>('SELECT * FROM notes WHERE id = $1', [parseInt(params.id)])
@@ -13,6 +14,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)
   const body = await req.json()
+
+  // Auto-tagging if content changed and tags are empty
+  if (body.content_text && (!body.tags || body.tags.length === 0)) {
+    const aiTags = await generateTags(body.content_text)
+    if (aiTags.length > 0) body.tags = aiTags
+  }
 
   const fields = ['title', 'content', 'content_text', 'tags', 'project_id', 'contact_id', 'pinned']
   const updates: string[] = []

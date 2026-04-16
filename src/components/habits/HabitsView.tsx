@@ -26,7 +26,7 @@ export default function HabitsView() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ name: '', icon: '⭐', color: '#ec4899', frequency: 'dagelijks', description: '' })
 
-  const last7 = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), 6 - i), 'yyyy-MM-dd'))
+  const last28 = Array.from({ length: 28 }, (_, i) => format(subDays(new Date(), 27 - i), 'yyyy-MM-dd'))
 
   const fetchHabits = async () => {
     const res = await fetch('/api/habits')
@@ -167,16 +167,6 @@ export default function HabitsView() {
       </div>
 
       <div className="px-6 pb-2">
-        <div className="mb-2 flex items-center justify-end gap-1">
-          {last7.map((day) => (
-            <div key={day} className="w-8 text-center">
-              <p className="text-[9px] font-medium uppercase text-gray-400">{format(new Date(`${day}T12:00:00`), 'EE').slice(0, 2)}</p>
-              <p className={cn('text-[10px] font-bold', day === format(new Date(), 'yyyy-MM-dd') ? 'text-gradient' : 'text-gray-300')}>
-                {format(new Date(`${day}T12:00:00`), 'd')}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -217,21 +207,25 @@ export default function HabitsView() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {last7.map((day) => {
-                      const done = habit.logs.some((log) => log.logged_date === day)
-                      return (
-                        <div
-                          key={day}
-                          className={cn('flex h-8 w-8 items-center justify-center rounded-xl border text-[10px] font-bold', done ? 'border-transparent text-white' : 'border-gray-100 bg-gray-50 text-gray-300')}
-                          style={done ? { background: GRAD } : undefined}
-                        >
-                          {done ? <Check size={10} strokeWidth={3} /> : ''}
-                        </div>
-                      )
-                    })}
+                    <div className="grid grid-cols-7 gap-1">
+                      {last28.map((day) => {
+                        const done = habit.logs.some((log) => log.logged_date === day)
+                        return (
+                          <div
+                            key={day}
+                            title={format(new Date(`${day}T12:00:00`), 'd MMM')}
+                            className={cn(
+                              'h-3 w-3 rounded-sm transition-all',
+                              done ? 'bg-orange-500 shadow-sm' : 'bg-gray-100 hover:bg-gray-200'
+                            )}
+                            style={done ? { background: GRAD } : undefined}
+                          />
+                        )
+                      })}
+                    </div>
                     <button
                       onClick={() => deleteHabit(habit.id)}
-                      className="opacity-0 group-hover:opacity-100 ml-1 h-8 w-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
+                      className="opacity-0 group-hover:opacity-100 ml-2 h-8 w-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
                     >
                       <Trash2 size={12} />
                     </button>

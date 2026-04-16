@@ -35,7 +35,7 @@ const TYPE_CONFIG: Record<string, { label: string; dot: string; bg: string; text
   algemeen:    { label: 'Algemeen',   dot: 'bg-gray-300', bg: 'bg-gray-50', text: 'text-gray-600' },
 }
 
-const EMPTY_FORM = { title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', type: 'algemeen', description: '' }
+const EMPTY_FORM = { title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', type: 'algemeen', description: '', recurring: '' }
 
 export default function AgendaView() {
   const [events, setEvents] = useState<AgendaEvent[]>([])
@@ -94,15 +94,77 @@ export default function AgendaView() {
   const selectedTodos = todosForDay(selectedDay)
   const totalWeekItems = events.length + todos.filter(t => t.due_date).length
 
-  // Timeline hours to show
   const HOURS = Array.from({ length: 13 }, (_, i) => i + 7) // 07:00 – 19:00
 
-  function eventToTimelinePos(time?: string): { top: number; valid: boolean } {
-    if (!time) return { top: -1, valid: false }
-    const [h, m] = time.split(':').map(Number)
-    if (isNaN(h)) return { top: -1, valid: false }
-    const minutesFrom7 = (h - 7) * 60 + (m || 0)
-    return { top: Math.max(0, (minutesFrom7 / (13 * 60)) * 100), valid: h >= 7 && h <= 20 }
+  const SelectedDayContent = () => {
+    if (selectedEvents.length === 0 && selectedTodos.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <CalendarDays size={28} className="text-gray-200 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Niets gepland</p>
+          <button
+            onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd(true) }}
+            className="mt-3 text-xs font-semibold text-pink-400 hover:text-pink-600 transition-colors"
+          >
+            + Evenement toevoegen
+          </button>
+        </div>
+      )
+    }
+
+    if (selectedEvents.some(e => e.time)) {
+      return (
+        <div className="space-y-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Tijdlijn</p>
+            <div className="relative">
+              {HOURS.map(h => (
+                <div key={h} className="flex items-start gap-2 mb-0">
+                  <span className="text-[10px] text-gray-300 w-8 flex-shrink-0 leading-none pt-0.5">{String(h).padStart(2, '0')}:00</span>
+                  <div className="flex-1 border-t border-gray-100 pt-0.5 min-h-[32px] relative">
+                    {selectedEvents
+                      .filter(e => {
+                        const [eh] = (e.time ?? '').split(':').map(Number)
+                        return eh === h
+                      })
+                      .map(e => {
+                        const cfg = TYPE_CONFIG[e.type] ?? TYPE_CONFIG.algemeen
+                        return (
+                          <div key={e.id} className={cn('rounded-xl px-2.5 py-1.5 mb-1 flex items-start gap-2 group', cfg.bg)}>
+                            <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
+                            <div className="flex-1 min-w-0">
+                              <p className={cn('text-xs font-semibold truncate', cfg.text)}>{e.title}</p>
+                              {e.time && <p className="text-[10px] text-gray-400">{e.time}{e.contact_name ? ` · ${e.contact_name}` : ''}</p>}
+                            </div>
+                            <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {selectedTodos.length > 0 && (
+             <div>
+               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">To-do&apos;s</p>
+               <div className="space-y-2">
+                 {selectedTodos.map(t => (
+                   <div key={t.id} className="rounded-2xl border border-amber-100 bg-amber-50 px-3.5 py-3 flex items-center gap-3">
+                     <CheckSquare size={14} className="text-amber-500 flex-shrink-0" />
+                     <p className="text-sm font-semibold text-amber-800 flex-1 truncate">{t.title}</p>
+                   </div>
+                 ))}
+               </div>
+             </div>
+          )}
+        </div>
+      )
+    }
+
+    return <DayDetail events={selectedEvents} todos={selectedTodos} onDelete={deleteEvent} />
   }
 
   return (
@@ -117,13 +179,13 @@ export default function AgendaView() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setWeekStart(v => addDays(v, -7))} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
+            <button onClick={() => { const d = addDays(weekStart, -7); setWeekStart(d); setSelectedDay(d) }} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
               <ChevronLeft size={15} />
             </button>
             <button onClick={() => { setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setSelectedDay(new Date()) }} className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 hover:border-pink-200 transition-colors">
               Vandaag
             </button>
-            <button onClick={() => setWeekStart(v => addDays(v, 7))} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
+            <button onClick={() => { const d = addDays(weekStart, 7); setWeekStart(d); setSelectedDay(d) }} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
               <ChevronRight size={15} />
             </button>
             <button onClick={() => setShowAdd(s => !s)} className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity" style={{ background: GRAD }}>
@@ -149,7 +211,13 @@ export default function AgendaView() {
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none">
                   {Object.entries(TYPE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
-                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Omschrijving" className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
+                <select value={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none">
+                  <option value="">Niet herhalend</option>
+                  <option value="dagelijks">Dagelijks</option>
+                  <option value="wekelijks">Wekelijks</option>
+                  <option value="maandelijks">Maandelijks</option>
+                </select>
+                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Omschrijving" className="sm:col-span-2 rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
               </div>
               <div className="mt-3 flex gap-2">
                 <button onClick={saveEvent} className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
@@ -220,11 +288,7 @@ export default function AgendaView() {
             <p className="text-sm font-bold text-gray-700 mb-3 capitalize">
               {format(selectedDay, 'EEEE d MMMM', { locale: nl })}
             </p>
-            <DayDetail
-              events={selectedEvents}
-              todos={selectedTodos}
-              onDelete={deleteEvent}
-            />
+            <SelectedDayContent />
           </div>
         </div>
 
@@ -240,56 +304,7 @@ export default function AgendaView() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            {/* Timeline */}
-            {selectedEvents.some(e => e.time) ? (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Tijdlijn</p>
-                <div className="relative">
-                  {HOURS.map(h => (
-                    <div key={h} className="flex items-start gap-2 mb-0">
-                      <span className="text-[10px] text-gray-300 w-8 flex-shrink-0 leading-none pt-0.5">{String(h).padStart(2, '0')}:00</span>
-                      <div className="flex-1 border-t border-gray-100 pt-0.5 min-h-[28px] relative">
-                        {selectedEvents
-                          .filter(e => {
-                            const [eh] = (e.time ?? '').split(':').map(Number)
-                            return eh === h
-                          })
-                          .map(e => {
-                            const cfg = TYPE_CONFIG[e.type] ?? TYPE_CONFIG.algemeen
-                            return (
-                              <div key={e.id} className={cn('rounded-xl px-2.5 py-1.5 mb-1 flex items-start gap-2 group', cfg.bg)}>
-                                <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
-                                <div className="flex-1 min-w-0">
-                                  <p className={cn('text-xs font-semibold truncate', cfg.text)}>{e.title}</p>
-                                  {e.time && <p className="text-[10px] text-gray-400">{e.time}{e.contact_name ? ` · ${e.contact_name}` : ''}</p>}
-                                </div>
-                                <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
-                                  <Trash2 size={11} />
-                                </button>
-                              </div>
-                            )
-                          })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <DayDetail events={selectedEvents} todos={selectedTodos} onDelete={deleteEvent} />
-            )}
-
-            {selectedEvents.length === 0 && selectedTodos.length === 0 && (
-              <div className="text-center py-8">
-                <CalendarDays size={28} className="text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">Niets gepland</p>
-                <button
-                  onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd(true) }}
-                  className="mt-3 text-xs font-semibold text-pink-400 hover:text-pink-600 transition-colors"
-                >
-                  + Evenement toevoegen
-                </button>
-              </div>
-            )}
+            <SelectedDayContent />
           </div>
 
           {/* Week todos */}

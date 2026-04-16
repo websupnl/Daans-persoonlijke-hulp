@@ -209,6 +209,7 @@ export async function initSchema(): Promise<void> {
       project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
       all_day SMALLINT DEFAULT 0,
+      recurring TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -307,6 +308,7 @@ export async function initSchema(): Promise<void> {
   await pool.query(`
     ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
     ALTER TABLE habits ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1;
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring TEXT;
   `)
 }
 

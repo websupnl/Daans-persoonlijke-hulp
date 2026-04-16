@@ -40,6 +40,7 @@ export default function IdeasView() {
   const [saving, setSaving] = useState(false)
   const [input, setInput] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   async function loadIdeas() {
     const res = await fetch('/api/ideas')
@@ -152,7 +153,7 @@ export default function IdeasView() {
               ideas.map((idea) => (
                 <button
                   key={idea.id}
-                  onClick={() => setSelectedId(idea.id)}
+                  onClick={() => { setSelectedId(idea.id); setShowModal(true) }}
                   className={cn(
                     'block w-full rounded-3xl border p-4 text-left shadow-sm transition-all',
                     selectedId === idea.id ? 'border-pink-200 bg-white shadow-md' : 'border-gray-200 bg-white hover:border-pink-100'
@@ -174,109 +175,139 @@ export default function IdeasView() {
           </div>
         </div>
 
-        <div className="overflow-y-auto p-6">
-          {!selectedIdea ? (
-            <div className="rounded-3xl border border-dashed border-gray-200 px-6 py-16 text-center">
-              <Brain size={30} className="mx-auto mb-3 text-gray-200" />
-              <p className="text-sm font-medium text-gray-400">Selecteer een idee of maak er eentje aan.</p>
+        <div className="hidden xl:block overflow-y-auto p-6">
+          <IdeaDetail 
+            idea={selectedIdea} 
+            onUpdate={updateIdea} 
+            onDelete={(id) => { deleteIdea(id); setShowModal(false) }} 
+          />
+        </div>
+      </div>
+
+      {showModal && selectedIdea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 xl:hidden">
+          <div className="relative h-full w-full max-w-2xl overflow-y-auto rounded-3xl bg-gray-50 p-6 shadow-xl">
+             <button 
+               onClick={() => setShowModal(false)}
+               className="absolute right-6 top-6 z-10 rounded-full bg-white p-2 shadow-md"
+             >
+               <Plus size={20} className="rotate-45" />
+             </button>
+             <IdeaDetail 
+               idea={selectedIdea} 
+               onUpdate={updateIdea} 
+               onDelete={(id) => { deleteIdea(id); setShowModal(false) }} 
+             />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function IdeaDetail({ idea, onUpdate, onDelete }: { idea: Idea | null, onUpdate: (id: number, patch: Partial<Idea>) => void, onDelete: (id: number) => void }) {
+  if (!idea) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 px-6 py-16 text-center">
+        <Brain size={30} className="mx-auto mb-3 text-gray-200" />
+        <p className="text-sm font-medium text-gray-400">Selecteer een idee of maak er eentje aan.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', VERDICT_COLORS[idea.verdict])}>
+                {idea.verdict}
+              </span>
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
+                Score {idea.score}/100
+              </span>
             </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', VERDICT_COLORS[selectedIdea.verdict])}>
-                        {selectedIdea.verdict}
-                      </span>
-                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
-                        Score {selectedIdea.score}/100
-                      </span>
-                    </div>
-                    <input
-                      value={selectedIdea.title}
-                      onChange={(e) => updateIdea(selectedIdea.id, { title: e.target.value })}
-                      className="w-full bg-transparent text-2xl font-extrabold text-gray-800 outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={() => deleteIdea(selectedIdea.id)}
-                    className="flex items-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-100"
-                  >
-                    <Trash2 size={12} />
-                    Verwijderen
-                  </button>
-                </div>
-              </div>
+            <input
+              value={idea.title}
+              onChange={(e) => onUpdate(idea.id, { title: e.target.value })}
+              className="w-full bg-transparent text-2xl font-extrabold text-gray-800 outline-none"
+            />
+          </div>
+          <button
+            onClick={() => onDelete(idea.id)}
+            className="flex items-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-100"
+          >
+            <Trash2 size={12} />
+            Verwijderen
+          </button>
+        </div>
+      </div>
 
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="space-y-5">
-                  <Card title="Ruwe input">
-                    <textarea
-                      value={selectedIdea.raw_input}
-                      onChange={(e) => updateIdea(selectedIdea.id, { raw_input: e.target.value })}
-                      className="min-h-[110px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 outline-none"
-                    />
-                  </Card>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-5">
+          <Card title="Ruwe input">
+            <textarea
+              value={idea.raw_input}
+              onChange={(e) => onUpdate(idea.id, { raw_input: e.target.value })}
+              className="min-h-[110px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 outline-none"
+            />
+          </Card>
 
-                  <Card title="AI-samenvatting">
-                    <textarea
-                      value={selectedIdea.refined_summary || ''}
-                      onChange={(e) => updateIdea(selectedIdea.id, { refined_summary: e.target.value })}
-                      className="min-h-[160px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
-                    />
-                  </Card>
+          <Card title="AI-samenvatting">
+            <textarea
+              value={idea.refined_summary || ''}
+              onChange={(e) => onUpdate(idea.id, { refined_summary: e.target.value })}
+              className="min-h-[160px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
+            />
+          </Card>
 
-                  <Card title="Marktgat / oordeel">
-                    <textarea
-                      value={selectedIdea.market_gap || ''}
-                      onChange={(e) => updateIdea(selectedIdea.id, { market_gap: e.target.value })}
-                      className="min-h-[140px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
-                    />
-                  </Card>
+          <Card title="Marktgat / oordeel">
+            <textarea
+              value={idea.market_gap || ''}
+              onChange={(e) => onUpdate(idea.id, { market_gap: e.target.value })}
+              className="min-h-[140px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
+            />
+          </Card>
 
-                  <Card title="Volgende stappen">
-                    <div className="space-y-2">
-                      {selectedIdea.next_steps.map((step, index) => (
-                        <input
-                          key={`${selectedIdea.id}-${index}`}
-                          value={step}
-                          onChange={(e) => {
-                            const next = [...selectedIdea.next_steps]
-                            next[index] = e.target.value
-                            updateIdea(selectedIdea.id, { next_steps: next })
-                          }}
-                          className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
-                        />
-                      ))}
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="space-y-5">
-                  <Card title="Status">
-                    <select
-                      value={selectedIdea.status}
-                      onChange={(e) => updateIdea(selectedIdea.id, { status: e.target.value as Idea['status'] })}
-                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none"
-                    >
-                      {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
-                    </select>
-                  </Card>
-
-                  <Card title="Tags">
-                    <div className="flex flex-wrap gap-2">
-                      {selectedIdea.tags.map((tag) => (
-                        <span key={tag} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </Card>
-                </div>
-              </div>
+          <Card title="Volgende stappen">
+            <div className="space-y-2">
+              {idea.next_steps.map((step, index) => (
+                <input
+                  key={`${idea.id}-${index}`}
+                  value={step}
+                  onChange={(e) => {
+                    const next = [...idea.next_steps]
+                    next[index] = e.target.value
+                    onUpdate(idea.id, { next_steps: next })
+                  }}
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
+                />
+              ))}
             </div>
-          )}
+          </Card>
+        </div>
+
+        <div className="space-y-5">
+          <Card title="Status">
+            <select
+              value={idea.status}
+              onChange={(e) => onUpdate(idea.id, { status: e.target.value as Idea['status'] })}
+              className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none"
+            >
+              {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+            </select>
+          </Card>
+
+          <Card title="Tags">
+            <div className="flex flex-wrap gap-2">
+              {idea.tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </Card>
         </div>
       </div>
     </div>

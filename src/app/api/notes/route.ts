@@ -3,10 +3,12 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
+import { generateTags, rankNotesByQuery } from '@/lib/ai/note-utils'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search')
+  const smart = searchParams.get('smart') === 'true'
   const projectId = searchParams.get('project_id')
   const tag = searchParams.get('tag')
 
@@ -37,17 +39,28 @@ export async function GET(req: NextRequest) {
     sql += ' ORDER BY n.pinned DESC, n.updated_at DESC'
   }
 
-  const notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
+  let notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
     ...n,
     tags: JSON.parse(n.tags as string || '[]'),
+    content: n.content, // Ensure content is available for ranking
   }))
+
+  if (smart && search) {
+    notes = await rankNotesByQuery(notes, search)
+  }
 
   return NextResponse.json({ data: notes })
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { title, content, content_text, tags, project_id, contact_id, pinned } = body
+  let { title, content, content_text, tags, project_id, contact_id, pinned } = body
+
+  // Auto-tagging if no tags provided
+  if ((!tags || tags.length === 0) && content_text) {
+    const aiTags = await generateTags(content_text)
+    if (aiTags.length > 0) tags = aiTags
+  }
 
   const note = await queryOne<Record<string, unknown>>(`
     INSERT INTO notes (title, content, content_text, tags, project_id, contact_id, pinned)

@@ -38,6 +38,8 @@ export default function TodosView() {
   const [viewMode, setViewMode] = useState<ViewMode>('board')
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [recommendation, setRecommendation] = useState<string | null>(null)
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false)
   const [newTodo, setNewTodo] = useState({ title: '', priority: 'medium', category: 'overig', due_date: '' })
 
   const fetchTodos = useCallback(async () => {
@@ -81,6 +83,20 @@ export default function TodosView() {
   async function deleteTodo(id: number) {
     await fetch(`/api/todos/${id}`, { method: 'DELETE' })
     fetchTodos()
+  }
+
+  async function getRecommendation() {
+    setLoadingRecommendation(true)
+    setRecommendation(null)
+    try {
+      const res = await fetch('/api/todos/recommend')
+      const data = await res.json()
+      setRecommendation(data.recommendation)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingRecommendation(false)
+    }
   }
 
   async function moveTodo(id: number, column: typeof PIPELINE[number]['key']) {
@@ -157,6 +173,15 @@ export default function TodosView() {
             </div>
 
             <button
+              onClick={getRecommendation}
+              disabled={loadingRecommendation}
+              className="flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 shadow-sm transition-all hover:bg-orange-100 disabled:opacity-50"
+            >
+              <LayoutGrid size={14} />
+              {loadingRecommendation ? 'Denken...' : 'Wat moet ik nu doen?'}
+            </button>
+
+            <button
               onClick={() => setShowAdd((s) => !s)}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90"
               style={{ background: GRAD }}
@@ -167,6 +192,26 @@ export default function TodosView() {
           </div>
         </div>
       </div>
+
+      {recommendation && (
+        <div className="mx-6 mt-4 rounded-3xl border border-orange-100 bg-orange-50/50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+              <LayoutGrid size={16} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-orange-600">AI Aanbeveling</p>
+              <p className="mt-1 text-sm font-medium text-gray-700">{recommendation}</p>
+            </div>
+            <button 
+              onClick={() => setRecommendation(null)}
+              className="ml-auto text-gray-400 hover:text-gray-600"
+            >
+              <Plus size={16} className="rotate-45" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="mx-6 mt-4 rounded-3xl border border-gray-200 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">

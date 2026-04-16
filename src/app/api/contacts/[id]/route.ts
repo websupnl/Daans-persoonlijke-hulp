@@ -50,7 +50,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     data: {
       ...contact,
       tags: JSON.parse(contact.tags as string || '[]'),
-      todos, notes, finance,
+      todos, linked_notes: notes, finance,
     }
   })
 }

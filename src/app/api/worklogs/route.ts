@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
   const context = searchParams.get('context')
+  const projectId = searchParams.get('project_id')
   const limit = parseInt(searchParams.get('limit') ?? '20')
 
   let sql = `SELECT w.*, p.title as project_title FROM work_logs w LEFT JOIN projects p ON w.project_id = p.id WHERE 1=1`
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
   if (date) { sql += ` AND w.date = $${i++}`; params.push(date) }
   if (context) { sql += ` AND w.context = $${i++}`; params.push(context) }
+  if (projectId) { sql += ` AND w.project_id = $${i++}`; params.push(parseInt(projectId)) }
 
   sql += ` ORDER BY w.date DESC, w.created_at DESC LIMIT $${i++}`
   params.push(limit)

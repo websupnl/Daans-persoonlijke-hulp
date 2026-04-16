@@ -28,6 +28,7 @@ export default function ProjectsView() {
   const [projects, setProjects] = useState<Project[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [form, setForm] = useState({ title: '', description: '', color: '#ec4899', status: 'actief' })
 
   const fetchProjects = async () => {
@@ -115,7 +116,11 @@ export default function ProjectsView() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.map(project => (
-              <div key={project.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm card-hover group">
+              <div 
+                key={project.id} 
+                onClick={() => setSelectedProject(project)}
+                className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm card-hover group cursor-pointer"
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-10 rounded-full flex-shrink-0 shadow-sm" style={{ background: project.color }} />
@@ -124,7 +129,10 @@ export default function ProjectsView() {
                       {project.description && <p className="text-[10px] text-gray-400 mt-0.5">{project.description}</p>}
                     </div>
                   </div>
-                  <button onClick={() => deleteProject(project.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); deleteProject(project.id) }} 
+                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"
+                  >
                     <Trash2 size={12} />
                   </button>
                 </div>
@@ -159,6 +167,7 @@ export default function ProjectsView() {
 
                 <select
                   value={project.status}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={e => updateStatus(project.id, e.target.value)}
                   className={cn('text-[10px] px-2 py-1.5 rounded-xl border-0 outline-none cursor-pointer w-full font-semibold', STATUS_COLORS_MAP[project.status])}
                 >
@@ -168,6 +177,117 @@ export default function ProjectsView() {
             ))}
           </div>
         )}
+      </div>
+
+      {selectedProject && (
+        <ProjectDetailModal 
+          project={selectedProject} 
+          onClose={() => setSelectedProject(null)} 
+        />
+      )}
+    </div>
+  )
+}
+
+function ProjectDetailModal({ project, onClose }: { project: Project; onClose: () => void }) {
+  const [todos, setTodos] = useState<any[]>([])
+  const [notes, setNotes] = useState<any[]>([])
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [todosRes, notesRes, logsRes] = await Promise.all([
+        fetch(`/api/todos?project_id=${project.id}`).then(r => r.json()),
+        fetch(`/api/notes?project_id=${project.id}`).then(r => r.json()),
+        fetch(`/api/worklogs?project_id=${project.id}`).then(r => r.json()),
+      ])
+      setTodos(todosRes.data || [])
+      setNotes(notesRes.data || [])
+      setLogs(logsRes.logs || [])
+      setLoading(false)
+    }
+    fetchData()
+  }, [project.id])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative h-full w-full max-w-4xl overflow-hidden rounded-3xl bg-gray-50 shadow-2xl flex flex-col">
+        <div className="p-6 border-b border-gray-100 bg-white flex items-center justify-between">
+          <div className="flex items-center gap-3">
+             <div className="w-3 h-8 rounded-full" style={{ background: project.color }} />
+             <h2 className="text-xl font-bold text-gray-800">{project.title}</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <Plus size={24} className="rotate-45 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+            </div>
+          ) : (
+            <>
+              <section>
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <CheckSquare size={16} className="text-pink-500" /> Openstaande Taken
+                </h3>
+                <div className="space-y-2">
+                  {todos.filter(t => !t.completed).length === 0 ? (
+                    <p className="text-xs text-gray-400">Geen openstaande taken.</p>
+                  ) : (
+                    todos.filter(t => !t.completed).map(t => (
+                      <div key={t.id} className="bg-white p-3 rounded-xl border border-gray-100 text-sm text-gray-700 shadow-sm">
+                        {t.title}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <FileText size={16} className="text-violet-500" /> Notities
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {notes.length === 0 ? (
+                    <p className="text-xs text-gray-400">Geen notities.</p>
+                  ) : (
+                    notes.map(n => (
+                      <div key={n.id} className="bg-white p-3 rounded-xl border border-gray-100 text-sm text-gray-700 shadow-sm">
+                        <p className="font-bold mb-1 truncate">{n.title}</p>
+                        <p className="text-xs text-gray-400 line-clamp-2">{n.content_text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <FolderOpen size={16} className="text-orange-500" /> Werklogs
+                </h3>
+                <div className="space-y-2">
+                  {logs.length === 0 ? (
+                    <p className="text-xs text-gray-400">Geen werklogs.</p>
+                  ) : (
+                    logs.map(l => (
+                      <div key={l.id} className="bg-white p-3 rounded-xl border border-gray-100 text-sm text-gray-700 shadow-sm flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{l.title}</p>
+                          <p className="text-[10px] text-gray-400">{l.date}</p>
+                        </div>
+                        <span className="text-xs font-bold text-gray-500">{l.duration_minutes} min</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
