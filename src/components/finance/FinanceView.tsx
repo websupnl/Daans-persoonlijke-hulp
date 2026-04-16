@@ -22,6 +22,7 @@ interface Stats {
   open_count: number
   month_income: number
   month_expenses: number
+  active_month: string | null
 }
 
 interface CategoryStat {
@@ -236,6 +237,14 @@ export default function FinanceView() {
 
   const net = (stats?.month_income || 0) - (stats?.month_expenses || 0)
   const maxMonthly = monthlyData.reduce((m, d) => Math.max(m, d.income, d.expenses), 1)
+
+  // Format active_month (e.g. "2024-12") to readable label like "dec. 2024"
+  const now = new Date().toISOString().slice(0, 7)
+  const activePeriod = stats?.active_month
+    ? stats.active_month === now
+      ? 'deze maand'
+      : new Date(stats.active_month + '-01').toLocaleDateString('nl-NL', { month: 'short', year: 'numeric' })
+    : 'deze maand'
 
   return (
     <div className="flex min-h-full flex-col bg-white">
@@ -570,11 +579,11 @@ export default function FinanceView() {
       {/* Stats */}
       {stats && (
         <div className="px-4 sm:px-6 pt-4 pb-2 grid grid-cols-3 gap-3 flex-shrink-0">
-          <MiniStat icon={<TrendingUp size={14} />} label="Inkomsten (mnd)" value={formatCurrency(stats.month_income)} positive />
-          <MiniStat icon={<TrendingDown size={14} />} label="Uitgaven (mnd)" value={formatCurrency(stats.month_expenses)} negative />
+          <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten (${activePeriod})`} value={formatCurrency(stats.month_income)} positive />
+          <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven (${activePeriod})`} value={formatCurrency(stats.month_expenses)} negative />
           <MiniStat
             icon={net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            label="Netto (mnd)"
+            label={`Netto (${activePeriod})`}
             value={formatCurrency(Math.abs(net))}
             positive={net >= 0}
             negative={net < 0}

@@ -11,10 +11,16 @@ import { query } from '@/lib/db'
 export async function GET() {
   const [categories, monthly] = await Promise.all([
     query<{ category: string; total: number; count: number }>(`
+      WITH active AS (
+        SELECT COALESCE(
+          TO_CHAR(MAX(COALESCE(due_date, created_at::date)), 'YYYY-MM'),
+          TO_CHAR(NOW(), 'YYYY-MM')
+        ) as month FROM finance_items
+      )
       SELECT category, SUM(amount) as total, COUNT(*) as count
       FROM finance_items
       WHERE type = 'uitgave'
-        AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM')
+        AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
       GROUP BY category
       ORDER BY total DESC
       LIMIT 8

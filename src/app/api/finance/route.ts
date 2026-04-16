@@ -30,13 +30,25 @@ export async function GET(req: NextRequest) {
 
   const items = await query(sql, params)
 
-  // Statistieken
-  const stats = await queryOne<Record<string, number>>(`
+  // Statistieken — gebruik meest recente maand met data, niet per se huidige kalendermaand
+  const stats = await queryOne<Record<string, unknown>>(`
+    WITH active AS (
+      SELECT COALESCE(
+        TO_CHAR(MAX(COALESCE(due_date, created_at::date)), 'YYYY-MM'),
+        TO_CHAR(NOW(), 'YYYY-MM')
+      ) as month
+      FROM finance_items
+    )
     SELECT
+      (SELECT month FROM active) as active_month,
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_count,
-      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
-      SUM(CASE WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
+      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald'
+        AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
+        THEN amount ELSE 0 END) as month_income,
+      SUM(CASE WHEN type='uitgave'
+        AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
+        THEN amount ELSE 0 END) as month_expenses
     FROM finance_items
   `)
 
