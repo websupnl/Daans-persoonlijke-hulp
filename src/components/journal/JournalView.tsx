@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, subDays } from 'date-fns'
 import { nl } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface JournalEntry {
@@ -18,11 +18,6 @@ interface JournalEntry {
 
 const MOOD_LABELS = ['', 'Slecht', 'Matig', 'Oké', 'Goed', 'Top']
 const ENERGY_LABELS = ['', 'Leeg', 'Laag', 'Oké', 'Goed', 'Top']
-const DAY_PROMPTS = [
-  'Wat gaf vandaag de meeste energie?',
-  'Waar liep je op vast?',
-  'Wat wil je morgen slimmer aanpakken?',
-]
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function JournalView() {
@@ -32,6 +27,11 @@ export default function JournalView() {
   const [newGratitude, setNewGratitude] = useState('')
   const [recentDates, setRecentDates] = useState<string[]>([])
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // AI follow-up question state
+  const [aiQuestion, setAiQuestion] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiAnswer, setAiAnswer] = useState('')
 
   const fetchEntry = useCallback(async (currentDate: string) => {
     const res = await fetch(`/api/journal?date=${currentDate}`)
@@ -74,6 +74,34 @@ export default function JournalView() {
     if (value <= new Date()) setDate(format(value, 'yyyy-MM-dd'))
   }
 
+  async function askAI() {
+    if (!entry) return
+    setAiLoading(true)
+    setAiQuestion(null)
+    setAiAnswer('')
+    try {
+      const res = await fetch('/api/journal/ai-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: entry.content, mood: entry.mood, energy: entry.energy, date }),
+      })
+      const data = await res.json()
+      setAiQuestion(data.question ?? null)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  function submitAiAnswer() {
+    if (!aiAnswer.trim() || !entry) return
+    const appended = entry.content
+      ? `${entry.content}\n\n💬 ${aiQuestion}\n${aiAnswer.trim()}`
+      : `💬 ${aiQuestion}\n${aiAnswer.trim()}`
+    save({ content: appended })
+    setAiQuestion(null)
+    setAiAnswer('')
+  }
+
   const addGratitude = () => {
     if (!newGratitude.trim() || !entry) return
     const gratitude = [...entry.gratitude, newGratitude.trim()]
@@ -97,17 +125,16 @@ export default function JournalView() {
         </div>
 
         <div className="px-4 py-4">
-          <div className="rounded-3xl border border-pink-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">
-            <div className="mb-2 flex items-center gap-2">
-              <Sparkles size={14} className="text-pink-400" />
-              <p className="text-sm font-bold text-gray-700">Prompts</p>
-            </div>
-            <div className="space-y-2">
-              {DAY_PROMPTS.map((prompt) => (
-                <p key={prompt} className="text-sm leading-relaxed text-gray-600">{prompt}</p>
-              ))}
-            </div>
-          </div>
+          <button
+            onClick={askAI}
+            disabled={aiLoading}
+            className="w-full flex items-center justify-center gap-2 rounded-3xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={{ background: GRAD }}
+          >
+            <Sparkles size={14} />
+            {aiLoading ? 'AI denkt na...' : 'Stel me een vraag'}
+          </button>
+          <p className="mt-2 text-center text-[10px] text-gray-400">AI stelt een persoonlijke vervolgvraag op basis van wat je hebt geschreven</p>
         </div>
 
         <div className="flex-1 overflow-x-auto px-4 pb-4 lg:overflow-y-auto lg:overflow-x-hidden">
@@ -164,6 +191,43 @@ export default function JournalView() {
                   />
                   {saving && <p className="text-right text-[10px] font-medium text-gray-300">Opslaan...</p>}
                 </div>
+
+                {aiQuestion && (
+                  <div className="rounded-3xl border border-pink-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 p-5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Sparkles size={14} className="text-pink-400" />
+                      <p className="text-sm font-bold text-gray-700">AI-vraag</p>
+                    </div>
+                    <p className="text-sm leading-relaxed text-gray-700 mb-3">{aiQuestion}</p>
+                    <div className="flex gap-2">
+                      <textarea
+                        value={aiAnswer}
+                        onChange={e => setAiAnswer(e.target.value)}
+                        placeholder="Jouw antwoord..."
+                        rows={3}
+                        className="flex-1 resize-none rounded-2xl border border-pink-100 bg-white/80 px-3 py-2 text-sm text-gray-700 outline-none placeholder:text-gray-300"
+                      />
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={submitAiAnswer}
+                          disabled={!aiAnswer.trim()}
+                          className="rounded-2xl p-2.5 text-white shadow-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+                          style={{ background: GRAD }}
+                          title="Verwerk antwoord in dagboek"
+                        >
+                          <Send size={14} />
+                        </button>
+                        <button
+                          onClick={() => setAiQuestion(null)}
+                          className="rounded-2xl p-2.5 bg-white border border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Sluiten"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                   <p className="mb-2 text-sm font-bold text-gray-700">Hoogtepunten en lessen</p>
