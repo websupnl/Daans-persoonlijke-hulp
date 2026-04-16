@@ -2,9 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import OpenAI from 'openai'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 interface FinanceRow {
   id: number
@@ -15,6 +13,7 @@ interface FinanceRow {
   account: string
   status: string
   due_date: string | null
+  transaction_date: string // COALESCE(due_date, created_at::date) — actual transaction date
   created_at: string
 }
 
@@ -72,17 +71,18 @@ function detectSubscriptions(rows: FinanceRow[]): Subscription[] {
   for (const [, items] of Object.entries(groups)) {
     if (items.length < 2) continue
 
-    // Sort by date
-    const sorted = items.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    // Sort by actual transaction date
+    const sorted = items.sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime())
 
-    // Check if amounts are consistent (within 5%)
-    const amounts = sorted.map(i => i.amount)
+    // Check if amounts are consistent (within 10%)
+    const amounts = sorted.map(i => Number(i.amount))
     const avgAmt = amounts.reduce((s, a) => s + a, 0) / amounts.length
+    if (avgAmt === 0) continue
     const maxDev = Math.max(...amounts.map(a => Math.abs(a - avgAmt) / avgAmt))
     if (maxDev > 0.1) continue // > 10% deviation = not subscription
 
-    // Check intervals
-    const dates = sorted.map(i => new Date(i.created_at).getTime())
+    // Check intervals using actual transaction dates
+    const dates = sorted.map(i => new Date(i.transaction_date).getTime())
     const intervals = []
     for (let i = 1; i < dates.length; i++) {
       intervals.push((dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24))
@@ -102,7 +102,7 @@ function detectSubscriptions(rows: FinanceRow[]): Subscription[] {
       amount: avgAmt,
       frequency,
       monthlyEquivalent,
-      lastSeen: sorted[sorted.length - 1].created_at.split('T')[0],
+      lastSeen: sorted[sorted.length - 1].transaction_date,
       count: sorted.length,
     })
   }
@@ -125,9 +125,9 @@ function topSpendingPatterns(rows: FinanceRow[]): SpendingPattern[] {
     .filter(([, items]) => items.length >= 2)
     .map(([merchant, items]) => ({
       merchant: items[0].title.split(' ').slice(0, 3).join(' '),
-      totalSpent: items.reduce((s, i) => s + i.amount, 0),
+      totalSpent: items.reduce((s, i) => s + Number(i.amount), 0),
       visits: items.length,
-      avgAmount: items.reduce((s, i) => s + i.amount, 0) / items.length,
+      avgAmount: items.reduce((s, i) => s + Number(i.amount), 0) / items.length,
       category: items[0].category,
     }))
     .sort((a, b) => b.totalSpent - a.totalSpent)
@@ -138,12 +138,14 @@ function buildMonthlyTrends(rows: FinanceRow[]): MonthlyTrend[] {
   const byMonth: Record<string, { income: number; expenses: number; cats: Record<string, number> }> = {}
 
   for (const row of rows) {
-    const month = row.created_at.slice(0, 7)
+    // Use actual transaction date (due_date fallback to created_at date)
+    const month = row.transaction_date.slice(0, 7)
     if (!byMonth[month]) byMonth[month] = { income: 0, expenses: 0, cats: {} }
-    if (row.type === 'inkomst') byMonth[month].income += row.amount
+    const amount = Number(row.amount)
+    if (row.type === 'inkomst') byMonth[month].income += amount
     else {
-      byMonth[month].expenses += row.amount
-      byMonth[month].cats[row.category] = (byMonth[month].cats[row.category] || 0) + row.amount
+      byMonth[month].expenses += amount
+      byMonth[month].cats[row.category] = (byMonth[month].cats[row.category] || 0) + amount
     }
   }
 
@@ -164,26 +166,27 @@ function detectAnomalies(rows: FinanceRow[], patterns: SpendingPattern[]): Anoma
   // Large single transactions (> 2x avg expense)
   const expenses = rows.filter(r => r.type === 'uitgave')
   if (expenses.length > 5) {
-    const avgExpense = expenses.reduce((s, r) => s + r.amount, 0) / expenses.length
-    const p95 = expenses.map(r => r.amount).sort((a, b) => a - b)[Math.floor(expenses.length * 0.95)]
+    const avgExpense = expenses.reduce((s, r) => s + Number(r.amount), 0) / expenses.length
+    const p95 = expenses.map(r => Number(r.amount)).sort((a, b) => a - b)[Math.floor(expenses.length * 0.95)]
 
     for (const row of expenses) {
-      if (row.amount > Math.max(avgExpense * 3, p95)) {
+      const amt = Number(row.amount)
+      if (amt > Math.max(avgExpense * 3, p95)) {
         anomalies.push({
           title: row.title,
-          amount: row.amount,
-          date: row.created_at.split('T')[0],
-          reason: `Uitzonderlijk hoog — ${Math.round(row.amount / avgExpense)}x het gemiddelde (€${Math.round(avgExpense)})`,
-          severity: row.amount > avgExpense * 5 ? 'high' : 'medium',
+          amount: amt,
+          date: row.transaction_date,
+          reason: `Uitzonderlijk hoog — ${Math.round(amt / avgExpense)}x het gemiddelde (€${Math.round(avgExpense)})`,
+          severity: amt > avgExpense * 5 ? 'high' : 'medium',
         })
       }
     }
   }
 
-  // Duplicate transactions on same day
+  // Duplicate transactions on same (transaction) day
   const byDayTitle: Record<string, FinanceRow[]> = {}
   for (const row of rows) {
-    const key = `${row.created_at.slice(0, 10)}_${row.title.toLowerCase().trim()}`
+    const key = `${row.transaction_date}_${row.title.toLowerCase().trim()}`
     if (!byDayTitle[key]) byDayTitle[key] = []
     byDayTitle[key].push(row)
   }
@@ -191,13 +194,16 @@ function detectAnomalies(rows: FinanceRow[], patterns: SpendingPattern[]): Anoma
     if (dupes.length > 1) {
       anomalies.push({
         title: dupes[0].title,
-        amount: dupes[0].amount,
-        date: dupes[0].created_at.split('T')[0],
+        amount: Number(dupes[0].amount),
+        date: dupes[0].transaction_date,
         reason: `Mogelijk dubbel — ${dupes.length}x op dezelfde dag`,
         severity: 'low',
       })
     }
   }
+
+  // Suppress unused variable warning
+  void patterns
 
   return anomalies
     .sort((a, b) => ({ high: 3, medium: 2, low: 1 }[b.severity] - { high: 3, medium: 2, low: 1 }[a.severity]))
@@ -206,10 +212,14 @@ function detectAnomalies(rows: FinanceRow[], patterns: SpendingPattern[]): Anoma
 
 export async function POST() {
   const rows = (await query<FinanceRow>(
-    `SELECT id, type, title, amount, category, account, status, due_date, created_at
+    `SELECT id, type, title,
+            amount::float AS amount,
+            category, account, status, due_date,
+            COALESCE(due_date, created_at::date)::text AS transaction_date,
+            created_at
      FROM finance_items
      WHERE type IN ('inkomst','uitgave')
-     ORDER BY created_at DESC
+     ORDER BY COALESCE(due_date, created_at::date) DESC
      LIMIT 2000`
   )).map(r => ({ ...r, created_at: new Date(r.created_at).toISOString() }))
 
@@ -222,9 +232,9 @@ export async function POST() {
   const trends = buildMonthlyTrends(rows)
   const anomalies = detectAnomalies(rows, patterns)
 
-  // Totals
-  const totalIncome = rows.filter(r => r.type === 'inkomst').reduce((s, r) => s + r.amount, 0)
-  const totalExpenses = rows.filter(r => r.type === 'uitgave').reduce((s, r) => s + r.amount, 0)
+  // Totals (amounts are now real numbers)
+  const totalIncome = rows.filter(r => r.type === 'inkomst').reduce((s, r) => s + Number(r.amount), 0)
+  const totalExpenses = rows.filter(r => r.type === 'uitgave').reduce((s, r) => s + Number(r.amount), 0)
   const monthlySubCost = subscriptions.reduce((s, sub) => s + sub.monthlyEquivalent, 0)
 
   // Build compact summary for GPT
@@ -241,33 +251,27 @@ export async function POST() {
   }
 
   let aiInsights = ''
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      max_tokens: 600,
-      messages: [
-        {
-          role: 'system',
-          content: `Je bent een slimme persoonlijke financieel analist voor Daan. Geef beknopte, actionable inzichten in het Nederlands. Wees direct en specifiek — geen vage algemeenheden. Gebruik bullet points (•).`,
-        },
-        {
-          role: 'user',
-          content: `Analyseer deze financiële data en geef 4-6 scherpe inzichten:
-
-${JSON.stringify(summaryForAI, null, 2)}
-
-Focus op:
-1. Abonnementen die misschien onnodig zijn
-2. Opvallende trends (groei/daling)
-3. Besparingskansen
-4. Inkomensstabiliteit
-5. Eventuele zorgen`,
-        },
-      ],
-    })
-    aiInsights = completion.choices[0]?.message?.content ?? ''
-  } catch {
-    aiInsights = ''
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const openai = getOpenAIClient()
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: 600,
+        messages: [
+          {
+            role: 'system',
+            content: `Je bent een slimme persoonlijke financieel analist voor Daan. Geef beknopte, actionable inzichten in het Nederlands. Wees direct en specifiek — geen vage algemeenheden. Gebruik bullet points (•).`,
+          },
+          {
+            role: 'user',
+            content: `Analyseer deze financiële data en geef 4-6 scherpe inzichten:\n\n${JSON.stringify(summaryForAI, null, 2)}\n\nFocus op:\n1. Abonnementen die misschien onnodig zijn\n2. Opvallende trends (groei/daling)\n3. Besparingskansen\n4. Inkomensstabiliteit\n5. Eventuele zorgen`,
+          },
+        ],
+      })
+      aiInsights = completion.choices[0]?.message?.content ?? ''
+    } catch {
+      aiInsights = ''
+    }
   }
 
   return NextResponse.json({

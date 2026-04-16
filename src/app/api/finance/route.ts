@@ -45,22 +45,24 @@ export async function GET(req: NextRequest) {
   // Als er een range is (from/to), gebruik die. Anders huidige maand.
   const stats = await queryOne<Record<string, unknown>>(`
     SELECT
-      SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
+      SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END)::float as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_count,
       SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald'
+        AND ($3::text IS NULL OR account = $3)
         AND (
           ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(paid_date, due_date, created_at::date) BETWEEN $1 AND $2)
           OR ($1::date IS NULL AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
         )
-        THEN amount ELSE 0 END) as month_income,
+        THEN amount ELSE 0 END)::float as month_income,
       SUM(CASE WHEN type='uitgave'
+        AND ($3::text IS NULL OR account = $3)
         AND (
           ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
           OR ($1::date IS NULL AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
         )
-        THEN amount ELSE 0 END) as month_expenses
+        THEN amount ELSE 0 END)::float as month_expenses
     FROM finance_items
-  `, [from || null, to || null])
+  `, [from || null, to || null, account || null])
 
   return NextResponse.json({ data: items, stats: { ...stats, active_month: from ? from.slice(0, 7) : TO_CHAR_NOW() } })
 }

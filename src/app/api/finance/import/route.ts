@@ -310,16 +310,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ preview: rows, count: rows.length })
   }
 
-  // Bulk import
+  // Bulk import — skip exact duplicates (same type + title + amount + date + account)
   let imported = 0
   for (const row of rows) {
     try {
-      await execute(`
+      const affected = await execute(`
         INSERT INTO finance_items (type, title, amount, category, account, status, due_date, created_at)
-        VALUES ($1, $2, $3, $4, $5, 'betaald', $6, NOW())
+        SELECT $1, $2, $3, $4, $5, 'betaald', $6, NOW()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM finance_items
+          WHERE type = $1
+            AND title = $2
+            AND ROUND(amount::numeric, 2) = ROUND($3::numeric, 2)
+            AND due_date = $6::date
+            AND account = $5
+        )
       `, [row.type, row.description, row.amount, row.category, account, row.date])
-      imported++
-    } catch { /* skip duplicates */ }
+      if (affected > 0) imported++
+    } catch { /* skip db errors */ }
   }
 
   return NextResponse.json({ imported, total: rows.length })
