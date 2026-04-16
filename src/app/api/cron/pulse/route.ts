@@ -27,12 +27,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { searchParams } = new URL(request.url)
+  const force = searchParams.get('force') === 'true'
+
   const startedAt = Date.now()
   const results: Record<string, unknown> = {}
 
   try {
-    // Run the proactive engine
-    const proactiveResult = await runProactiveEngine()
+    // Run the proactive engine (force=true bypasses cooldown + time guard)
+    const proactiveResult = await runProactiveEngine(force)
     results.proactive = {
       triggered: proactiveResult.triggered,
       tier: proactiveResult.tier,

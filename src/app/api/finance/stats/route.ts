@@ -38,5 +38,8 @@ export async function GET(req: NextRequest) {
     `),
   ])
 
-  return NextResponse.json({ categories, monthly })
+  return NextResponse.json({
+    categories: categories.map(c => ({ ...c, total: Number(c.total) })),
+    monthly: monthly.map(m => ({ ...m, income: Number(m.income), expenses: Number(m.expenses) })),
+  })
 }

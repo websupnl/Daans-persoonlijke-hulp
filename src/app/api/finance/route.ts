@@ -39,7 +39,8 @@ export async function GET(req: NextRequest) {
 
   sql += ' ORDER BY COALESCE(f.due_date, f.created_at::date) DESC, f.created_at DESC'
 
-  const items = await query(sql, params)
+  const rawItems = await query(sql, params)
+  const items = rawItems.map((item: Record<string, unknown>) => ({ ...item, amount: Number(item.amount) }))
 
   // Statistieken
   // Als er een range is (from/to), gebruik die. Anders huidige maand.

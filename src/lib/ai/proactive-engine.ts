@@ -36,7 +36,7 @@ const NUDGE_COOLDOWN_HOURS: Record<string, number> = {
   workload_today: 12,
 }
 
-const GLOBAL_COOLDOWN_HOURS = 4
+const GLOBAL_COOLDOWN_HOURS = 1
 
 const DUTCH_JOKES = [
   "Waarom heeft een elektricien altijd zo'n geordend leven? Omdat hij alles *in the current* houdt. ⚡",
@@ -61,19 +61,24 @@ async function checkGlobalCooldown(): Promise<{ canSend: boolean; hoursSinceLast
 /**
  * Run the full proactive analysis cycle.
  * Called by the hourly cron job at /api/cron/pulse
- * Always sends something during 08:00–23:00 (subject to global 4h cooldown).
+ * Always sends something during 08:00–23:00 (subject to global 1h cooldown).
+ * Pass force=true to skip all cooldowns (e.g. on deploy).
  */
-export async function runProactiveEngine(): Promise<ProactiveResult> {
-  // Time guard: silent between 23:00 and 08:00
-  const hour = new Date().getHours()
-  if (hour >= 23 || hour < 8) {
-    return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
+export async function runProactiveEngine(force = false): Promise<ProactiveResult> {
+  // Time guard: silent between 23:00 and 08:00 (skip when forced)
+  if (!force) {
+    const hour = new Date().getHours()
+    if (hour >= 23 || hour < 8) {
+      return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
+    }
   }
 
-  // Global cooldown: max once every 4 hours
-  const { canSend } = await checkGlobalCooldown()
-  if (!canSend) {
-    return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
+  // Global cooldown: max once per hour (skip when forced)
+  if (!force) {
+    const { canSend } = await checkGlobalCooldown()
+    if (!canSend) {
+      return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
+    }
   }
 
   const snap = await buildLifeSnapshot()

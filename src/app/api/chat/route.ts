@@ -262,13 +262,14 @@ export async function POST(req: NextRequest) {
 
       case 'finance_add_expense': {
         const inserted = await queryOne<Record<string, unknown>>(`
-          INSERT INTO finance_items (type, title, amount, status, category)
-          VALUES ('uitgave', $1, $2, 'betaald', $3)
+          INSERT INTO finance_items (type, title, amount, status, category, account, due_date)
+          VALUES ('uitgave', $1, $2, 'betaald', $3, $4, CURRENT_DATE)
           RETURNING *
         `, [
           String(parsed.params.title || 'Uitgave'),
           parsed.params.amount || 0,
           String(parsed.params.category || 'overig'),
+          String(parsed.params.account || 'privé'),
         ])
         actionResult = inserted
         actions.push({ type: 'finance_created', data: actionResult })
@@ -277,18 +278,23 @@ export async function POST(req: NextRequest) {
 
       case 'finance_list': {
         const filter = String(parsed.params.filter || '')
-        const stats = filter === 'today_expenses'
-          ? await queryOne<{ spent_today: number }>(`
+        const statsRaw = filter === 'today_expenses'
+          ? await queryOne<{ spent_today: unknown }>(`
               SELECT SUM(amount) as spent_today
               FROM finance_items
               WHERE type='uitgave' AND DATE(created_at) = CURRENT_DATE
             `)
-          : await queryOne<{ amount: number; open: number }>(`
+          : await queryOne<{ amount: unknown; open: unknown }>(`
               SELECT
                 SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as amount,
                 COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open
               FROM finance_items
             `)
+        const stats = statsRaw
+          ? 'spent_today' in statsRaw
+            ? { spent_today: Number(statsRaw.spent_today) || 0 }
+            : { amount: Number((statsRaw as { amount: unknown }).amount) || 0, open: Number((statsRaw as { open: unknown }).open) || 0 }
+          : null
         actionResult = stats
         actions.push({ type: 'finance_listed', data: stats })
         break
@@ -296,13 +302,14 @@ export async function POST(req: NextRequest) {
 
       case 'finance_add_income': {
         const inserted = await queryOne<Record<string, unknown>>(`
-          INSERT INTO finance_items (type, title, amount, status, category, paid_date)
-          VALUES ('inkomst', $1, $2, 'betaald', $3, CURRENT_DATE)
+          INSERT INTO finance_items (type, title, amount, status, category, account, paid_date, due_date)
+          VALUES ('inkomst', $1, $2, 'betaald', $3, $4, CURRENT_DATE, CURRENT_DATE)
           RETURNING *
         `, [
           String(parsed.params.title || 'Inkomst'),
           parsed.params.amount || 0,
           String(parsed.params.category || 'overig'),
+          String(parsed.params.account || 'privé'),
         ])
         actionResult = inserted
         actions.push({ type: 'finance_created', data: actionResult })
