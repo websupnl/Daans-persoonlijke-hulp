@@ -68,6 +68,11 @@ export function extractDate(text: string): string | undefined {
   const lower = normalize(text)
   const today = new Date()
 
+  const DUTCH_MONTHS: Record<string, number> = {
+    januari: 0, februari: 1, maart: 2, april: 3, mei: 4, juni: 5,
+    juli: 6, augustus: 7, september: 8, oktober: 9, november: 10, december: 11,
+  }
+
   const patterns: Array<[RegExp, (m?: RegExpMatchArray) => Date]> = [
     [/\b(vandaag|today)\b/, () => today],
     [/\b(morgen|tomorrow)\b/, () => addDays(today, 1)],
@@ -79,6 +84,16 @@ export function extractDate(text: string): string | undefined {
     [/\bover (\d+) dagen?\b/, (m?: RegExpMatchArray) => addDays(today, parseInt(m?.[1] || '1', 10))],
     [/\bover (\d+) weken?\b/, (m?: RegExpMatchArray) => addWeeks(today, parseInt(m?.[1] || '1', 10))],
     [/\beinde (van de )?maand\b/, () => new Date(today.getFullYear(), today.getMonth() + 1, 0)],
+    // Dutch: "20 april" or "20 april 2026"
+    [/\b(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)(?:\s+(\d{4}))?\b/, (m?: RegExpMatchArray) => {
+      if (!m) return today
+      const day = parseInt(m[1], 10)
+      const monthIdx = DUTCH_MONTHS[m[2]] ?? 0
+      const year = m[3] ? parseInt(m[3], 10) : today.getFullYear()
+      const d = new Date(year, monthIdx, day)
+      if (!m[3] && d < today) d.setFullYear(today.getFullYear() + 1)
+      return d
+    }],
     [/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/, (m?: RegExpMatchArray) => {
       if (!m) return today
       const year = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10)) : today.getFullYear()
@@ -153,6 +168,37 @@ function extractProjectTitle(text: string): string {
     /\b(project|website|site)\b/gi,
     /\b(aan|toe)\b/gi,
   ])
+}
+
+function extractWorklogTitle(text: string): string {
+  let t = text
+  t = t.replace(/\b(voeg\s+toe\s+aan\s+(mijn\s+)?werk\s*registratie|werkregistratie|werklog|registreer|log)\b/gi, '')
+  t = t.replace(/\bdat\s+ik\b/gi, '')
+  t = t.replace(/\b\d+[.,]?\d*\s*(uur|u|h|uren|minuten|minuut|min)\b/gi, '')
+  t = t.replace(/\b(lang|geleden|gewerkt|gesleuteld|gebouwd|gecoded|geschreven|gehangen)\b/gi, '')
+  t = t.replace(/\b(heb|ik|heb ik|voor|aan|bij)\b/gi, '')
+  t = t.replace(/^\s*(aan|bij|voor|op|aan de|op de)\s+/i, '')
+  return t.replace(/\s+/g, ' ').trim().slice(0, 80) || text.slice(0, 80)
+}
+
+function extractEventTitle(text: string): string {
+  let t = text
+  // Strip command prefix ("zet in de agenda", "maak een afspraak", etc.)
+  t = t.replace(/^(zet\s+in\s+(de\s+)?|voeg\s+toe\s+aan\s+(de\s+)?|maak\s+(een\s+)?|plan\s+|sla\s+op\s+in\s+(de\s+)?)/gi, '')
+  t = t.replace(/\bagenda\b/gi, '')
+  // Strip Dutch month-name dates ("voor 20 april 2026", "op 3 mei")
+  t = t.replace(/(voor\s+|op\s+)?\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)(\s+\d{4})?\b/gi, '')
+  // Strip relative date words
+  t = t.replace(/(voor\s+|op\s+)?(vandaag|morgen|overmorgen|volgende\s+week|volgende\s+maand|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\b/gi, '')
+  // Strip DD/MM(/YYYY) patterns
+  t = t.replace(/(voor\s+|op\s+)?\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?\b/g, '')
+  // Strip time patterns ("om 8:00 uur", "om 14:30", "8:00")
+  t = t.replace(/(om\s+)?\d{1,2}:\d{2}(\s*uur)?\b/gi, '')
+  t = t.replace(/\bom\s+\d{1,2}\s*uur\b/gi, '')
+  t = t.replace(/\buur\b/gi, '')
+  // Strip leftover leading prepositions/articles
+  t = t.replace(/^\s*(voor|op|om|de|in|aan|het|een)\s+/gi, '')
+  return t.replace(/\s+/g, ' ').trim().slice(0, 80) || text.slice(0, 80)
 }
 
 export function parseIntent(input: string): ParsedIntent {
@@ -386,54 +432,62 @@ export function parseIntent(input: string): ParsedIntent {
   }
 
   if (
-    /\b(gewerkt aan|heb gewerkt|werklog|uren gelogd?|gelogd|time log|tijdlog|heb.{0,20}uur.{0,20}gewerkt|heb.{0,20}min.{0,20}gewerkt)\b/i.test(text) ||
-    /\b\d+[.,]?\d*\s*(uur|u|h|uren|min|minuten|minuut)\b.{0,30}\b(aan|bij|voor|op|gewerkt|gesleuteld|gebouwd|geschreven|gecoded|gemaild|gebeld)\b/i.test(text)
+    /\b(gewerkt aan|heb gewerkt|werklog|werkregistratie|werk\s*registratie|uren gelogd?|gelogd|time log|tijdlog)\b/i.test(text) ||
+    /\b(heb.{0,20}uur.{0,20}gewerkt|heb.{0,20}min.{0,20}gewerkt|uur.{0,10}lang.{0,10}gewerkt)\b/i.test(text) ||
+    /\bvoeg.{0,10}toe.{0,25}(werk|werkregistratie)\b/i.test(text) ||
+    /\b\d+[.,]?\d*\s*(uur|u|h|uren|min|minuten|minuut)\b.{0,40}\b(aan|bij|voor|op|gewerkt|gesleuteld|gebouwd|geschreven|gecoded|gemaild|gebeld|gehangen)\b/i.test(text) ||
+    /\b\d+[.,]?\d*\s*(uur|u|uren)\b.{0,15}(gewerkt|gelogd)\b/i.test(text)
   ) {
-    const durationMatch = text.match(/(\d+)[.,]?(\d*)\s*(uur|u|h|uren)/i) || text.match(/(\d+)\s*(min|minuten|minuut)/i)
+    const durationMatch = text.match(/(\d+)[.,](\d+)\s*(uur|u|h|uren)/i) ||
+      text.match(/(\d+)\s*(uur|u|h|uren)/i) ||
+      text.match(/(\d+)\s*(min|minuten|minuut)/i)
     let duration: number | undefined
     if (durationMatch) {
-      if (/uur|u|h|uren/i.test(durationMatch[3] ?? '')) {
-        duration = parseInt(durationMatch[1], 10) * 60 + (durationMatch[2] ? parseInt(durationMatch[2], 10) * 6 : 0)
+      if (/uur|u|h|uren/i.test(durationMatch[3] ?? durationMatch[2] ?? '')) {
+        const hours = parseInt(durationMatch[1], 10)
+        const decimal = durationMatch[2] && /^\d+$/.test(durationMatch[2]) && durationMatch[3]
+          ? parseFloat('0.' + durationMatch[2])
+          : 0
+        duration = hours * 60 + Math.round(decimal * 60)
       } else {
         duration = parseInt(durationMatch[1], 10)
       }
     }
 
-    const contextMatch = normalize(text).match(/\b(bouma|websup|webdesign|prive|studie)\b/)
-    const contextMap: Record<string, string> = { bouma: 'Bouma', websup: 'WebsUp', webdesign: 'WebsUp', prive: 'prive', studie: 'studie' }
+    let workContext: string | undefined
+    if (/\b(bouma|elektra|elektricien|installatie|montage|bedrading)\b/.test(lower)) workContext = 'Bouma'
+    else if (/\b(websup|camperhulp|prime\s*animalz?|sjoeli|sync|webdesign|website|hosting)\b/.test(lower)) workContext = 'WebsUp'
+    else if (/\b(prive|thuis|persoonlijk|sport|gym)\b/.test(lower)) workContext = 'privé'
+    else if (/\b(studie|cursus|opleiding|training|leren)\b/.test(lower)) workContext = 'studie'
 
+    const worklogTitle = extractWorklogTitle(text)
     return {
       intent: 'worklog_add',
-      confidence: 0.85,
+      confidence: 0.88,
       params: {
-        title: text.slice(0, 80),
+        title: worklogTitle || text.slice(0, 80),
         duration_minutes: duration,
-        context: contextMatch ? contextMap[contextMatch[1]] : undefined,
+        context: workContext,
       },
       raw: text,
     }
   }
 
   if (/\b(agenda|event|afspraak|vergadering|meeting|deadline|herinnering|reminder|zet in agenda|plan.{0,15}in|afgesproken met|gepland)\b/i.test(text)) {
-    const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\b/)
+    const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\b/) || text.match(/\bom\s+(\d{1,2})\s*uur\b/i)
     const typeMatch = normalize(text).match(/\b(vergadering|meeting|call|deadline|afspraak|herinnering|reminder)\b/)
     const typeMap: Record<string, string> = {
-      vergadering: 'vergadering',
-      meeting: 'vergadering',
-      call: 'vergadering',
-      deadline: 'deadline',
-      afspraak: 'afspraak',
-      herinnering: 'herinnering',
-      reminder: 'herinnering',
+      vergadering: 'vergadering', meeting: 'vergadering', call: 'vergadering',
+      deadline: 'deadline', afspraak: 'afspraak', herinnering: 'herinnering', reminder: 'herinnering',
     }
 
     return {
       intent: 'event_add',
       confidence: 0.85,
       params: {
-        title: stripLeadingCommand(text, [/\b(agenda|event|zet in agenda|plan in|gepland|vergadering|meeting|afspraak|deadline|herinnering)\b/gi]).slice(0, 80) || text.slice(0, 80),
+        title: extractEventTitle(text),
         date: extractDate(text) || new Date().toISOString().split('T')[0],
-        time: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : undefined,
+        time: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] ?? '00'}` : undefined,
         type: typeMatch ? typeMap[typeMatch[1]] || 'algemeen' : 'algemeen',
       },
       raw: text,

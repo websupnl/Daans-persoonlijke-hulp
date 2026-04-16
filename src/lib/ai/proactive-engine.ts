@@ -36,26 +36,61 @@ const NUDGE_COOLDOWN_HOURS: Record<string, number> = {
   workload_today: 12,
 }
 
+const GLOBAL_COOLDOWN_HOURS = 4
+
+const DUTCH_JOKES = [
+  "Waarom heeft een elektricien altijd zo'n geordend leven? Omdat hij alles *in the current* houdt. ⚡",
+  "Je systeem draait soepel als een nieuw installatiesnoer. Geen losse draadjes te bekennen. 🔌",
+  "Status: alles groen. Dat is zeldzamer dan een aardlekschakelaar die het meteen goed zit. 🎉",
+  "Goed nieuws: geen alarmen. Slechter nieuws voor het drama: er ís geen drama. Geniet ervan. 🎭",
+  "Alles lijkt op orde. Of je verbergt de chaos heel goed. Wij gaan voor de eerste optie. ✅",
+  "Je Brain heeft gecheckt: taken, financiën, gewoontes — alles normaal. Nu jij nog. 😄",
+  "Rust aan het front. Gebruik dit moment om iets te doen of juist niks. Beiden zijn legitiem. ☕",
+  "WebsUp draait, Bouma draait, jij draait — alles is in beweging. Zo hoort het. 🚀",
+]
+
+async function checkGlobalCooldown(): Promise<{ canSend: boolean; hoursSinceLast: number }> {
+  const last = await queryOne<{ created_at: string }>(
+    `SELECT created_at FROM proactive_log ORDER BY created_at DESC LIMIT 1`
+  )
+  if (!last?.created_at) return { canSend: true, hoursSinceLast: 999 }
+  const hoursSince = (Date.now() - new Date(last.created_at).getTime()) / 3600000
+  return { canSend: hoursSince >= GLOBAL_COOLDOWN_HOURS, hoursSinceLast: hoursSince }
+}
+
 /**
  * Run the full proactive analysis cycle.
  * Called by the hourly cron job at /api/cron/pulse
+ * Always sends something during 08:00–23:00 (subject to global 4h cooldown).
  */
 export async function runProactiveEngine(): Promise<ProactiveResult> {
-  const snap = await buildLifeSnapshot()
-
-  if (snap.anomalies.length === 0) {
+  // Time guard: silent between 23:00 and 08:00
+  const hour = new Date().getHours()
+  if (hour >= 23 || hour < 8) {
     return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
   }
 
-  // Filter out anomalies that were recently nudged (cooldown)
-  const cooldownFiltered = await filterByCooldown(snap.anomalies)
-
-  if (cooldownFiltered.length === 0) {
-    return { triggered: false, tier: 'none', anomalies: snap.anomalies, telegramSent: false }
+  // Global cooldown: max once every 4 hours
+  const { canSend } = await checkGlobalCooldown()
+  if (!canSend) {
+    return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
   }
 
-  // Pick highest severity anomaly as the primary trigger
-  const primary = cooldownFiltered.sort((a, b) => {
+  const snap = await buildLifeSnapshot()
+
+  // Filter out anomalies that were recently nudged (per-topic cooldown)
+  const cooldownFiltered = snap.anomalies.length > 0
+    ? await filterByCooldown(snap.anomalies)
+    : []
+
+  if (cooldownFiltered.length === 0) {
+    // No actionable anomalies — send all-clear with context + joke
+    const message = await buildAllClearMessage(snap)
+    return await sendAllClear(snap, message)
+  }
+
+  // Sort by severity — highest first
+  const primary = [...cooldownFiltered].sort((a, b) => {
     const severityOrder = { high: 0, medium: 1, low: 2 }
     return severityOrder[a.severity] - severityOrder[b.severity]
   })[0]
@@ -63,7 +98,6 @@ export async function runProactiveEngine(): Promise<ProactiveResult> {
   // Tier 2: Craft message via LLM
   const openaiKey = process.env.OPENAI_API_KEY
   if (!openaiKey) {
-    // Fallback: send plain nudge without LLM
     const plainMessage = buildPlainNudge(primary, snap)
     return await sendAndLog(primary, cooldownFiltered, snap, plainMessage, 'tier1_only')
   }
@@ -76,6 +110,74 @@ export async function runProactiveEngine(): Promise<ProactiveResult> {
     const plainMessage = buildPlainNudge(primary, snap)
     return await sendAndLog(primary, cooldownFiltered, snap, plainMessage, 'tier1_only')
   }
+}
+
+async function buildAllClearMessage(snap: LifeSnapshot): Promise<string> {
+  const joke = DUTCH_JOKES[Math.floor(Math.random() * DUTCH_JOKES.length)]
+
+  const contextLines: string[] = []
+  contextLines.push(`📋 *Taken*: ${snap.openTodosCount} open${snap.overdueTodosCount > 0 ? `, ${snap.overdueTodosCount} achterstallig` : ', niets achterstallig ✓'}`)
+  contextLines.push(`💰 *Financiën*: €${Math.round(snap.monthIncomeTotal)} in / €${Math.round(snap.monthExpenseTotal)} uit deze maand${snap.openInvoicesCount > 0 ? ` · ${snap.openInvoicesCount} open facturen` : ''}`)
+  contextLines.push(`⭐ *Gewoontes*: ${Math.round(snap.habitCompletionRate7Days * 100)}% afgelopen 7 dagen`)
+  if (snap.daysSinceLastJournal === 0) {
+    contextLines.push(`📔 *Dagboek*: vandaag geschreven ✓`)
+  } else if (snap.daysSinceLastJournal <= 3) {
+    contextLines.push(`📔 *Dagboek*: ${snap.daysSinceLastJournal} dag${snap.daysSinceLastJournal === 1 ? '' : 'en'} geleden`)
+  }
+
+  const openai = process.env.OPENAI_API_KEY ? getOpenAIClient() : null
+
+  if (openai) {
+    try {
+      const snapshotText = formatSnapshotForPrompt(snap)
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `Je bent Daan's Personal Brain. Alles is nu in orde — geen alarmen.
+Stuur een kort, gezellig check-in berichtje (max 4 regels) met:
+1. Een korte samenvatting van de huidige status (gebruik de echte getallen uit de snapshot)
+2. Optioneel een luchtig geintje of observatie — charmant, niet flauw
+3. Sluit af met één kleine concrete tip of aanmoediging voor de rest van de dag
+Schrijf in het Nederlands. Telegram-opmaak (*bold*, _italic_). Geen HTML.`,
+          },
+          {
+            role: 'user',
+            content: `Life snapshot:\n${snapshotText}\n\nSchrijf nu een kort all-clear check-in bericht.`,
+          },
+        ],
+        temperature: 0.8,
+        max_tokens: 200,
+      })
+      const llmMessage = response.choices[0]?.message?.content?.trim()
+      if (llmMessage) return llmMessage
+    } catch {
+      // fall through to plain
+    }
+  }
+
+  return `✅ *Alles in orde*\n\n${contextLines.join('\n')}\n\n_${joke}_`
+}
+
+async function sendAllClear(snap: LifeSnapshot, message: string): Promise<ProactiveResult> {
+  let telegramSent = false
+  const chatId = process.env.TELEGRAM_CHAT_ID
+  if (chatId && message) {
+    try {
+      await sendTelegramMessage(parseInt(chatId, 10), message)
+      telegramSent = true
+    } catch (err) {
+      console.error('[ProactiveEngine] Telegram all-clear error:', err instanceof Error ? err.message : err)
+    }
+  }
+
+  await execute(`
+    INSERT INTO proactive_log (trigger_type, trigger_details, message_sent, telegram_sent)
+    VALUES ($1, $2, $3, $4)
+  `, ['all_clear', JSON.stringify({ anomaly_count: snap.anomalies.length }), message, telegramSent ? 1 : 0])
+
+  return { triggered: true, tier: 'tier2', anomalies: [], message, telegramSent }
 }
 
 async function filterByCooldown(anomalies: AnomalyFlag[]): Promise<AnomalyFlag[]> {

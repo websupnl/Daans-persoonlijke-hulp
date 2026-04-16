@@ -346,9 +346,6 @@ interface AnomalyInput {
 function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
   const flags: AnomalyFlag[] = []
 
-  // No nudges between 23:00 and 08:00
-  if (s.hourOfDay >= 23 || s.hourOfDay < 8) return []
-
   if (s.daysSinceLastFinanceEntry > 7) {
     flags.push({
       type: 'finance_silence',

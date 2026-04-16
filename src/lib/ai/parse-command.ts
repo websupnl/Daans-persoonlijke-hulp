@@ -72,19 +72,37 @@ Formuleer coaching als een korte toevoeging achteraan de summary, gescheiden doo
 - actions mag leeg zijn
 
 === CONTEXT-REGELS VOOR DAAN ===
-- Bouma, elektra, installatie, montage -> context "Bouma"
-- WebsUp, website, hosting, Camperhulp, Sjoeli, Prime Animals, SYNC -> context "WebsUp"
-- Sport, gym, hardlopen -> context "privé"
-- Studie, cursus, certificaat -> context "studie"
-- Tijdsduur: "2 uur" -> 120, "45 min" -> 45, "van 09:00 tot 11:30" -> 150
-- Bij vergadering/call/meeting -> event_create type "vergadering"
+- Bouma, elektra, elektricien, installatie, montage, bedrading -> context "Bouma"
+- WebsUp, website, hosting, Camperhulp, "Prime Animals", "Prime Animalz", Sjoeli, SYNC, webdesign -> context "WebsUp"
+- Sport, gym, hardlopen, fietsen, zwemmen -> context "privé"
+- Studie, cursus, certificaat, opleiding -> context "studie"
+- Tijdsduur: "2 uur" -> 120, "45 min" -> 45, "1.5 uur" -> 90, "2,5 uur" -> 150, "van 09:00 tot 11:30" -> 150, "anderhalf uur" -> 90
+- Bij vergadering/call/meeting ALS DIT EEN TOEKOMSTIGE AFSPRAAK IS -> event_create type "vergadering"
+- Als iemand meldt dat hij al gewerkt heeft of een meeting HAD -> worklog_create, GEEN event
 - Bij deadline project -> event_create type "deadline" + todo_create
-- Bij afspraak/bij iemand langs -> event_create type "afspraak"
+- Bij afspraak/bij iemand langs (in de toekomst) -> event_create type "afspraak"
 - Bij verwijderen of bulk-acties: stel requires_confirmation: true in
 - memory_candidates alleen bij duurzame info
 - Sla GEEN tijdelijke info op als memory
 - Gebruik project_id alleen als je zeker weet welk project bedoeld is
-- Geef alleen geldig JSON terug, geen uitleg erbuiten`
+- Geef alleen geldig JSON terug, geen uitleg erbuiten
+
+=== WERKLOG VOORBEELDEN (KRITIEK — dit gaat vaak mis) ===
+Werklog = al gedaan werk loggen. Event = iets in de TOEKOMST plannen.
+
+- "voeg toe aan werkregistratie 3 uur Camperhulp" -> worklog_create { title: "Camperhulp", duration_minutes: 180, context: "WebsUp" }
+- "heb 2 uur gewerkt aan WebsUp" -> worklog_create { title: "WebsUp", duration_minutes: 120, context: "WebsUp" }
+- "bij Bouma gewerkt 4 uur installatie" -> worklog_create { title: "installatie", duration_minutes: 240, context: "Bouma" }
+- "werklog 45 min aan Prime Animals" -> worklog_create { title: "Prime Animals", duration_minutes: 45, context: "WebsUp" }
+- "heb een meeting van 1 uur gehad met Camperhulp" -> worklog_create { title: "meeting Camperhulp", duration_minutes: 60, context: "WebsUp" }
+- "zet meeting met Camperhulp op 20 april" -> event_create { title: "Meeting Camperhulp", date: "2026-04-20", type: "vergadering" }
+
+=== DATUM VOORBEELDEN (KRITIEK) ===
+- "20 april" -> "2026-04-20" (gebruik huidig of volgend jaar als datum in verleden ligt)
+- "morgen om 14:00" -> morgen, time: "14:00"
+- "volgende maandag" -> eerstvolgende maandag
+- "3 mei 2027" -> "2027-05-03"
+- Als datum onduidelijk is bij event: vraag om bevestiging of gebruik vandaag`
 
 export async function parseCommandWithAI(
   userMessage: string
