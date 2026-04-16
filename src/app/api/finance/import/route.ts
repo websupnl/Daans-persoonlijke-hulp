@@ -124,6 +124,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         amount,
         type: afBij.startsWith('bij') ? 'inkomst' : 'uitgave',
         category: guessCategory(desc),
+        account: '',
       })
     }
     return rows
@@ -153,6 +154,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         amount,
         type,
         category: guessCategory(desc),
+        account: '',
       })
     }
     return rows
@@ -183,6 +185,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         amount,
         type,
         category: guessCategory(desc),
+        account: '',
       })
     }
     return rows
@@ -238,6 +241,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         amount,
         type,
         category: guessCategory(desc),
+        account: '',
       })
     }
     return rows
@@ -273,6 +277,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         amount,
         type,
         category: guessCategory(desc),
+        account: '',
       })
     }
   }
