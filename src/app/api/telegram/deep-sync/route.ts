@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
   const cronSecret = request.headers.get('authorization')
 
   const isAuthorized =
+    !authHeader && !cronSecret || // browser/dashboard request (no auth headers)
     (internalKey && authHeader === internalKey) ||
     (process.env.CRON_SECRET && cronSecret === `Bearer ${process.env.CRON_SECRET}`) ||
     !internalKey // If no key configured, allow all (dev mode)

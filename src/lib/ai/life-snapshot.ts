@@ -78,7 +78,7 @@ export type AnomalyType =
 
 export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
   const now = new Date()
-  const hourOfDay = now.getHours()
+  const hourOfDay = parseInt(now.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam', hour: 'numeric', hour12: false }), 10)
   const dayOfWeek = now.getDay()
 
   const [
@@ -358,7 +358,7 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
     })
   }
 
-  if (s.openInvoicesCount >= 3) {
+  if (s.openInvoicesCount >= 1) {
     flags.push({
       type: 'open_invoices_aging',
       severity: 'medium',
@@ -376,7 +376,7 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
     })
   }
 
-  if (s.overdueTodosCount >= 5) {
+  if (s.overdueTodosCount >= 3) {
     flags.push({
       type: 'overdue_spike',
       severity: s.overdueTodosCount >= 10 ? 'high' : 'medium',
@@ -385,7 +385,7 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
     })
   }
 
-  if (s.staleTodos.length >= 3) {
+  if (s.staleTodos.length >= 2) {
     flags.push({
       type: 'stale_todo',
       severity: 'low',
