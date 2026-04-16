@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2 } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 
 interface FinanceItem {
@@ -13,6 +13,7 @@ interface FinanceItem {
   status: string
   due_date?: string
   category: string
+  account: string
   created_at: string
 }
 
@@ -43,7 +44,9 @@ interface ImportRow {
   category: string
 }
 
-const FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
+const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
+const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk']
+const ACCOUNTS = ['privé', 'zakelijk']
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -63,16 +66,20 @@ export default function FinanceView() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([])
-  const [filter, setFilter] = useState('Alles')
+  const [typeFilter, setTypeFilter] = useState('Alles')
+  const [accountFilter, setAccountFilter] = useState('Alle rekeningen')
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig' })
+  const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
 
   // Bank import state
   const [showImport, setShowImport] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [importAccount, setImportAccount] = useState('privé')
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; total: number } | null>(null)
@@ -81,28 +88,26 @@ export default function FinanceView() {
 
   const fetchData = useCallback(async () => {
     const params = new URLSearchParams()
-    if (filter === 'Inkomsten') params.set('type', 'inkomst')
-    else if (filter === 'Uitgaven') params.set('type', 'uitgave')
+    if (typeFilter === 'Inkomsten') params.set('type', 'inkomst')
+    else if (typeFilter === 'Uitgaven') params.set('type', 'uitgave')
+    if (accountFilter === 'Privé') params.set('account', 'privé')
+    else if (accountFilter === 'Zakelijk') params.set('account', 'zakelijk')
 
-    const [financeRes, catRes, monthRes] = await Promise.all([
+    const [financeRes, catRes] = await Promise.all([
       fetch(`/api/finance?${params}`).then(r => r.json()),
       fetch('/api/finance/stats').then(r => r.json()).catch(() => ({ categories: [], monthly: [] })),
-      Promise.resolve(null),
     ])
 
-    // Filter out any factuur items in case they still exist in DB
     const filtered = (financeRes.data || []).filter((i: FinanceItem) => i.type !== 'factuur' as string)
     setItems(filtered)
     setStats(financeRes.stats)
     setCategoryStats(catRes.categories || [])
     setMonthlyData(catRes.monthly || [])
     setLoading(false)
-    void monthRes
-  }, [filter])
+  }, [typeFilter, accountFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Load AI summary once on mount
   useEffect(() => {
     setAiLoading(true)
     fetch('/api/ai/summary', {
@@ -123,7 +128,7 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
-    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig' })
+    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
     setShowAdd(false)
     fetchData()
   }
@@ -131,6 +136,17 @@ export default function FinanceView() {
   async function deleteItem(id: number) {
     await fetch(`/api/finance/${id}`, { method: 'DELETE' })
     setItems(prev => prev.filter(i => i.id !== id))
+  }
+
+  async function bulkDelete(type?: string, account?: string) {
+    setBulkDeleteLoading(true)
+    const params = new URLSearchParams()
+    if (type) params.set('type', type)
+    if (account) params.set('account', account)
+    await fetch(`/api/finance?${params}`, { method: 'DELETE' })
+    setShowBulkDelete(false)
+    setBulkDeleteLoading(false)
+    fetchData()
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -145,6 +161,7 @@ export default function FinanceView() {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('import', 'false')
+    fd.append('account', importAccount)
 
     try {
       const res = await fetch('/api/finance/import', { method: 'POST', body: fd })
@@ -164,6 +181,7 @@ export default function FinanceView() {
     const fd = new FormData()
     fd.append('file', importFile)
     fd.append('import', 'true')
+    fd.append('account', importAccount)
 
     try {
       const res = await fetch('/api/finance/import', { method: 'POST', body: fd })
@@ -200,6 +218,13 @@ export default function FinanceView() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowBulkDelete(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400 transition-colors"
+            title="Alles verwijderen"
+          >
+            <Trash2 size={14} />
+          </button>
+          <button
             onClick={() => { setShowImport(s => !s); setShowAdd(false) }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500 hover:border-pink-200 hover:text-gray-700 transition-colors"
           >
@@ -216,6 +241,43 @@ export default function FinanceView() {
           </button>
         </div>
       </div>
+
+      {/* Bulk delete modal */}
+      {showBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle size={18} className="text-red-500" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-800">Transacties verwijderen</p>
+                <p className="text-xs text-gray-400">Kies wat je wilt wissen</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-5">
+              <button onClick={() => bulkDelete('uitgave', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                🏠 Alle privé uitgaven
+              </button>
+              <button onClick={() => bulkDelete('uitgave', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                💼 Alle zakelijke uitgaven
+              </button>
+              <button onClick={() => bulkDelete('inkomst', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                🏠 Alle privé inkomsten
+              </button>
+              <button onClick={() => bulkDelete('inkomst', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                💼 Alle zakelijke inkomsten
+              </button>
+              <button onClick={() => bulkDelete()} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 text-sm text-left text-red-600 font-semibold hover:bg-red-100 transition-colors">
+                ⚠️ Alles verwijderen
+              </button>
+            </div>
+            <button onClick={() => setShowBulkDelete(false)} className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+              Annuleer
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI Summary */}
       {(aiSummary || aiLoading) && (
@@ -235,15 +297,29 @@ export default function FinanceView() {
 
       {/* Bank import panel */}
       {showImport && (
-        <div className="mx-4 sm:mx-6 mt-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-fade-in">
+        <div className="mx-4 sm:mx-6 mt-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm font-bold text-blue-800">Bank CSV importeren</p>
-              <p className="text-xs text-blue-500 mt-0.5">ING, Rabobank, ABN AMRO of generiek CSV formaat</p>
+              <p className="text-xs text-blue-500 mt-0.5">ING, Rabobank, ABN AMRO of jouw eigen export-formaat</p>
             </div>
             <button onClick={() => { setShowImport(false); resetImport() }} className="text-blue-400 hover:text-blue-600">
               <X size={16} />
             </button>
+          </div>
+
+          {/* Account selector */}
+          <div className="flex gap-2 mb-3">
+            {ACCOUNTS.map(acc => (
+              <button
+                key={acc}
+                onClick={() => setImportAccount(acc)}
+                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', importAccount === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
+                style={importAccount === acc ? { background: GRAD } : {}}
+              >
+                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+              </button>
+            ))}
           </div>
 
           {!importResult && (
@@ -265,13 +341,13 @@ export default function FinanceView() {
           {importResult && (
             <div className="flex items-center gap-2 mt-2">
               <CheckCircle size={16} className="text-emerald-500" />
-              <p className="text-sm text-emerald-700 font-medium">{importResult.imported} van {importResult.total} transacties geïmporteerd!</p>
+              <p className="text-sm text-emerald-700 font-medium">{importResult.imported} van {importResult.total} transacties geïmporteerd als <strong>{importAccount}</strong>!</p>
               <button onClick={resetImport} className="text-xs text-blue-500 ml-auto underline">Nog een bestand</button>
             </div>
           )}
           {importPreview && importPreview.length > 0 && (
             <div className="mt-3">
-              <p className="text-xs text-blue-600 font-semibold mb-2">{importPreview.length} transacties gevonden — preview (eerste 5):</p>
+              <p className="text-xs text-blue-600 font-semibold mb-2">{importPreview.length} transacties gevonden ({importAccount}) — preview (eerste 5):</p>
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {importPreview.slice(0, 5).map((row, i) => (
                   <div key={i} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 text-xs border border-gray-100">
@@ -286,7 +362,7 @@ export default function FinanceView() {
               </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={doImport} className="flex-1 py-2 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity" style={{ background: GRAD }}>
-                  Importeer alle {importPreview.length} transacties
+                  Importeer {importPreview.length} transacties
                 </button>
                 <button onClick={resetImport} className="px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors">Annuleer</button>
               </div>
@@ -313,7 +389,7 @@ export default function FinanceView() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="mx-4 sm:mx-6 mt-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl animate-fade-in shadow-sm">
+        <div className="mx-4 sm:mx-6 mt-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl shadow-sm">
           <div className="flex gap-2 mb-3">
             {(['inkomst', 'uitgave'] as const).map(t => (
               <button
@@ -333,6 +409,18 @@ export default function FinanceView() {
               {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+          <div className="flex gap-2 mb-3">
+            {ACCOUNTS.map(acc => (
+              <button
+                key={acc}
+                onClick={() => setForm(p => ({ ...p, account: acc }))}
+                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', form.account === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
+                style={form.account === acc ? { background: GRAD } : {}}
+              >
+                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+              </button>
+            ))}
+          </div>
           <div className="flex justify-end gap-2">
             <button onClick={() => setShowAdd(false)} className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">Annuleer</button>
             <button onClick={addItem} className="text-sm text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm transition-opacity hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
@@ -342,7 +430,6 @@ export default function FinanceView() {
 
       {/* Charts row */}
       <div className="px-4 sm:px-6 pt-3 pb-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Monthly income vs expenses bar chart */}
         {monthlyData.length > 0 && (
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
@@ -371,8 +458,6 @@ export default function FinanceView() {
             </div>
           </div>
         )}
-
-        {/* Category breakdown */}
         {categoryStats.length > 0 && (
           <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
@@ -400,17 +485,31 @@ export default function FinanceView() {
       </div>
 
       {/* Filters */}
-      <div className="px-4 sm:px-6 pt-2 pb-2 flex gap-1.5 flex-shrink-0 overflow-x-auto">
-        {FILTERS.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap', filter === f ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
-            style={filter === f ? { background: GRAD } : {}}
-          >
-            {f}
-          </button>
-        ))}
+      <div className="px-4 sm:px-6 pt-2 pb-1 flex flex-wrap gap-1.5 flex-shrink-0">
+        <div className="flex gap-1.5">
+          {TYPE_FILTERS.map(f => (
+            <button
+              key={f}
+              onClick={() => setTypeFilter(f)}
+              className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap', typeFilter === f ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
+              style={typeFilter === f ? { background: GRAD } : {}}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          {ACCOUNT_FILTERS.map(f => (
+            <button
+              key={f}
+              onClick={() => setAccountFilter(f)}
+              className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border', accountFilter === f ? 'text-white shadow-sm border-transparent' : 'text-gray-400 border-gray-200 hover:text-gray-600 hover:bg-gray-100')}
+              style={accountFilter === f ? { background: GRAD } : {}}
+            >
+              {f === 'Privé' ? '🏠 Privé' : f === 'Zakelijk' ? '💼 Zakelijk' : f}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* List */}
@@ -424,7 +523,7 @@ export default function FinanceView() {
         ) : (
           <div className="space-y-2 pb-4">
             {items.map(item => (
-              <div key={item.id} className="flex items-center gap-3 p-3 sm:p-3.5 bg-white border border-gray-100 rounded-2xl hover:shadow-sm transition-all group card-hover">
+              <div key={item.id} className="flex items-center gap-3 p-3 sm:p-3.5 bg-white border border-gray-100 rounded-2xl hover:shadow-sm transition-all group">
                 <div
                   className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
                   style={{ background: GRAD }}
@@ -433,8 +532,11 @@ export default function FinanceView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-700 font-medium truncate">{item.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-[10px] text-gray-400 capitalize">{item.category}</span>
+                    <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-gray-100 text-gray-400')}>
+                      {item.account === 'zakelijk' ? '💼' : '🏠'} {item.account}
+                    </span>
                     {item.due_date && (
                       <span className={cn('text-[10px] font-medium', isOverdue(item.due_date) && item.status !== 'betaald' ? 'text-red-400' : 'text-gray-400')}>
                         {formatDate(item.due_date)}
@@ -464,7 +566,7 @@ function MiniStat({ icon, label, value, positive, negative, prefix }: {
   icon: React.ReactNode; label: string; value: string; positive?: boolean; negative?: boolean; prefix?: string
 }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm card-hover">
+    <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm">
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className={cn('flex-shrink-0', positive ? 'text-emerald-500' : negative ? 'text-red-400' : 'icon-gradient')}>{icon}</span>
         <span className="text-[10px] text-gray-400 font-medium truncate">{label}</span>

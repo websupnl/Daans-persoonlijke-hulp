@@ -1,11 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, MessageSquare } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+  const isChat = pathname === '/chat'
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
@@ -56,9 +60,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-[calc(100dvh-4rem)] md:min-h-dvh">
         <Sidebar />
         <main className="min-w-0 flex-1 bg-white md:ml-[220px]">
-        {children}
+          {children}
         </main>
       </div>
+
+      {/* Floating chat button — hidden on chat page itself */}
+      {!isChat && (
+        <Link
+          href="/chat"
+          className="fixed bottom-5 right-5 z-50 flex h-13 w-13 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+          style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)', width: 52, height: 52 }}
+          aria-label="Chat openen"
+        >
+          <MessageSquare size={22} />
+        </Link>
+      )}
     </div>
   )
 }

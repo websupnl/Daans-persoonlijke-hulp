@@ -9,6 +9,7 @@ interface ParsedRow {
   amount: number
   type: 'inkomst' | 'uitgave'
   category: string
+  account: string
 }
 
 /** Parse Dutch amount string "1.234,56" or "1234.56" → number */
@@ -187,37 +188,50 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
     return rows
   }
 
-  // ── Custom format (user provided) ──
-  const isCustom = headers.includes('datum_volledig') && (headers.includes('bedrag_genormaliseerd') || headers.includes('richting'))
+  // ── Custom format (Daan's bank export) ──
+  // Columns: datum_volledig, datum, code, code_omschrijving, richting, debet, credit, bedrag, bedrag_genormaliseerd, omschrijving, pagina
+  const isCustom = headers.includes('datum_volledig') || (headers.includes('richting') && (headers.includes('debet') || headers.includes('credit') || headers.includes('bedrag_genormaliseerd')))
   if (isCustom) {
-    const idxDate = headers.findIndex(h => h === 'datum_volledig' || h === 'datum')
+    const idxDate = headers.findIndex(h => h === 'datum_volledig') >= 0 ? headers.findIndex(h => h === 'datum_volledig') : headers.findIndex(h => h === 'datum')
     const idxDesc = headers.findIndex(h => h === 'omschrijving')
+    const idxCodeDesc = headers.findIndex(h => h === 'code_omschrijving')
     const idxAmountNormal = headers.findIndex(h => h === 'bedrag_genormaliseerd')
-    const idxAmount = headers.findIndex(h => h === 'bedrag')
+    const idxDebet = headers.findIndex(h => h === 'debet')
+    const idxCredit = headers.findIndex(h => h === 'credit')
+    const idxBedrag = headers.findIndex(h => h === 'bedrag')
     const idxRichting = headers.findIndex(h => h === 'richting')
 
     for (const line of lines.slice(1)) {
       if (!line.trim()) continue
       const cols = splitCsvLine(line, delimiter)
-      
+
       let amount = 0
       let type: 'inkomst' | 'uitgave' = 'uitgave'
 
       if (idxAmountNormal >= 0 && cols[idxAmountNormal]) {
+        // bedrag_genormaliseerd: negative = uitgave, positive = inkomst
         const raw = parseDutchAmount(cols[idxAmountNormal])
         amount = Math.abs(raw)
         type = raw >= 0 ? 'inkomst' : 'uitgave'
-      } else if (idxAmount >= 0) {
-        amount = Math.abs(parseDutchAmount(cols[idxAmount] ?? '0'))
+      } else if (idxDebet >= 0 || idxCredit >= 0) {
+        // Separate debet/credit columns
+        const debet = idxDebet >= 0 ? Math.abs(parseDutchAmount(cols[idxDebet] ?? '')) : 0
+        const credit = idxCredit >= 0 ? Math.abs(parseDutchAmount(cols[idxCredit] ?? '')) : 0
+        if (credit > 0) { amount = credit; type = 'inkomst' }
+        else if (debet > 0) { amount = debet; type = 'uitgave' }
+      } else if (idxBedrag >= 0) {
+        amount = Math.abs(parseDutchAmount(cols[idxBedrag] ?? '0'))
         if (idxRichting >= 0) {
           const richting = (cols[idxRichting] ?? '').toLowerCase()
-          type = richting.includes('bij') || richting === 'credit' ? 'inkomst' : 'uitgave'
+          type = richting.includes('bij') || richting === 'credit' || richting === 'in' ? 'inkomst' : 'uitgave'
         }
       }
 
       if (amount <= 0) continue
-      
-      const desc = cols[idxDesc] ?? ''
+
+      const rawDesc = cols[idxDesc] ?? ''
+      const codeDesc = idxCodeDesc >= 0 ? (cols[idxCodeDesc] ?? '') : ''
+      const desc = rawDesc || codeDesc
       rows.push({
         date: normalizeDate(cols[idxDate] ?? ''),
         description: desc.trim().slice(0, 120) || 'Transactie',
@@ -271,6 +285,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('file') as File | null
   const doImport = formData.get('import') === 'true'
+  const account = (formData.get('account') as string | null) || 'privé'
 
   if (!file) return NextResponse.json({ error: 'Geen bestand ontvangen' }, { status: 400 })
 
@@ -295,9 +310,9 @@ export async function POST(req: NextRequest) {
   for (const row of rows) {
     try {
       await execute(`
-        INSERT INTO finance_items (type, title, amount, category, status, due_date, created_at)
-        VALUES ($1, $2, $3, $4, 'betaald', $5, NOW())
-      `, [row.type, row.description, row.amount, row.category, row.date])
+        INSERT INTO finance_items (type, title, amount, category, account, status, due_date, created_at)
+        VALUES ($1, $2, $3, $4, $5, 'betaald', $6, NOW())
+      `, [row.type, row.description, row.amount, row.category, account, row.date])
       imported++
     } catch { /* skip duplicates */ }
   }

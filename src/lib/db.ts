@@ -302,6 +302,12 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `)
+
+  // Migrations for existing databases
+  await pool.query(`
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
+    ALTER TABLE habits ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1;
+  `)
 }
 
 export default pool

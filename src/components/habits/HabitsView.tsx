@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Check, Flame, Target, Sparkles } from 'lucide-react'
+import { Plus, Check, Flame, Target, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, subDays } from 'date-fns'
 
@@ -36,6 +36,11 @@ export default function HabitsView() {
   }
 
   useEffect(() => { fetchHabits() }, [])
+
+  async function deleteHabit(id: number) {
+    await fetch(`/api/habits/${id}`, { method: 'DELETE' })
+    fetchHabits()
+  }
 
   async function toggleHabit(habit: Habit) {
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -187,7 +192,7 @@ export default function HabitsView() {
         ) : (
           <div className="space-y-3">
             {habits.map((habit) => (
-              <div key={habit.id} className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md">
+              <div key={habit.id} className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group">
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => toggleHabit(habit)}
@@ -224,6 +229,12 @@ export default function HabitsView() {
                         </div>
                       )
                     })}
+                    <button
+                      onClick={() => deleteHabit(habit.id)}
+                      className="opacity-0 group-hover:opacity-100 ml-1 h-8 w-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               </div>

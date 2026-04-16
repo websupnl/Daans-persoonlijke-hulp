@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query, queryOne } from '@/lib/db'
+import { query, queryOne, execute } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get('type')
   const status = searchParams.get('status')
   const contactId = searchParams.get('contact_id')
+  const account = searchParams.get('account')
 
   let sql = `
     SELECT f.*, c.name as contact_name, p.title as project_title
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
   if (type) { sql += ` AND f.type = $${i++}`; params.push(type) }
   if (status) { sql += ` AND f.status = $${i++}`; params.push(status) }
   if (contactId) { sql += ` AND f.contact_id = $${i++}`; params.push(parseInt(contactId)) }
+  if (account) { sql += ` AND f.account = $${i++}`; params.push(account) }
 
   sql += ' ORDER BY f.created_at DESC'
 
@@ -41,9 +43,24 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ data: items, stats })
 }
 
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const type = searchParams.get('type')
+  const account = searchParams.get('account')
+
+  let sql = 'DELETE FROM finance_items WHERE 1=1'
+  const params: unknown[] = []
+  let i = 1
+  if (type) { sql += ` AND type = $${i++}`; params.push(type) }
+  if (account) { sql += ` AND account = $${i++}`; params.push(account) }
+
+  await execute(sql, params)
+  return NextResponse.json({ ok: true })
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { type, title, description, amount, contact_id, project_id, status, due_date, category } = body
+  const { type, title, description, amount, contact_id, project_id, status, due_date, category, account } = body
 
   if (!type || !title) return NextResponse.json({ error: 'Type en titel zijn verplicht' }, { status: 400 })
 
@@ -57,8 +74,8 @@ export async function POST(req: NextRequest) {
   }
 
   const item = await queryOne(`
-    INSERT INTO finance_items (type, title, description, amount, contact_id, project_id, status, invoice_number, due_date, category)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    INSERT INTO finance_items (type, title, description, amount, contact_id, project_id, status, invoice_number, due_date, category, account)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *
   `, [
     type, title, description || null, amount || 0,
@@ -66,6 +83,7 @@ export async function POST(req: NextRequest) {
     status || (type === 'factuur' ? 'concept' : 'betaald'),
     invoiceNumber, due_date || null,
     category || 'overig',
+    account || 'privé',
   ])
 
   if (item && 'id' in item) {
