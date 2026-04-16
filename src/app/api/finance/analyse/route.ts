@@ -205,13 +205,13 @@ function detectAnomalies(rows: FinanceRow[], patterns: SpendingPattern[]): Anoma
 }
 
 export async function POST() {
-  const rows = await query<FinanceRow>(
+  const rows = (await query<FinanceRow>(
     `SELECT id, type, title, amount, category, account, status, due_date, created_at
      FROM finance_items
      WHERE type IN ('inkomst','uitgave')
      ORDER BY created_at DESC
      LIMIT 2000`
-  )
+  )).map(r => ({ ...r, created_at: new Date(r.created_at).toISOString() }))
 
   if (rows.length < 5) {
     return NextResponse.json({ error: 'Te weinig transacties voor analyse (minimaal 5 nodig)' }, { status: 422 })

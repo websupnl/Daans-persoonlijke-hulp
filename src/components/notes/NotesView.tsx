@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, Pin, FileText, Trash2, Sparkles, ArrowRight } from 'lucide-react'
-import { formatRelative } from '@/lib/utils'
+import { formatRelative, cn } from '@/lib/utils'
 
 interface Note {
   id: number
@@ -22,23 +22,26 @@ export default function NotesView() {
   const router = useRouter()
   const [notes, setNotes] = useState<Note[]>([])
   const [search, setSearch] = useState('')
+  const [smartSearch, setSmartSearch] = useState(false)
   const [quickNote, setQuickNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingQuick, setSavingQuick] = useState(false)
 
-  const fetchNotes = async (q?: string) => {
-    const params = q ? `?search=${encodeURIComponent(q)}` : ''
-    const res = await fetch(`/api/notes${params}`)
+  const fetchNotes = useCallback(async (q?: string) => {
+    const params = new URLSearchParams()
+    if (q) params.set('search', q)
+    if (smartSearch) params.set('smart', 'true')
+    const res = await fetch(`/api/notes?${params.toString()}`)
     const data = await res.json()
     setNotes(data.data || [])
     setLoading(false)
-  }
+  }, [smartSearch])
 
-  useEffect(() => { fetchNotes() }, [])
+  useEffect(() => { fetchNotes() }, [fetchNotes])
   useEffect(() => {
     const timer = setTimeout(() => fetchNotes(search), 250)
     return () => clearTimeout(timer)
-  }, [search])
+  }, [search, smartSearch, fetchNotes])
 
   async function createNote(initial?: { title?: string; content?: string }) {
     const res = await fetch('/api/notes', {
@@ -131,6 +134,15 @@ export default function NotesView() {
                 placeholder="Zoek in je kennisbank..."
                 className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
               />
+              <button
+                onClick={() => setSmartSearch(!smartSearch)}
+                className={cn(
+                  'ml-1 rounded-lg px-2 py-1 text-[10px] font-bold transition-all',
+                  smartSearch ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'
+                )}
+              >
+                AI
+              </button>
             </div>
 
             <div className="mt-4 space-y-2">

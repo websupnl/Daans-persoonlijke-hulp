@@ -176,10 +176,27 @@ export default function ContactsView() {
 }
 
 function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
+  const [notesText, setNotesText] = useState(String(detail.notes || ''))
+  const [saving, setSaving] = useState(false)
+
   const todos = (detail.todos as Array<{ id: number; title: string; completed: boolean; priority: string }>) || []
-  const notes = (detail.notes as Array<{ id: number; title: string; updated_at: string }>) || []
+  const notes = (detail.linked_notes as Array<{ id: number; title: string; updated_at: string }>) || []
   const finance = (detail.finance as Array<{ id: number; title: string; type: string; amount: number; status: string }>) || []
   const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
+
+  useEffect(() => {
+    setNotesText(String(detail.notes || ''))
+  }, [detail.id, detail.notes])
+
+  async function saveNotes() {
+    setSaving(true)
+    await fetch(`/api/contacts/${detail.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: notesText }),
+    })
+    setSaving(false)
+  }
 
   return (
     <div className="max-w-2xl p-5 sm:p-8">
@@ -196,6 +213,25 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {!!detail.email && <InfoField icon={<Mail size={12} />} label="Email" value={detail.email as string} />}
         {!!detail.phone && <InfoField icon={<Phone size={12} />} label="Telefoon" value={detail.phone as string} />}
+      </div>
+
+      <div className="mb-8 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-gradient uppercase tracking-wider">Persoonlijke Notities</h3>
+          <button 
+            onClick={saveNotes} 
+            disabled={saving}
+            className="text-[10px] font-bold text-pink-500 hover:text-pink-600 disabled:opacity-50"
+          >
+            {saving ? 'Opslaan...' : 'Opslaan'}
+          </button>
+        </div>
+        <textarea
+          value={notesText}
+          onChange={(e) => setNotesText(e.target.value)}
+          placeholder="Voeg hier belangrijke details toe over dit contact..."
+          className="w-full min-h-[100px] text-sm text-gray-600 bg-gray-50/50 rounded-xl p-3 outline-none border border-transparent focus:border-pink-100 transition-all resize-none"
+        />
       </div>
 
       <div className="space-y-4">

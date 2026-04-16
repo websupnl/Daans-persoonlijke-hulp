@@ -148,7 +148,7 @@ export default function FinanceView() {
     setCategoryStats(catRes.categories || [])
     setMonthlyData(catRes.monthly || [])
     setLoading(false)
-  }, [typeFilter, accountFilter])
+  }, [typeFilter, accountFilter, dateRange.start, dateRange.end])
 
   useEffect(() => { fetchData() }, [fetchData])
 
