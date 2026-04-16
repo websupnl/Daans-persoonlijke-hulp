@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const contactId = searchParams.get('contact_id')
   const account = searchParams.get('account')
+  const from = searchParams.get('from') // YYYY-MM-DD
+  const to = searchParams.get('to')     // YYYY-MM-DD
 
   let sql = `
     SELECT f.*, c.name as contact_name, p.title as project_title
@@ -26,33 +28,46 @@ export async function GET(req: NextRequest) {
   if (contactId) { sql += ` AND f.contact_id = $${i++}`; params.push(parseInt(contactId)) }
   if (account) { sql += ` AND f.account = $${i++}`; params.push(account) }
 
-  sql += ' ORDER BY f.created_at DESC'
+  if (from) {
+    sql += ` AND COALESCE(f.due_date, f.created_at::date) >= $${i++}`
+    params.push(from)
+  }
+  if (to) {
+    sql += ` AND COALESCE(f.due_date, f.created_at::date) <= $${i++}`
+    params.push(to)
+  }
+
+  sql += ' ORDER BY COALESCE(f.due_date, f.created_at::date) DESC, f.created_at DESC'
 
   const items = await query(sql, params)
 
-  // Statistieken — gebruik meest recente maand met data, niet per se huidige kalendermaand
+  // Statistieken
+  // Als er een range is (from/to), gebruik die. Anders huidige maand.
   const stats = await queryOne<Record<string, unknown>>(`
-    WITH active AS (
-      SELECT COALESCE(
-        TO_CHAR(MAX(COALESCE(due_date, created_at::date)), 'YYYY-MM'),
-        TO_CHAR(NOW(), 'YYYY-MM')
-      ) as month
-      FROM finance_items
-    )
     SELECT
-      (SELECT month FROM active) as active_month,
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_count,
       SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald'
-        AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
+        AND (
+          ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(paid_date, due_date, created_at::date) BETWEEN $1 AND $2)
+          OR ($1::date IS NULL AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
+        )
         THEN amount ELSE 0 END) as month_income,
       SUM(CASE WHEN type='uitgave'
-        AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
+        AND (
+          ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
+          OR ($1::date IS NULL AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
+        )
         THEN amount ELSE 0 END) as month_expenses
     FROM finance_items
-  `)
+  `, [from || null, to || null])
 
-  return NextResponse.json({ data: items, stats })
+  return NextResponse.json({ data: items, stats: { ...stats, active_month: from ? from.slice(0, 7) : TO_CHAR_NOW() } })
+}
+
+function TO_CHAR_NOW() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export async function DELETE(req: NextRequest) {

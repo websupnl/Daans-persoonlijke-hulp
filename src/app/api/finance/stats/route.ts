@@ -5,26 +5,27 @@ export const dynamic = 'force-dynamic'
  * Returns category breakdown and monthly income/expenses for charts.
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const from = searchParams.get('from')
+  const to = searchParams.get('to')
+
   const [categories, monthly] = await Promise.all([
     query<{ category: string; total: number; count: number }>(`
-      WITH active AS (
-        SELECT COALESCE(
-          TO_CHAR(MAX(COALESCE(due_date, created_at::date)), 'YYYY-MM'),
-          TO_CHAR(NOW(), 'YYYY-MM')
-        ) as month FROM finance_items
-      )
       SELECT category, SUM(amount) as total, COUNT(*) as count
       FROM finance_items
       WHERE type = 'uitgave'
-        AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = (SELECT month FROM active)
+        AND (
+          ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
+          OR ($1::date IS NULL AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
+        )
       GROUP BY category
       ORDER BY total DESC
       LIMIT 8
-    `),
+    `, [from || null, to || null]),
     query<{ month: string; income: number; expenses: number }>(`
       SELECT
         TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') as month,

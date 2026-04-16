@@ -20,8 +20,8 @@ export async function GET() {
     SELECT
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_invoices,
-      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(paid_date, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
-      SUM(CASE WHEN type='uitgave' AND TO_CHAR(created_at, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
+      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
+      SUM(CASE WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
     FROM finance_items
   `)
 
@@ -56,6 +56,16 @@ export async function GET() {
     ORDER BY f.due_date ASC LIMIT 5
   `)
 
+  // Recente transacties (geen facturen)
+  const recentFinance = await query(`
+    SELECT f.*, c.name as contact_name
+    FROM finance_items f
+    LEFT JOIN contacts c ON f.contact_id = c.id
+    WHERE f.type != 'factuur'
+    ORDER BY COALESCE(f.due_date, f.created_at::date) DESC, f.created_at DESC
+    LIMIT 5
+  `)
+
   const todayWork = await queryOne<{ total_minutes: number }>(`
     SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes)) as total_minutes
     FROM work_logs
@@ -82,6 +92,7 @@ export async function GET() {
     urgentTodos,
     recentNotes,
     openInvoices,
+    recentFinance,
     todayWorkMinutes: todayWork?.total_minutes ?? 0,
     inboxCount: inbox?.total ?? 0,
   })
