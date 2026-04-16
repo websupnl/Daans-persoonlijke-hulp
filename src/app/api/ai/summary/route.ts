@@ -31,23 +31,23 @@ export async function POST(req: NextRequest) {
       const [monthStats, categories, recentItems] = await Promise.all([
         queryOne<{ income: number; expenses: number; net: number }>(`
           SELECT
-            SUM(CASE WHEN type='inkomst' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as income,
-            SUM(CASE WHEN type='uitgave' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as expenses,
-            SUM(CASE WHEN type='inkomst' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount
-                     WHEN type='uitgave' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN -amount
+            SUM(CASE WHEN type='inkomst' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as income,
+            SUM(CASE WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as expenses,
+            SUM(CASE WHEN type='inkomst' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount
+                     WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN -amount
                      ELSE 0 END) as net
           FROM finance_items
         `),
         query<{ category: string; total: number; count: number }>(`
           SELECT category, SUM(amount) as total, COUNT(*) as count
           FROM finance_items
-          WHERE type='uitgave' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')
+          WHERE type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')
           GROUP BY category ORDER BY total DESC LIMIT 5
         `),
         query<{ type: string; title: string; amount: number }>(`
           SELECT type, title, amount FROM finance_items
-          WHERE TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')
-          ORDER BY created_at DESC LIMIT 5
+          WHERE TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')
+          ORDER BY COALESCE(due_date, created_at::date) DESC LIMIT 5
         `),
       ])
 
@@ -116,8 +116,8 @@ ${recentLogs.map(l => {
         queryOne<{ minutes: number }>('SELECT SUM(COALESCE(actual_duration_minutes, duration_minutes)) as minutes FROM work_logs WHERE date >= CURRENT_DATE - INTERVAL \'7 days\''),
         queryOne<{ income: number; expenses: number }>(`
           SELECT
-            SUM(CASE WHEN type='inkomst' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as income,
-            SUM(CASE WHEN type='uitgave' AND TO_CHAR(created_at,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as expenses
+            SUM(CASE WHEN type='inkomst' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as income,
+            SUM(CASE WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM') THEN amount ELSE 0 END) as expenses
           FROM finance_items
         `),
       ])
