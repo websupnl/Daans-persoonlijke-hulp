@@ -13,12 +13,13 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { waitUntil } from '@vercel/functions'
-import { sendTelegramMessage, answerCallbackQuery } from '@/lib/telegram/send-message'
+import { sendTelegramMessage, sendChatAction, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram/send-message'
 import { ingestMessage } from '@/lib/telegram/ingest'
 import { queryOne, execute, query } from '@/lib/db'
 import { generateDeepQuestion, runDeepSync } from '@/lib/ai/proactive-engine'
 import { analyzeDiaryEntry, formatDiaryAnalysisForTelegram } from '@/lib/ai/diary-personas'
 import { buildLifeSnapshot, formatSnapshotForPrompt } from '@/lib/ai/life-snapshot'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 import type { TelegramUpdate } from '@/lib/telegram/send-message'
 
 export async function POST(request: NextRequest) {
@@ -59,12 +60,32 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
+async function transcribeVoice(fileId: string, mimeType?: string): Promise<string | null> {
+  try {
+    const fileUrl = await getTelegramFileUrl(fileId)
+    const audioRes = await fetch(fileUrl)
+    if (!audioRes.ok) return null
+    const audioBuffer = await audioRes.arrayBuffer()
+    const ext = mimeType?.includes('mpeg') ? 'mp3' : mimeType?.includes('mp4') ? 'mp4' : 'ogg'
+    const audioFile = new File([audioBuffer], `voice.${ext}`, { type: mimeType ?? 'audio/ogg' })
+    const client = getOpenAIClient()
+    const transcription = await client.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language: 'nl',
+    })
+    return transcription.text.trim() || null
+  } catch (err) {
+    console.error('[Telegram] Voice transcription error:', err)
+    return null
+  }
+}
+
 async function handleUpdate(update: TelegramUpdate): Promise<void> {
   const message = update.message
-  if (!message?.text) return
+  if (!message) return
 
   const chatId = message.chat.id
-  const text = message.text.trim()
   const senderName = [message.from?.first_name, message.from?.last_name].filter(Boolean).join(' ')
 
   const allowedChatId = process.env.TELEGRAM_CHAT_ID
@@ -72,6 +93,26 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await sendTelegramMessage(chatId, '⛔ Je bent niet geautoriseerd om deze bot te gebruiken.')
     return
   }
+
+  // Handle voice messages via Whisper transcription
+  if (!message.text && (message.voice ?? message.audio)) {
+    const fileId = (message.voice ?? message.audio)!.file_id
+    const mimeType = (message.voice ?? message.audio)!.mime_type
+    await sendChatAction(chatId, 'typing')
+    const transcribed = await transcribeVoice(fileId, mimeType)
+    if (!transcribed) {
+      await sendTelegramMessage(chatId, '❌ Kon je spraakbericht niet begrijpen. Probeer het opnieuw.')
+      return
+    }
+    await sendTelegramMessage(chatId, `_🎙️ Ik hoorde: "${transcribed}"_`)
+    const result = await ingestMessage({ message: transcribed, source: 'telegram', senderName: senderName || undefined, senderPhone: String(chatId) })
+    if (result.reply) await sendTelegramMessage(chatId, result.reply, { reply_markup: result.replyMarkup })
+    return
+  }
+
+  if (!message.text) return
+
+  const text = message.text.trim()
 
   // ── Slash Commands ─────────────────────────────────────────────────────────
 
@@ -125,21 +166,91 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     return
   }
 
+  if (text === '/boodschappen' || text === '/groceries') {
+    const items = await query<{ id: number; title: string; quantity?: string; category?: string }>(`
+      SELECT id, title, quantity, category FROM groceries WHERE completed = 0 ORDER BY category, title
+    `).catch(() => [] as Array<{ id: number; title: string; quantity?: string; category?: string }>)
+    if (items.length === 0) {
+      await sendTelegramMessage(chatId, '🛒 Je boodschappenlijst is leeg.')
+    } else {
+      const lines = items.map(i => {
+        const qty = i.quantity ? ` (${i.quantity})` : ''
+        return `• ${i.title}${qty} \`[${i.id}]\``
+      })
+      const buttons = items.slice(0, 6).map(i => ({ text: `✓ ${i.title.slice(0, 20)}`, callback_data: `grocery_complete:${i.id}` }))
+      const rows: Array<typeof buttons> = []
+      for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2))
+      await sendTelegramMessage(chatId, `🛒 *Boodschappenlijst* (${items.length})\n\n${lines.join('\n')}`, {
+        reply_markup: rows.length > 0 ? { inline_keyboard: rows } : undefined,
+      })
+    }
+    return
+  }
+
+  if (text === '/taken' || text === '/todos') {
+    const todos = await query<{ id: number; title: string; priority: string; due_date: string | null }>(`
+      SELECT id, title, priority, TO_CHAR(due_date, 'YYYY-MM-DD') as due_date
+      FROM todos WHERE completed = 0
+      ORDER BY CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END LIMIT 15
+    `).catch(() => [] as Array<{ id: number; title: string; priority: string; due_date: string | null }>)
+    if (todos.length === 0) {
+      await sendTelegramMessage(chatId, '📋 Geen open taken.')
+    } else {
+      const lines = todos.map(t => {
+        const due = t.due_date ? ` _(${t.due_date})_` : ''
+        const icon = t.priority === 'hoog' ? '🔴' : t.priority === 'medium' ? '🟡' : '⚪'
+        return `${icon} ${t.title}${due} \`[${t.id}]\``
+      })
+      const buttons = todos.filter(t => t.priority === 'hoog').slice(0, 4).map(t => ({
+        text: `✓ ${t.title.slice(0, 20)}`, callback_data: `todo_complete:${t.id}`
+      }))
+      const rows: Array<typeof buttons> = []
+      for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2))
+      await sendTelegramMessage(chatId, `📋 *Open taken* (${todos.length})\n\n${lines.join('\n')}`, {
+        reply_markup: rows.length > 0 ? { inline_keyboard: rows } : undefined,
+      })
+    }
+    return
+  }
+
+  if (text === '/financien' || text === '/finance' || text === '/geld') {
+    const items = await query<{ type: string; title: string; amount: number; category: string; date: string }>(`
+      SELECT type, title, amount::float, category, TO_CHAR(date, 'YYYY-MM-DD') as date
+      FROM finance_items
+      WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+      ORDER BY date DESC LIMIT 15
+    `).catch(() => [] as Array<{ type: string; title: string; amount: number; category: string; date: string }>)
+    const totaalUit = items.filter(i => i.type === 'expense').reduce((s, i) => s + Number(i.amount), 0)
+    const totaalIn = items.filter(i => i.type !== 'expense').reduce((s, i) => s + Number(i.amount), 0)
+    const lines = items.map(i => {
+      const sign = i.type === 'expense' ? '-' : '+'
+      return `${sign}€${Number(i.amount).toFixed(2)} — ${i.title} _(${i.date})_`
+    })
+    await sendTelegramMessage(chatId,
+      `💰 *Financiën deze maand*\n` +
+      `Inkomsten: +€${totaalIn.toFixed(2)} | Uitgaven: -€${totaalUit.toFixed(2)}\n\n` +
+      `${lines.join('\n') || '_Geen transacties_'}`
+    )
+    return
+  }
+
   if (text === '/help' || text === '/start') {
     await sendTelegramMessage(chatId,
       `🧠 *Daan's Personal Brain*\n\n` +
       `*Commando's:*\n` +
+      `• /boodschappen — Boodschappenlijst\n` +
+      `• /taken — Open taken\n` +
+      `• /financien — Financiën deze maand\n` +
+      `• /status — Life snapshot\n` +
       `• /vraag — Diepgravende reflectievraag\n` +
-      `• /sync — Volledig leven-rapport\n` +
-      `• /status — Huidige life snapshot\n\n` +
+      `• /sync — Volledig leven-rapport\n\n` +
       `*Of typ gewoon:*\n` +
-      `• "Taak toevoegen: X"\n` +
-      `• "Boodschap toevoegen: Melk"\n` +
+      `• "Melk, brood en kaas op boodschappenlijst"\n` +
       `• "Noteer €50 uitgave aan boodschappen"\n` +
       `• "Ik heb 2u gewerkt aan WebsUp"\n` +
-      `• "Wat staat er op mijn boodschappenlijst?"\n` +
-      `• "Hoe staat mijn dagboek ervoor?"\n\n` +
-      `_Je persoonlijke AI is altijd actief en denkt met je mee._`
+      `• "Zet vergadering morgen om 10:00 in agenda"\n` +
+      `• "Wat zijn mijn openstaande taken?"\n\n` +
+      `_🎙️ Spraakberichten worden automatisch omgezet naar tekst._`
     )
     return
   }
@@ -210,11 +321,14 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   // ── Standard message through ingest pipeline ──────────────────────────────
   console.log(`[Telegram webhook] Message ontvangen van ${senderName || 'onbekend'} (${chatId})`)
 
+  await sendChatAction(chatId, 'typing')
+
   try {
     const result = await ingestMessage({
       message: text,
       source: 'telegram',
       senderName: senderName || undefined,
+      senderPhone: String(chatId),
     })
 
     if (result.reply) {
@@ -283,6 +397,27 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<void> {
     const colonIdx = callbackData.indexOf(':')
     const action = colonIdx >= 0 ? callbackData.slice(0, colonIdx) : callbackData
     const rest = colonIdx >= 0 ? callbackData.slice(colonIdx + 1) : ''
+
+    // ── Pending action: Confirm ───────────────────────────────────────────
+    if (action === 'confirm_pending') {
+      await answerCallbackQuery(cb.id, '⏳ Wordt uitgevoerd...')
+      if (chatId) {
+        await sendChatAction(chatId, 'typing')
+        const result = await ingestMessage({ message: 'ja', source: 'telegram', senderPhone: String(chatId) })
+        if (result.reply) await sendTelegramMessage(chatId, result.reply, { reply_markup: result.replyMarkup })
+      }
+      return
+    }
+
+    // ── Pending action: Cancel ────────────────────────────────────────────
+    if (action === 'cancel_pending') {
+      await answerCallbackQuery(cb.id, '❌ Geannuleerd')
+      if (chatId) {
+        const result = await ingestMessage({ message: 'nee', source: 'telegram', senderPhone: String(chatId) })
+        if (result.reply) await sendTelegramMessage(chatId, result.reply, { reply_markup: result.replyMarkup })
+      }
+      return
+    }
 
     // ── Todo complete ─────────────────────────────────────────────────────
     if (action === 'todo_complete') {

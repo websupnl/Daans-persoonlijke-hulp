@@ -83,6 +83,28 @@ export async function answerCallbackQuery(
   }
 }
 
+/** Send a chat action (e.g. "typing...") to indicate the bot is working */
+export async function sendChatAction(
+  chatId: string | number,
+  action: 'typing' | 'record_voice' | 'upload_document' = 'typing'
+): Promise<void> {
+  const token = getToken()
+  await fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  }).catch(() => {})
+}
+
+/** Get the download URL for a Telegram file by file_id */
+export async function getTelegramFileUrl(fileId: string): Promise<string> {
+  const token = getToken()
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`)
+  const data = await res.json() as { ok: boolean; result?: { file_path: string } }
+  if (!data.ok || !data.result?.file_path) throw new Error('Telegram getFile failed')
+  return `${TELEGRAM_API}/file/bot${token}/${data.result.file_path}`
+}
+
 /** Register a webhook URL with the Telegram Bot API */
 export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; description?: string }> {
   const token = getToken()
@@ -105,7 +127,6 @@ export async function getWebhookInfo(): Promise<Record<string, unknown>> {
   return res.json() as Promise<Record<string, unknown>>
 }
 
-/** Extract text from a Telegram Update object */
 export interface TelegramUpdate {
   update_id: number
   message?: {
@@ -118,6 +139,8 @@ export interface TelegramUpdate {
     }
     chat: { id: number; type: string }
     text?: string
+    voice?: { file_id: string; duration: number; mime_type?: string; file_size?: number }
+    audio?: { file_id: string; duration: number; mime_type?: string; file_size?: number }
     date: number
   }
   callback_query?: {
