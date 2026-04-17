@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { format } from 'date-fns'
 import { query, queryOne } from '@/lib/db'
 import { looseEntityMatch, normalizeDutch } from './normalize'
@@ -17,15 +18,38 @@ export const SMALL_TALK_RESPONSES: Record<string, string> = {
   hey: 'Ik ben er. Zeg gewoon wat je wilt weten, loggen of plannen.',
   hoi: 'Ik ben er. Gooi het maar in normale taal.',
   hallo: 'Ik luister. Wat wil je doen?',
+=======
+import { looseEntityMatch, normalizeDutch } from './normalize'
+import type {
+  ChatPlan,
+  ChatRuntimeContext,
+} from './types'
+
+export const SMALL_TALK_RESPONSES: Record<string, string> = {
+  hey: 'Hoi! Ik ben er. Wat kan ik voor je doen?',
+  hoi: 'Hoi! Hoe gaat het? Kan ik je ergens bij helpen?',
+  hallo: 'Hallo! Ik luister. Heb je iets om te loggen of te plannen?',
+  bedankt: 'Graag gedaan! Als er nog iets is, hoor ik het.',
+  dankje: 'Geen probleem! Succes nog even.',
+  dankjewel: 'Met plezier gedaan.',
+>>>>>>> origin/main
 }
 
 export function planMessage(message: string, context: ChatRuntimeContext): ChatPlan {
   const normalized = normalizeDutch(message)
 
+<<<<<<< HEAD
   if (isConfirmation(normalized)) {
     return {
       kind: 'confirmation',
       confidence: 0.98,
+=======
+  // 1. Confirmations (Very specific)
+  if (isConfirmation(normalized)) {
+    return {
+      kind: 'confirmation',
+      confidence: 0.99,
+>>>>>>> origin/main
       primaryIntent: 'confirmation_yes',
       actions: [],
     }
@@ -34,12 +58,20 @@ export function planMessage(message: string, context: ChatRuntimeContext): ChatP
   if (isCancellation(normalized)) {
     return {
       kind: 'confirmation',
+<<<<<<< HEAD
       confidence: 0.98,
+=======
+      confidence: 0.99,
+>>>>>>> origin/main
       primaryIntent: 'confirmation_no',
       actions: [],
     }
   }
 
+<<<<<<< HEAD
+=======
+  // 2. Small talk
+>>>>>>> origin/main
   if (isSmallTalk(normalized)) {
     return {
       kind: 'small_talk',
@@ -49,6 +81,7 @@ export function planMessage(message: string, context: ChatRuntimeContext): ChatP
     }
   }
 
+<<<<<<< HEAD
   const correctionPlan = detectCorrectionPlan(normalized, context)
   if (correctionPlan) return correctionPlan
 
@@ -84,6 +117,11 @@ export function planMessage(message: string, context: ChatRuntimeContext): ChatP
 
   const memoryStorePlan = detectMemoryStorePlan(message, normalized)
   if (memoryStorePlan) return memoryStorePlan
+=======
+  // 3. Very specific commands that we want to be instant and 100% reliable
+  // But actually, even these can be handled by AI if we want natural language.
+  // I will keep only the most basic ones.
+>>>>>>> origin/main
 
   return {
     kind: 'unknown',
@@ -94,6 +132,7 @@ export function planMessage(message: string, context: ChatRuntimeContext): ChatP
 }
 
 function isConfirmation(normalized: string): boolean {
+<<<<<<< HEAD
   return /^(ja|ja hoor|ja doe maar|ja graag|doe maar|bevestig|yes|ok|oke)\b/.test(normalized)
 }
 
@@ -794,4 +833,16 @@ function extractSubjectAfterDelete(message: string, normalized: string): string 
   const explicit = message.match(/(?:verwijder|wis|gooi weg|haal weg)\s+(?:alleen\s+)?(?:die van\s+)?(.+)$/i)
   if (explicit?.[1]) return explicit[1].replace(/\s+/g, ' ').trim()
   return normalized.replace(/verwijder|wis|gooi weg|haal weg|todo|taak|taken/ig, '').replace(/\s+/g, ' ').trim()
+=======
+  // Only match if it's primarily a confirmation
+  return /^(ja|ja hoor|ja doe maar|ja graag|doe maar|bevestig|yes|ok|oke|is goed|prima)\b/.test(normalized) && normalized.split(' ').length <= 3
+}
+
+function isCancellation(normalized: string): boolean {
+  return /^(nee|nee hoor|toch niet|laat maar|annuleer|cancel)\b/.test(normalized) && normalized.split(' ').length <= 3
+}
+
+function isSmallTalk(normalized: string): boolean {
+  return /^(hey|hoi|hallo|goedemorgen|goedemiddag|goedenavond|bedankt|dankje|dankjewel)\b/.test(normalized) && normalized.split(' ').length <= 2
+>>>>>>> origin/main
 }

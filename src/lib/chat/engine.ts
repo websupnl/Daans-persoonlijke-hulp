@@ -1,6 +1,7 @@
 import { execute, query, queryOne } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
+<<<<<<< HEAD
 import { executeActions } from '@/lib/ai/execute-actions'
 import { buildChatContext, getSessionKey } from './context'
 import { DEFAULT_PROFILE_FACTS } from './default-profile'
@@ -13,18 +14,38 @@ export { planMessage, SMALL_TALK_RESPONSES, executeChatActions }
 import type {
   ChatAction,
   ChatQuery,
+=======
+import { executeActions, ActionResult } from '@/lib/ai/execute-actions'
+import { buildChatContext, getSessionKey } from './context'
+import { normalizeDutch } from './normalize'
+import { planMessage, SMALL_TALK_RESPONSES } from './deterministic'
+
+import type {
+  ChatAction,
+>>>>>>> origin/main
   ChatRequest,
   ChatResult,
   ChatRuntimeContext,
   StoredAction,
 } from './types'
+<<<<<<< HEAD
+=======
+import { AIAction } from '@/lib/ai/action-schema'
+
+export { planMessage, SMALL_TALK_RESPONSES }
+export { executeChatActions } from './actions-runner'
+>>>>>>> origin/main
 
 interface PendingPayload {
   engine: 'chat' | 'ai'
   preview: string
   actions?: ChatAction[]
   aiSummary?: string
+<<<<<<< HEAD
   aiActions?: unknown[]
+=======
+  aiActions?: AIAction[]
+>>>>>>> origin/main
 }
 
 export async function processChatMessage(request: ChatRequest): Promise<ChatResult> {
@@ -32,6 +53,7 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
   const context = await buildChatContext(request.source, sessionKey)
   const userContent = formatUserMessageForStorage(request)
 
+<<<<<<< HEAD
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', userContent, '[]'])
   await logActivity({
     entityType: 'chat',
@@ -98,12 +120,36 @@ async function processWithDeterministicEngine(
   if (plan.kind === 'small_talk') {
     const reply = SMALL_TALK_RESPONSES[normalizeDutch(message).split(' ')[0]] ?? 'Ik ben er. Gooi het maar op tafel.'
     return {
+=======
+  // 1. Store user message
+  await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', userContent, '[]'])
+  
+  // 2. Deterministic fast-path (Confirmation & Small Talk)
+  const plan = planMessage(request.message, context)
+  
+  if (plan.primaryIntent === 'confirmation_yes') {
+    const result = await executePendingAction(context)
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  if (plan.primaryIntent === 'confirmation_no') {
+    const result = await cancelPendingAction(context)
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  if (plan.kind === 'small_talk') {
+    const reply = SMALL_TALK_RESPONSES[normalizeDutch(request.message).split(' ')[0]] ?? 'Ik ben er voor je. Wat kan ik doen?'
+    const result: ChatResult = {
+>>>>>>> origin/main
       reply,
       actions: [],
       parserType: 'deterministic',
       confidence: plan.confidence,
       intent: plan.primaryIntent,
     }
+<<<<<<< HEAD
   }
 
   if (plan.requiresConfirmation && plan.actions.length > 0) {
@@ -186,22 +232,69 @@ async function processWithAI(
       )
 
       // Surface to UI via Activity Log
+=======
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  // 3. AI Processing
+  const aiResult = await parseCommandWithAI(request.message)
+  
+  if (!aiResult || aiResult.confidence < 0.4) {
+    const result: ChatResult = {
+      reply: 'Ik twijfel wat je precies bedoelt. Zeg erbij of dit voor je todo’s, agenda, werklog, financiën of memory is, dan pak ik het direct goed op.',
+      actions: [{ type: 'clarification_requested', data: { reason: 'low_confidence' } }],
+      parserType: 'clarification',
+      confidence: 0.2,
+      intent: 'clarify',
+    }
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  // 4. Handle Memory Candidates (Grounding facts)
+  if (aiResult.memory_candidates?.length) {
+    for (const candidate of aiResult.memory_candidates) {
+      if (candidate.confidence < 0.7) continue
+      await execute(`
+        INSERT INTO memory_log (key, value, category, confidence)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT(key) DO UPDATE SET
+          value = EXCLUDED.value,
+          category = EXCLUDED.category,
+          confidence = EXCLUDED.confidence,
+          last_reinforced_at = NOW(),
+          updated_at = NOW()
+      `, [candidate.key, candidate.value, candidate.category, candidate.confidence])
+      
+>>>>>>> origin/main
       await logActivity({
         entityType: 'memory',
         action: 'candidate_detected',
         title: candidate.key,
+<<<<<<< HEAD
         summary: `AI heeft iets nieuws over je onthouden: "${candidate.value}"`,
+=======
+        summary: `AI heeft iets nieuws onthouden: "${candidate.value}"`,
+>>>>>>> origin/main
         metadata: { category: candidate.category, confidence: candidate.confidence },
       })
     }
   }
 
+<<<<<<< HEAD
   if (aiResult.requires_confirmation && aiResult.actions.length > 0) {
     const preview = aiResult.summary || 'AI-actie bevestigen'
+=======
+  // 5. Handle Confirmations
+  if (aiResult.requires_confirmation && aiResult.actions.length > 0) {
+    const preview = aiResult.summary || 'Actie bevestigen'
+>>>>>>> origin/main
     await savePendingAction(context, {
       engine: 'ai',
       preview,
       aiSummary: aiResult.summary,
+<<<<<<< HEAD
       aiActions: aiResult.actions as unknown[],
     })
 
@@ -394,6 +487,61 @@ export function formatExecutionReply(actions: StoredAction[], suggestion?: strin
   }
 
   return lines.join('\n')
+=======
+      aiActions: aiResult.actions as AIAction[],
+    })
+
+    const result: ChatResult = {
+      reply: `${aiResult.summary}\n\nAntwoord met "ja" om te bevestigen of "nee" om te annuleren.`,
+      actions: [{ type: 'confirmation_requested', data: { preview } }],
+      parserType: 'ai',
+      confidence: aiResult.confidence,
+      intent: 'ai_confirm',
+    }
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  // 6. Execute Actions
+  let storedActions: StoredAction[] = []
+  if (aiResult.actions.length > 0) {
+    const actionResults = await executeActions(aiResult.actions as any[])
+    storedActions = mapAIResultsToStoredActions(actionResults, aiResult.summary)
+  }
+
+  // 7. Final Result
+  const result: ChatResult = {
+    reply: aiResult.summary,
+    actions: storedActions.length > 0 ? storedActions : [],
+    parserType: 'ai',
+    confidence: aiResult.confidence,
+    intent: 'ai_processed',
+  }
+
+  await logAndStoreResponse(userContent, result)
+  return result
+}
+
+async function logAndStoreResponse(userMessage: string, result: ChatResult) {
+  await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', [
+    'assistant',
+    result.reply,
+    JSON.stringify(result.actions),
+  ])
+
+  await execute(`
+    INSERT INTO conversation_log (user_message, assistant_message, parser_type, confidence, actions)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [userMessage, result.reply, result.parserType, result.confidence, JSON.stringify(result.actions)])
+
+  await logActivity({
+    entityType: 'chat',
+    action: 'assistant_message',
+    title: result.reply.slice(0, 80),
+    summary: `Chat verwerkt via ${result.parserType}`,
+    metadata: { intent: result.intent, confidence: result.confidence },
+  })
+>>>>>>> origin/main
 }
 
 async function executePendingAction(context: ChatRuntimeContext): Promise<ChatResult> {
@@ -410,6 +558,7 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
   const payload = JSON.parse(context.pendingAction.payload) as PendingPayload
   await clearPendingAction(context.sessionKey)
 
+<<<<<<< HEAD
   if (payload.engine === 'chat' && payload.actions?.length) {
     const execution = await executeChatActions(payload.actions, context)
     return {
@@ -423,6 +572,10 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
 
   if (payload.engine === 'ai' && payload.aiActions?.length) {
     const actionResults = await executeActions(payload.aiActions as never[])
+=======
+  if (payload.aiActions?.length) {
+    const actionResults = await executeActions(payload.aiActions)
+>>>>>>> origin/main
     const stored = mapAIResultsToStoredActions(actionResults, payload.aiSummary)
     return {
       reply: payload.aiSummary ?? 'Uitgevoerd.',
@@ -434,7 +587,11 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
   }
 
   return {
+<<<<<<< HEAD
     reply: 'Er stond wel een bevestiging open, maar ik kon de actie niet meer uitvoeren.',
+=======
+    reply: 'Bevestiging mislukt of actie was niet meer geldig.',
+>>>>>>> origin/main
     actions: [],
     parserType: 'confirmation',
     confidence: 0.3,
@@ -445,7 +602,11 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
 async function cancelPendingAction(context: ChatRuntimeContext): Promise<ChatResult> {
   if (!context.pendingAction) {
     return {
+<<<<<<< HEAD
       reply: 'Prima, er stond niets open om te annuleren.',
+=======
+      reply: 'Er staat niets open om te annuleren.',
+>>>>>>> origin/main
       actions: [],
       parserType: 'confirmation',
       confidence: 0.5,
@@ -457,7 +618,11 @@ async function cancelPendingAction(context: ChatRuntimeContext): Promise<ChatRes
   await clearPendingAction(context.sessionKey)
 
   return {
+<<<<<<< HEAD
     reply: 'Ik heb het geannuleerd. Er is niets uitgevoerd.',
+=======
+    reply: 'Ik heb het geannuleerd.',
+>>>>>>> origin/main
     actions: [{ type: 'confirmation_cancelled', data: { preview: payload.preview } }],
     parserType: 'confirmation',
     confidence: 0.99,
@@ -466,6 +631,7 @@ async function cancelPendingAction(context: ChatRuntimeContext): Promise<ChatRes
 }
 
 async function savePendingAction(context: ChatRuntimeContext, payload: PendingPayload): Promise<void> {
+<<<<<<< HEAD
   await execute(
     `
       INSERT INTO pending_actions (session_key, source, preview, payload, expires_at, updated_at)
@@ -479,12 +645,25 @@ async function savePendingAction(context: ChatRuntimeContext, payload: PendingPa
     `,
     [context.sessionKey, String(context.source), payload.preview, JSON.stringify(payload)]
   )
+=======
+  await execute(`
+    INSERT INTO pending_actions (session_key, source, preview, payload, expires_at, updated_at)
+    VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours', NOW())
+    ON CONFLICT(session_key) DO UPDATE SET
+      source = EXCLUDED.source,
+      preview = EXCLUDED.preview,
+      payload = EXCLUDED.payload,
+      expires_at = EXCLUDED.expires_at,
+      updated_at = NOW()
+  `, [context.sessionKey, String(context.source), payload.preview, JSON.stringify(payload)])
+>>>>>>> origin/main
 }
 
 async function clearPendingAction(sessionKey: string): Promise<void> {
   await execute('DELETE FROM pending_actions WHERE session_key = $1', [sessionKey])
 }
 
+<<<<<<< HEAD
 async function getTodoRows(filter: Extract<ChatQuery, { type: 'todo_list' }>['filter']) {
   let where = 'WHERE completed = 0'
   let label = 'Open taken'
@@ -632,6 +811,8 @@ function formatDurationLabel(minutes: number): string {
   return `${rest} min`
 }
 
+=======
+>>>>>>> origin/main
 function formatUserMessageForStorage(request: ChatRequest): string {
   if (request.source === 'telegram') {
     const sender = request.senderName ? ` - ${request.senderName}` : ''
@@ -641,13 +822,18 @@ function formatUserMessageForStorage(request: ChatRequest): string {
 }
 
 function mapAIResultsToStoredActions(
+<<<<<<< HEAD
   actionResults: Array<{ type: string; success: boolean; data?: unknown }>,
+=======
+  actionResults: ActionResult[],
+>>>>>>> origin/main
   summary?: string
 ): StoredAction[] {
   const mapped: StoredAction[] = []
 
   for (const result of actionResults) {
     if (!result.success) continue
+<<<<<<< HEAD
     switch (result.type) {
       case 'todo_create':
         mapped.push({ type: 'todo_created', data: { id: (result.data as { id?: number; title?: string })?.id, title: (result.data as { title?: string })?.title ?? 'Taak' } })
@@ -696,5 +882,51 @@ function mapAIResultsToStoredActions(
     mapped.push({ type: 'fallback_answer', data: { mode: 'ai' } })
   }
 
+=======
+    const data = result.data as any
+    switch (result.type) {
+      case 'todo_create':
+        mapped.push({ type: 'todo_created', data: { id: data?.id, title: data?.title ?? 'Taak' } })
+        break
+      case 'todo_update':
+        mapped.push({ type: 'todo_updated', data: { id: data?.id, title: data?.title } })
+        break
+      case 'todo_complete':
+        mapped.push({ type: 'todo_completed', data: { id: data?.id, title: data?.title ?? 'Taak' } })
+        break
+      case 'event_create':
+        mapped.push({ type: 'event_created', data: { id: data?.id, title: data?.title, date: data?.date, time: data?.time } })
+        break
+      case 'worklog_create':
+        mapped.push({ type: 'worklog_created', data: { id: data?.id, title: data?.title ?? summary ?? 'Werklog', duration_minutes: data?.duration_minutes ?? 0, context: data?.context ?? 'overig' } })
+        break
+      case 'habit_log':
+        mapped.push({ type: 'habit_logged', data: { habit_id: data?.id, habit_name: data?.name ?? 'Gewoonte' } })
+        break
+      case 'finance_create_expense':
+        mapped.push({ type: 'finance_created', data: { id: data?.id, title: data?.title ?? summary ?? 'Uitgave', amount: data?.amount ?? 0, kind: 'uitgave' } })
+        break
+      case 'finance_create_income':
+        mapped.push({ type: 'finance_created', data: { id: data?.id, title: data?.title ?? summary ?? 'Inkomst', amount: data?.amount ?? 0, kind: 'inkomst' } })
+        break
+      case 'project_create':
+        mapped.push({ type: 'project_created', data: { id: data?.id, title: data?.title ?? 'Project' } })
+        break
+      case 'project_update':
+        mapped.push({ type: 'project_updated', data: { id: data?.id, title: data?.title ?? 'Project', status: data?.status } })
+        break
+      case 'contact_create':
+        mapped.push({ type: 'contact_created', data: { id: data?.id, name: data?.name ?? 'Contact' } })
+        break
+      case 'memory_store':
+        mapped.push({ type: 'memory_saved', data: { key: data?.key ?? 'Memory', value: data?.value ?? '', category: data?.category ?? 'general' } })
+        break
+      case 'inbox_capture':
+        mapped.push({ type: 'inbox_captured', data: { id: data?.id, text: data?.raw_text ?? 'Capture' } })
+        break
+    }
+  }
+
+>>>>>>> origin/main
   return mapped
 }
