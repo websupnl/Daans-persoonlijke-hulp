@@ -44,8 +44,18 @@ export async function runProactiveEngine(): Promise<ProactiveResult> {
   const snap = await buildLifeSnapshot()
 
   if (snap.anomalies.length === 0) {
+    // Clear resolved state for all topics if no anomalies are present
+    await execute('UPDATE nudge_state SET resolved_at = NULL WHERE resolved_at IS NOT NULL')
     return { triggered: false, tier: 'none', anomalies: [], telegramSent: false }
   }
+
+  // Clear resolved_at for topics that are no longer active
+  const activeTopics = snap.anomalies.map(a => a.nudgeTopic)
+  await execute(`
+    UPDATE nudge_state 
+    SET resolved_at = NULL 
+    WHERE topic != ALL($1::text[]) AND resolved_at IS NOT NULL
+  `, [activeTopics])
 
   // Filter out anomalies that were recently nudged (cooldown)
   const cooldownFiltered = await filterByCooldown(snap.anomalies)
