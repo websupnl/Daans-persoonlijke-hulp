@@ -21,10 +21,12 @@ import { AIAction } from '@/lib/ai/action-schema'
 // Background sync trigger (non-blocking)
 async function triggerBackgroundSync() {
   try {
-    // We fetch our own API to keep it clean and use existing logic
-    // In a server environment, we might call the functions directly
-    // but calling the internal API ensures all steps are executed.
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // In production, use the actual deployment URL
+    // In development, fallback to localhost
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.NEXT_PUBLIC_APP_URL || 'https://daans-persoonlijke-hulp.vercel.app'
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    
     fetch(`${baseUrl}/api/ai/sync`, { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }

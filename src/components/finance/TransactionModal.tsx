@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { X, Save, Trash2, Calendar, Tag, CreditCard, AlignLeft, Info } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import AIActionButton from '@/components/ai/AIActionButton'
+import ContextInput from '@/components/ai/ContextInput'
 
 interface TransactionModalProps {
   isOpen: boolean
@@ -30,6 +32,52 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
     description: ''
   })
   const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const handleAIAction = async (itemId: number, action: string) => {
+    setAiLoading(true)
+    try {
+      const response = await fetch('/api/ai/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId,
+          itemType: 'transaction',
+          action
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        // Verwerk AI response (bijv. update form met suggesties)
+        console.log('AI result:', result)
+      }
+    } catch (err) {
+      console.error('AI action failed:', err)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handleContextSave = async (itemId: number, context: string) => {
+    try {
+      const response = await fetch('/api/ai/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId,
+          itemType: 'transaction',
+          context
+        })
+      })
+      
+      if (response.ok) {
+        console.log('Context saved successfully')
+      }
+    } catch (err) {
+      console.error('Context save failed:', err)
+    }
+  }
 
   useEffect(() => {
     if (transaction) {
@@ -214,15 +262,38 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
           </div>
         </div>
 
+        {/* AI Context Input */}
+        {transaction && (
+          <div className="px-6 py-4 bg-blue-50 border-t border-blue-100">
+            <ContextInput
+              itemId={transaction.id}
+              itemType="transaction"
+              onSendContext={handleContextSave}
+              placeholder="Voeg context toe voor AI analyse van deze transactie..."
+            />
+          </div>
+        )}
+
         {/* Footer */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
-          <button
-            onClick={() => { if (confirm('Weet je het zeker?')) onDelete(transaction.id); onClose() }}
-            className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-            title="Verwijderen"
-          >
-            <Trash2 size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { if (confirm('Weet je het zeker?')) onDelete(transaction.id); onClose() }}
+              className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+              title="Verwijderen"
+            >
+              <Trash2 size={20} />
+            </button>
+            {transaction && (
+              <AIActionButton
+                itemId={transaction.id}
+                itemType="transaction"
+                onAIAction={handleAIAction}
+                size="sm"
+                variant="secondary"
+              />
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}

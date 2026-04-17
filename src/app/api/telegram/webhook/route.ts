@@ -26,9 +26,13 @@ export async function POST(request: NextRequest) {
   const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET
   const webhookSecret = request.headers.get('x-telegram-bot-api-secret-token')
 
-  if (!configuredSecret && process.env.NODE_ENV === 'production') {
-    console.warn('[Telegram webhook] TELEGRAM_WEBHOOK_SECRET is not configured in production. Secret validation is disabled.')
-    // return NextResponse.json({ error: 'Webhook configuration missing' }, { status: 503 })
+  if (!configuredSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Telegram webhook] TELEGRAM_WEBHOOK_SECRET is not configured in production. Please set this environment variable for security.')
+      return NextResponse.json({ error: 'Webhook configuration missing' }, { status: 503 })
+    } else {
+      console.warn('[Telegram webhook] TELEGRAM_WEBHOOK_SECRET is not configured. Secret validation is disabled in development.')
+    }
   }
 
   if (configuredSecret && webhookSecret !== configuredSecret) {

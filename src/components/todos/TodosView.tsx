@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Check, Trash2, Calendar, LayoutGrid, ListTodo } from 'lucide-react'
 import { cn, formatDate, isOverdue, PRIORITY_COLORS } from '@/lib/utils'
+import AIActionButton from '@/components/ai/AIActionButton'
+import ContextInput from '@/components/ai/ContextInput'
 
 interface Todo {
   id: number
