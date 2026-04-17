@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import OpenAI from 'openai'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 export async function GET() {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ recommendation: 'AI-aanbevelingen zijn nu niet beschikbaar omdat er geen OpenAI-sleutel is ingesteld.' }, { status: 503 })
+    }
+
     const todos = await query<any>(
       `SELECT t.*, p.title as project_title 
        FROM todos t 
@@ -26,7 +28,7 @@ export async function GET() {
       project: t.project_title,
     }))
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {

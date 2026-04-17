@@ -1,12 +1,11 @@
-import OpenAI from 'openai'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { getOpenAIClient } from './openai-client'
 
 export async function generateTags(content: string): Promise<string[]> {
   if (!content || content.length < 10) return []
+  if (!process.env.OPENAI_API_KEY) return []
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
@@ -31,6 +30,7 @@ export async function generateTags(content: string): Promise<string[]> {
 
 export async function rankNotesByQuery(notes: any[], query: string): Promise<any[]> {
   if (!query || notes.length === 0) return notes
+  if (!process.env.OPENAI_API_KEY) return notes
 
   try {
     const noteSummaries = notes.map((n, i) => ({
@@ -40,7 +40,7 @@ export async function rankNotesByQuery(notes: any[], query: string): Promise<any
       tags: n.tags,
     }))
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { ChatAction } from '@/lib/chat/types'
 
 interface WorkLog {
   id: number
@@ -103,6 +104,7 @@ export default function WorklogsView() {
   const [aiText, setAiText] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
+  const [aiProposal, setAiProposal] = useState<{ reply: string; actions: ChatAction[] } | null>(null)
 
   // Restore timer from localStorage
   useEffect(() => {
@@ -213,6 +215,59 @@ export default function WorklogsView() {
       }
     } catch {
       setAiStatus('⚠️ Verbindingsfout')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function handleAiInputEnhanced() {
+    if (!aiText.trim() || aiLoading) return
+    setAiLoading(true)
+    setAiStatus(null)
+    setAiProposal(null)
+    try {
+      const res = await fetch('/api/worklogs/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: aiText }),
+      })
+      const data = await res.json()
+      if (res.status === 201 && data.mode === 'created') {
+        setAiStatus(data.reply ?? 'Opgeslagen.')
+        setAiText('')
+        load()
+      } else if (res.status === 202 && data.actions?.length) {
+        setAiProposal({ reply: data.reply, actions: data.actions })
+      } else {
+        setAiStatus(data.reply ?? data.error ?? 'Kon niet verwerken')
+      }
+    } catch {
+      setAiStatus('Verbindingsfout')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function confirmAiProposal() {
+    if (!aiProposal || aiLoading) return
+    setAiLoading(true)
+    try {
+      const res = await fetch('/api/worklogs/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, actions: aiProposal.actions }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setAiStatus(data.reply ?? 'Opgeslagen.')
+        setAiProposal(null)
+        setAiText('')
+        load()
+      } else {
+        setAiStatus(data.error ?? 'Kon voorstel niet uitvoeren')
+      }
+    } catch {
+      setAiStatus('Verbindingsfout')
     } finally {
       setAiLoading(false)
     }
@@ -424,13 +479,13 @@ export default function WorklogsView() {
           <input
             value={aiText}
             onChange={e => setAiText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiInput()}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiInputEnhanced()}
             placeholder='"2u aan Prime Animals", "Van 19:00 tot 21:30 Sjoeli"...'
             className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
             style={{ fontSize: '16px' }}
           />
           <button
-            onClick={handleAiInput}
+            onClick={handleAiInputEnhanced}
             disabled={aiLoading || !aiText.trim()}
             className={cn(
               'px-3 py-2 rounded-xl text-sm font-semibold transition-all',
@@ -451,6 +506,27 @@ export default function WorklogsView() {
           <p className={cn('text-xs mt-2 font-medium', aiStatus.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>
             {aiStatus}
           </p>
+        )}
+        {aiProposal && (
+          <div className="mt-3 rounded-2xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-3">
+            <p className="text-xs font-medium text-gray-600 whitespace-pre-line">{aiProposal.reply}</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={confirmAiProposal}
+                disabled={aiLoading}
+                className="rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-50"
+                style={{ background: GRAD }}
+              >
+                Bevestig voorstel
+              </button>
+              <button
+                onClick={() => setAiProposal(null)}
+                className="rounded-xl px-3 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200"
+              >
+                Sluiten
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

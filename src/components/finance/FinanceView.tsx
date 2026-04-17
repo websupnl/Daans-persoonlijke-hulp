@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -48,17 +48,62 @@ interface ImportRow {
 }
 
 interface AnalyseResult {
-  subscriptions: Array<{ name: string; amount: number; frequency: string; monthlyEquivalent: number; lastSeen: string; count: number }>
-  patterns: Array<{ merchant: string; totalSpent: number; visits: number; avgAmount: number; category: string }>
+  recurringGroups: Array<{
+    merchantKey: string
+    displayName: string
+    merchantType: string
+    category: string
+    subcategory: string
+    recurrenceType: string
+    recurrenceLabel: string
+    recurrenceConfidence: number
+    confidenceLabel: 'high' | 'medium' | 'low'
+    frequency: string
+    amountPerCharge: number
+    monthlyEquivalent: number | null
+    monthlyEquivalentLabel: string | null
+    count: number
+    lastSeen: string
+    intervalDaysMedian: number | null
+    explanation: string
+    needsReview: boolean
+    userVerified: boolean
+    fixedCost: boolean
+    essential: boolean
+    reviewReason?: string
+  }>
+  patterns: Array<{ merchant: string; totalSpent: number; visits: number; avgAmount: number; category: string; confidenceLabel: 'high' | 'medium' | 'low' }>
   trends: Array<{ month: string; income: number; expenses: number; net: number; topCategory: string }>
   anomalies: Array<{ title: string; amount: number; date: string; reason: string; severity: 'low' | 'medium' | 'high' }>
-  summary: { totalIncome: number; totalExpenses: number; net: number; monthlySubCost: number; transactionCount: number }
+  reviewQuestions: Array<{
+    queueKey: string
+    merchantKey: string
+    merchantLabel: string
+    prompt: string
+    rationale: string
+    priority: number
+    confidenceLabel: 'high' | 'medium' | 'low'
+    suggestedActions: Array<{
+      label: string
+      rulePatch: Record<string, unknown>
+    }>
+  }>
+  summary: {
+    totalIncome: number
+    totalExpenses: number
+    net: number
+    recurringMonthlyCost: number
+    fixedMonthlyCost: number
+    subscriptionMonthlyCost: number
+    uncertainRecurringCount: number
+    transactionCount: number
+  }
   aiInsights: string
 }
 
 const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
-const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk']
-const ACCOUNTS = ['privé', 'zakelijk']
+const ACCOUNT_FILTERS = ['Alle rekeningen', 'PrivÃ©', 'Zakelijk']
+const ACCOUNTS = ['privÃ©', 'zakelijk']
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -73,6 +118,18 @@ const CATEGORY_COLORS: Record<string, string> = {
   overig: 'bg-gray-300',
 }
 
+const CONFIDENCE_STYLE: Record<'high' | 'medium' | 'low', string> = {
+  high: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  medium: 'bg-amber-50 text-amber-600 border-amber-100',
+  low: 'bg-red-50 text-red-600 border-red-100',
+}
+
+function confidenceText(level: 'high' | 'medium' | 'low') {
+  if (level === 'high') return 'zeker'
+  if (level === 'medium') return 'waarschijnlijk'
+  return 'twijfel'
+}
+
 export default function FinanceView() {
   const [items, setItems] = useState<FinanceItem[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -84,7 +141,7 @@ export default function FinanceView() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+  const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
 
   const dateRange = useMemo(() => {
     let start, end
@@ -116,11 +173,12 @@ export default function FinanceView() {
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
   const [analyseLoading, setAnalyseLoading] = useState(false)
   const [analyseError, setAnalyseError] = useState<string | null>(null)
+  const [applyingRuleKey, setApplyingRuleKey] = useState<string | null>(null)
 
   // Bank import state
   const [showImport, setShowImport] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
-  const [importAccount, setImportAccount] = useState('privé')
+  const [importAccount, setImportAccount] = useState('privÃ©')
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; total: number } | null>(null)
@@ -131,7 +189,7 @@ export default function FinanceView() {
     const params = new URLSearchParams()
     if (typeFilter === 'Inkomsten') params.set('type', 'inkomst')
     else if (typeFilter === 'Uitgaven') params.set('type', 'uitgave')
-    if (accountFilter === 'Privé') params.set('account', 'privé')
+    if (accountFilter === 'PrivÃ©') params.set('account', 'privÃ©')
     else if (accountFilter === 'Zakelijk') params.set('account', 'zakelijk')
 
     params.set('from', format(dateRange.start, 'yyyy-MM-dd'))
@@ -172,7 +230,7 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
-    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
     setShowAdd(false)
     fetchData()
   }
@@ -257,6 +315,28 @@ export default function FinanceView() {
     }
   }
 
+  async function applyFinanceRule(questionKey: string, rulePatch: Record<string, unknown>) {
+    setApplyingRuleKey(questionKey)
+    setAnalyseError(null)
+    try {
+      const res = await fetch('/api/finance/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rulePatch),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAnalyseError(data.error ?? 'Opslaan van merchantregel mislukt')
+        return
+      }
+      await runAnalyse()
+    } catch {
+      setAnalyseError('Verbindingsfout bij opslaan van merchantregel')
+    } finally {
+      setApplyingRuleKey(null)
+    }
+  }
+
   function resetImport() {
     setImportFile(null)
     setImportPreview(null)
@@ -278,7 +358,7 @@ export default function FinanceView() {
       {/* Header */}
       <div className="px-4 sm:px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0 gap-2">
         <div>
-          <h1 className="text-xl font-extrabold text-gradient">Financiën</h1>
+          <h1 className="text-xl font-extrabold text-gradient">FinanciÃ«n</h1>
           <p className="text-xs text-gray-400 mt-0.5 font-medium">Inkomsten &amp; uitgaven</p>
         </div>
         <div className="flex items-center gap-2">
@@ -370,20 +450,20 @@ export default function FinanceView() {
               </div>
             </div>
             <div className="space-y-2 mb-5">
-              <button onClick={() => bulkDelete('uitgave', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                🏠 Alle privé uitgaven
+              <button onClick={() => bulkDelete('uitgave', 'privÃ©')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                ðŸ  Alle privÃ© uitgaven
               </button>
               <button onClick={() => bulkDelete('uitgave', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                💼 Alle zakelijke uitgaven
+                ðŸ’¼ Alle zakelijke uitgaven
               </button>
-              <button onClick={() => bulkDelete('inkomst', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                🏠 Alle privé inkomsten
+              <button onClick={() => bulkDelete('inkomst', 'privÃ©')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
+                ðŸ  Alle privÃ© inkomsten
               </button>
               <button onClick={() => bulkDelete('inkomst', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                💼 Alle zakelijke inkomsten
+                ðŸ’¼ Alle zakelijke inkomsten
               </button>
               <button onClick={() => bulkDelete()} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 text-sm text-left text-red-600 font-semibold hover:bg-red-100 transition-colors">
-                ⚠️ Alles verwijderen
+                âš ï¸ Alles verwijderen
               </button>
             </div>
             <button onClick={() => setShowBulkDelete(false)} className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
@@ -396,158 +476,18 @@ export default function FinanceView() {
       {/* Analyse error */}
       {analyseError && (
         <div className="mx-4 sm:mx-6 mt-3 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-600">
-          ⚠️ {analyseError}
+          âš ï¸ {analyseError}
         </div>
       )}
 
-      {/* Deep Analysis Panel */}
       {analyseResult && (
-        <div className="mx-4 sm:mx-6 mt-3 rounded-3xl border border-violet-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 overflow-hidden">
-          {/* Panel header */}
-          <button
-            onClick={() => setShowAnalyse(s => !s)}
-            className="w-full flex items-center justify-between px-5 py-4"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: GRAD }}>
-                <Sparkles size={13} />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-bold text-gray-800">Financiële Analyse</p>
-                <p className="text-[10px] text-gray-400">{analyseResult.summary.transactionCount} transacties · €{analyseResult.summary.monthlySubCost}/mnd aan abonnementen</p>
-              </div>
-            </div>
-            {showAnalyse ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-          </button>
-
-          {showAnalyse && (
-            <div className="px-5 pb-5 space-y-5">
-
-              {/* AI Insights */}
-              {analyseResult.aiInsights && (
-                <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm">
-                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                    <Sparkles size={11} className="text-pink-400" />
-                    AI Inzichten
-                  </p>
-                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{analyseResult.aiInsights}</p>
-                </div>
-              )}
-
-              {/* Subscriptions */}
-              {analyseResult.subscriptions.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                    <Repeat size={11} className="text-violet-400" />
-                    Abonnementen gevonden ({analyseResult.subscriptions.length})
-                    <span className="ml-auto text-[10px] text-violet-500 font-semibold">
-                      €{analyseResult.summary.monthlySubCost}/mnd totaal
-                    </span>
-                  </p>
-                  <div className="space-y-1.5">
-                    {analyseResult.subscriptions.slice(0, 8).map((sub, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
-                        <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-                          <Repeat size={11} className="text-violet-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-700 truncate">{sub.name}</p>
-                          <p className="text-[10px] text-gray-400">{sub.frequency} · {sub.count}x gezien · laatste: {sub.lastSeen}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs font-bold text-violet-600">€{sub.monthlyEquivalent.toFixed(2)}/mnd</p>
-                          <p className="text-[10px] text-gray-400">€{sub.amount.toFixed(2)} p/keer</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Top merchants */}
-              {analyseResult.patterns.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                    <Eye size={11} className="text-pink-400" />
-                    Meest bij uitgegeven
-                  </p>
-                  <div className="space-y-1.5">
-                    {analyseResult.patterns.slice(0, 6).map((p, i) => {
-                      const maxSpent = analyseResult.patterns[0]?.totalSpent || 1
-                      const pct = Math.round((p.totalSpent / maxSpent) * 100)
-                      return (
-                        <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2 border border-white">
-                          <span className="text-[10px] text-gray-400 w-4 text-center">{i + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-xs font-medium text-gray-700 truncate">{p.merchant}</p>
-                              <p className="text-xs font-bold text-gray-800 ml-2 flex-shrink-0">€{p.totalSpent.toFixed(0)}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: GRAD }} />
-                              </div>
-                              <span className="text-[10px] text-gray-400">{p.visits}x</span>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Monthly trends */}
-              {analyseResult.trends.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                    <BarChart2 size={11} className="text-orange-400" />
-                    Maandtrend
-                  </p>
-                  <div className="space-y-1.5">
-                    {analyseResult.trends.slice(-4).map((t, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
-                        <span className="text-[10px] font-medium text-gray-500 w-14 flex-shrink-0">{t.month}</span>
-                        <div className="flex-1 flex gap-2 text-[10px]">
-                          <span className="text-emerald-600 font-semibold">+€{t.income.toFixed(0)}</span>
-                          <span className="text-red-400">-€{t.expenses.toFixed(0)}</span>
-                        </div>
-                        <span className={`text-xs font-bold flex-shrink-0 ${t.net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {t.net >= 0 ? '+' : ''}€{t.net.toFixed(0)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Anomalies */}
-              {analyseResult.anomalies.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                    <AlertTriangle size={11} className="text-amber-400" />
-                    Opvallende transacties ({analyseResult.anomalies.length})
-                  </p>
-                  <div className="space-y-1.5">
-                    {analyseResult.anomalies.map((a, i) => {
-                      const colors = { high: 'bg-red-50 border-red-100 text-red-600', medium: 'bg-amber-50 border-amber-100 text-amber-600', low: 'bg-gray-50 border-gray-100 text-gray-500' }
-                      return (
-                        <div key={i} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 border ${colors[a.severity]}`}>
-                          <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{a.title}</p>
-                            <p className="text-[10px] opacity-70">{a.reason}</p>
-                          </div>
-                          <span className="text-xs font-bold flex-shrink-0">€{a.amount.toFixed(2)}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <FinanceAnalysisPanel
+          analyseResult={analyseResult}
+          showAnalyse={showAnalyse}
+          setShowAnalyse={setShowAnalyse}
+          applyingRuleKey={applyingRuleKey}
+          onApplyRule={applyFinanceRule}
+        />
       )}
 
       {/* AI Summary */}
@@ -588,7 +528,7 @@ export default function FinanceView() {
                 className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', importAccount === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
                 style={importAccount === acc ? { background: GRAD } : {}}
               >
-                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+                {acc === 'privÃ©' ? 'ðŸ  PrivÃ©' : 'ðŸ’¼ Zakelijk'}
               </button>
             ))}
           </div>
@@ -608,22 +548,22 @@ export default function FinanceView() {
               <span className="text-sm text-blue-600">Verwerken...</span>
             </div>
           )}
-          {importError && <p className="text-sm text-red-600 mt-2 font-medium">⚠️ {importError}</p>}
+          {importError && <p className="text-sm text-red-600 mt-2 font-medium">âš ï¸ {importError}</p>}
           {importResult && (
             <div className="flex items-center gap-2 mt-2">
               <CheckCircle size={16} className="text-emerald-500" />
-              <p className="text-sm text-emerald-700 font-medium">{importResult.imported} van {importResult.total} transacties geïmporteerd als <strong>{importAccount}</strong>!</p>
+              <p className="text-sm text-emerald-700 font-medium">{importResult.imported} van {importResult.total} transacties geÃ¯mporteerd als <strong>{importAccount}</strong>!</p>
               <button onClick={resetImport} className="text-xs text-blue-500 ml-auto underline">Nog een bestand</button>
             </div>
           )}
           {importPreview && importPreview.length > 0 && (
             <div className="mt-3">
-              <p className="text-xs text-blue-600 font-semibold mb-2">{importPreview.length} transacties gevonden ({importAccount}) — preview (eerste 5):</p>
+              <p className="text-xs text-blue-600 font-semibold mb-2">{importPreview.length} transacties gevonden ({importAccount}) â€” preview (eerste 5):</p>
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {importPreview.slice(0, 5).map((row, i) => (
                   <div key={i} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 text-xs border border-gray-100">
                     <span className={cn('font-bold w-14 shrink-0', row.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
-                      {row.type === 'inkomst' ? '+' : '-'}€{row.amount.toFixed(2)}
+                      {row.type === 'inkomst' ? '+' : '-'}â‚¬{row.amount.toFixed(2)}
                     </span>
                     <span className="text-gray-600 truncate flex-1">{row.description}</span>
                     <span className="text-gray-400 shrink-0">{row.date}</span>
@@ -675,7 +615,7 @@ export default function FinanceView() {
           </div>
           <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Omschrijving *" className="w-full bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none mb-2 border border-gray-200" style={{ fontSize: '16px' }} />
           <div className="flex gap-2 mb-2">
-            <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (€)" className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
+            <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (â‚¬)" className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
             <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }}>
               {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -688,7 +628,7 @@ export default function FinanceView() {
                 className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', form.account === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
                 style={form.account === acc ? { background: GRAD } : {}}
               >
-                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+                {acc === 'privÃ©' ? 'ðŸ  PrivÃ©' : 'ðŸ’¼ Zakelijk'}
               </button>
             ))}
           </div>
@@ -777,7 +717,7 @@ export default function FinanceView() {
               className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border', accountFilter === f ? 'text-white shadow-sm border-transparent' : 'text-gray-400 border-gray-200 hover:text-gray-600 hover:bg-gray-100')}
               style={accountFilter === f ? { background: GRAD } : {}}
             >
-              {f === 'Privé' ? '🏠 Privé' : f === 'Zakelijk' ? '💼 Zakelijk' : f}
+              {f === 'PrivÃ©' ? 'ðŸ  PrivÃ©' : f === 'Zakelijk' ? 'ðŸ’¼ Zakelijk' : f}
             </button>
           ))}
         </div>
@@ -806,7 +746,7 @@ export default function FinanceView() {
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-[10px] text-gray-400 capitalize">{item.category}</span>
                     <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-gray-100 text-gray-400')}>
-                      {item.account === 'zakelijk' ? '💼' : '🏠'} {item.account}
+                      {item.account === 'zakelijk' ? 'ðŸ’¼' : 'ðŸ '} {item.account}
                     </span>
                     {item.due_date && (
                       <span className={cn('text-[10px] font-medium', isOverdue(item.due_date) && item.status !== 'betaald' ? 'text-red-400' : 'text-gray-400')}>
@@ -845,6 +785,217 @@ function MiniStat({ icon, label, value, positive, negative, prefix }: {
       <p className={cn('text-sm sm:text-base font-extrabold', positive ? 'text-emerald-600' : negative ? 'text-red-500' : 'text-gradient')}>
         {prefix}{value}
       </p>
+    </div>
+  )
+}
+
+function FinanceAnalysisPanel({
+  analyseResult,
+  showAnalyse,
+  setShowAnalyse,
+  applyingRuleKey,
+  onApplyRule,
+}: {
+  analyseResult: AnalyseResult
+  showAnalyse: boolean
+  setShowAnalyse: React.Dispatch<React.SetStateAction<boolean>>
+  applyingRuleKey: string | null
+  onApplyRule: (questionKey: string, rulePatch: Record<string, unknown>) => Promise<void>
+}) {
+  return (
+    <div className="mx-4 sm:mx-6 mt-3 rounded-3xl border border-violet-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 overflow-hidden">
+      <button
+        onClick={() => setShowAnalyse(s => !s)}
+        className="w-full flex items-center justify-between px-5 py-4"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: GRAD }}>
+            <Sparkles size={13} />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-bold text-gray-800">FinanciÃ«le Analyse</p>
+            <p className="text-[10px] text-gray-400">
+              {analyseResult.summary.transactionCount} transacties Â· â‚¬{analyseResult.summary.fixedMonthlyCost}/mnd vaste lasten Â· â‚¬{analyseResult.summary.subscriptionMonthlyCost}/mnd abonnementen
+            </p>
+          </div>
+        </div>
+        {showAnalyse ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+      </button>
+
+      {showAnalyse && (
+        <div className="px-5 pb-5 space-y-5">
+          {analyseResult.aiInsights && (
+            <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm">
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <Sparkles size={11} className="text-pink-400" />
+                AI Inzichten
+              </p>
+              <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{analyseResult.aiInsights}</p>
+            </div>
+          )}
+
+          {analyseResult.reviewQuestions.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <AlertTriangle size={11} className="text-red-400" />
+                Eerst bevestigen ({analyseResult.reviewQuestions.length})
+              </p>
+              <div className="space-y-2">
+                {analyseResult.reviewQuestions.map(question => (
+                  <div key={question.queueKey} className="rounded-2xl border border-red-100 bg-white/90 p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-700">{question.prompt}</p>
+                        <p className="text-[10px] text-gray-500 mt-1">{question.rationale}</p>
+                      </div>
+                      <span className={cn('px-2 py-1 rounded-full border text-[10px] font-semibold whitespace-nowrap', CONFIDENCE_STYLE[question.confidenceLabel])}>
+                        {confidenceText(question.confidenceLabel)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {question.suggestedActions.map(action => (
+                        <button
+                          key={action.label}
+                          onClick={() => onApplyRule(question.queueKey, action.rulePatch)}
+                          disabled={applyingRuleKey === question.queueKey}
+                          className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 hover:text-gray-800 disabled:opacity-60"
+                        >
+                          {applyingRuleKey === question.queueKey ? 'Opslaan...' : action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analyseResult.recurringGroups.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <Repeat size={11} className="text-violet-400" />
+                Terugkerende uitgaven ({analyseResult.recurringGroups.length})
+                <span className="ml-auto text-[10px] text-violet-500 font-semibold">
+                  â‚¬{analyseResult.summary.recurringMonthlyCost}/mnd betrouwbaar berekend
+                </span>
+              </p>
+              <div className="space-y-1.5">
+                {analyseResult.recurringGroups.slice(0, 8).map(group => (
+                  <div key={group.merchantKey} className="flex items-start gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
+                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                      <Repeat size={11} className="text-violet-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-semibold text-gray-700 truncate">{group.displayName}</p>
+                        <span className={cn('px-2 py-0.5 rounded-full border text-[10px] font-semibold', CONFIDENCE_STYLE[group.confidenceLabel])}>
+                          {confidenceText(group.confidenceLabel)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{group.recurrenceLabel} Â· {group.count}x gezien Â· laatste: {group.lastSeen}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{group.explanation}</p>
+                      {group.reviewReason && <p className="text-[10px] text-red-500 mt-1">{group.reviewReason}</p>}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      {group.monthlyEquivalent != null ? (
+                        <>
+                          <p className="text-xs font-bold text-violet-600">â‚¬{group.monthlyEquivalent.toFixed(2)}/mnd</p>
+                          <p className="text-[10px] text-gray-400">{group.monthlyEquivalentLabel}</p>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-gray-400">nog geen betrouwbare maandomrekening</p>
+                      )}
+                      <p className="text-[10px] text-gray-500 mt-1">â‚¬{group.amountPerCharge.toFixed(2)} per keer</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analyseResult.patterns.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <Eye size={11} className="text-pink-400" />
+                Meest bij uitgegeven
+              </p>
+              <div className="space-y-1.5">
+                {analyseResult.patterns.slice(0, 6).map((pattern, index) => {
+                  const maxSpent = analyseResult.patterns[0]?.totalSpent || 1
+                  const pct = Math.round((pattern.totalSpent / maxSpent) * 100)
+                  return (
+                    <div key={`${pattern.merchant}-${index}`} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2 border border-white">
+                      <span className="text-[10px] text-gray-400 w-4 text-center">{index + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                          <p className="text-xs font-medium text-gray-700 truncate">{pattern.merchant}</p>
+                          <span className={cn('px-2 py-0.5 rounded-full border text-[10px] font-semibold', CONFIDENCE_STYLE[pattern.confidenceLabel])}>
+                            {confidenceText(pattern.confidenceLabel)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: GRAD }} />
+                          </div>
+                          <span className="text-[10px] text-gray-400">{pattern.visits}x</span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-gray-800 ml-2 flex-shrink-0">â‚¬{pattern.totalSpent.toFixed(0)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {analyseResult.trends.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <BarChart2 size={11} className="text-orange-400" />
+                Maandtrend
+              </p>
+              <div className="space-y-1.5">
+                {analyseResult.trends.slice(-4).map(trend => (
+                  <div key={trend.month} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
+                    <span className="text-[10px] font-medium text-gray-500 w-14 flex-shrink-0">{trend.month}</span>
+                    <div className="flex-1 flex gap-2 text-[10px]">
+                      <span className="text-emerald-600 font-semibold">+â‚¬{trend.income.toFixed(0)}</span>
+                      <span className="text-red-400">-â‚¬{trend.expenses.toFixed(0)}</span>
+                    </div>
+                    <span className={cn('text-xs font-bold flex-shrink-0', trend.net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                      {trend.net >= 0 ? '+' : ''}â‚¬{trend.net.toFixed(0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {analyseResult.anomalies.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
+                <AlertTriangle size={11} className="text-amber-400" />
+                Opvallende transacties ({analyseResult.anomalies.length})
+              </p>
+              <div className="space-y-1.5">
+                {analyseResult.anomalies.map(anomaly => {
+                  const colors = { high: 'bg-red-50 border-red-100 text-red-600', medium: 'bg-amber-50 border-amber-100 text-amber-600', low: 'bg-gray-50 border-gray-100 text-gray-500' }
+                  return (
+                    <div key={`${anomaly.title}-${anomaly.date}-${anomaly.amount}`} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 border ${colors[anomaly.severity]}`}>
+                      <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate">{anomaly.title}</p>
+                        <p className="text-[10px] opacity-70">{anomaly.reason}</p>
+                      </div>
+                      <span className="text-xs font-bold flex-shrink-0">â‚¬{anomaly.amount.toFixed(2)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

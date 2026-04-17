@@ -97,6 +97,53 @@ export async function initSchema(): Promise<void> {
       due_date DATE,
       paid_date DATE,
       category TEXT DEFAULT 'overig',
+      subcategory TEXT,
+      merchant_raw TEXT,
+      merchant_normalized TEXT,
+      category_confidence NUMERIC(4,3),
+      recurrence_type TEXT DEFAULT 'none',
+      recurrence_confidence NUMERIC(4,3),
+      subscription_status TEXT DEFAULT 'none',
+      fixed_cost_flag SMALLINT DEFAULT 0,
+      essential_flag SMALLINT DEFAULT 0,
+      personal_business TEXT DEFAULT 'unknown',
+      user_verified SMALLINT DEFAULT 0,
+      user_notes TEXT,
+      needs_review SMALLINT DEFAULT 0,
+      question_queue_status TEXT DEFAULT 'none',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_merchant_rules (
+      id SERIAL PRIMARY KEY,
+      merchant_key TEXT NOT NULL UNIQUE,
+      merchant_label TEXT,
+      category TEXT,
+      subcategory TEXT,
+      merchant_type TEXT,
+      recurrence_type TEXT,
+      subscription_override TEXT,
+      personal_business TEXT,
+      fixed_cost_flag SMALLINT DEFAULT 0,
+      essential_flag SMALLINT DEFAULT 0,
+      notes TEXT,
+      user_verified SMALLINT DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_review_queue (
+      id SERIAL PRIMARY KEY,
+      queue_key TEXT NOT NULL UNIQUE,
+      merchant_key TEXT,
+      question_type TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      rationale TEXT,
+      priority INTEGER DEFAULT 50,
+      confidence TEXT DEFAULT 'low',
+      status TEXT DEFAULT 'pending',
+      context TEXT DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -302,6 +349,16 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS pending_actions (
+      session_key TEXT PRIMARY KEY,
+      source TEXT NOT NULL DEFAULT 'chat',
+      preview TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
+    );
   `)
 
   // Migrations for existing databases
@@ -309,6 +366,55 @@ export async function initSchema(): Promise<void> {
     ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
     ALTER TABLE habits ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1;
     ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring TEXT;
+  `)
+  await pool.query(`
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subcategory TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_raw TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_normalized TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS category_confidence NUMERIC(4,3);
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_type TEXT DEFAULT 'none';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_confidence NUMERIC(4,3);
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS fixed_cost_flag SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS essential_flag SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS personal_business TEXT DEFAULT 'unknown';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_verified SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_notes TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS needs_review SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS question_queue_status TEXT DEFAULT 'none';
+
+    CREATE TABLE IF NOT EXISTS finance_merchant_rules (
+      id SERIAL PRIMARY KEY,
+      merchant_key TEXT NOT NULL UNIQUE,
+      merchant_label TEXT,
+      category TEXT,
+      subcategory TEXT,
+      merchant_type TEXT,
+      recurrence_type TEXT,
+      subscription_override TEXT,
+      personal_business TEXT,
+      fixed_cost_flag SMALLINT DEFAULT 0,
+      essential_flag SMALLINT DEFAULT 0,
+      notes TEXT,
+      user_verified SMALLINT DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_review_queue (
+      id SERIAL PRIMARY KEY,
+      queue_key TEXT NOT NULL UNIQUE,
+      merchant_key TEXT,
+      question_type TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      rationale TEXT,
+      priority INTEGER DEFAULT 50,
+      confidence TEXT DEFAULT 'low',
+      status TEXT DEFAULT 'pending',
+      context TEXT DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 }
 

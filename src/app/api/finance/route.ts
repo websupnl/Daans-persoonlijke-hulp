@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne, execute } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
+import { enrichTransaction } from '@/lib/finance/engine'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -93,6 +94,12 @@ export async function POST(req: NextRequest) {
 
   if (!type || !title) return NextResponse.json({ error: 'Type en titel zijn verplicht' }, { status: 400 })
 
+  const enrichment = enrichTransaction({
+    title: String(title),
+    account: String(account || 'privé'),
+  })
+  const resolvedCategory = category || enrichment.category
+
   // Auto invoice number voor facturen
   let invoiceNumber: string | null = null
   if (type === 'factuur') {
@@ -103,15 +110,24 @@ export async function POST(req: NextRequest) {
   }
 
   const item = await queryOne(`
-    INSERT INTO finance_items (type, title, description, amount, contact_id, project_id, status, invoice_number, due_date, category, account)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    INSERT INTO finance_items (
+      type, title, description, amount, contact_id, project_id, status, invoice_number, due_date,
+      category, subcategory, merchant_raw, merchant_normalized, category_confidence, personal_business, needs_review, account
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     RETURNING *
   `, [
     type, title, description || null, amount || 0,
     contact_id || null, project_id || null,
     status || (type === 'factuur' ? 'concept' : 'betaald'),
     invoiceNumber, due_date || null,
-    category || 'overig',
+    resolvedCategory,
+    enrichment.subcategory,
+    title,
+    enrichment.merchantKey,
+    enrichment.categoryConfidence,
+    enrichment.personalBusiness,
+    enrichment.categoryConfidence < 0.65 ? 1 : 0,
     account || 'privé',
   ])
 
@@ -121,7 +137,7 @@ export async function POST(req: NextRequest) {
       sourceId: Number(item.id),
       projectId: project_id || null,
       contactId: contact_id || null,
-      tags: [category || 'overig', type],
+      tags: [resolvedCategory, type],
     })
     await logActivity({
       entityType: 'finance',
@@ -129,7 +145,7 @@ export async function POST(req: NextRequest) {
       action: 'created',
       title: String(title),
       summary: `${type} opgeslagen`,
-      metadata: { amount: amount || 0, type, status: status || (type === 'factuur' ? 'concept' : 'betaald') },
+      metadata: { amount: amount || 0, type, status: status || (type === 'factuur' ? 'concept' : 'betaald'), category: resolvedCategory },
     })
   }
 

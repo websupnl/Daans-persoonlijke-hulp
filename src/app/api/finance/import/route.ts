@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { execute } from '@/lib/db'
+import { enrichTransaction } from '@/lib/finance/engine'
 
 interface ParsedRow {
   date: string
@@ -9,6 +10,10 @@ interface ParsedRow {
   amount: number
   type: 'inkomst' | 'uitgave'
   category: string
+  subcategory: string
+  merchant_raw: string
+  merchant_normalized: string
+  category_confidence: number
   account: string
 }
 
@@ -80,17 +85,15 @@ function splitCsvLine(line: string, delimiter: string): string[] {
   return result
 }
 
-function guessCategory(desc: string): string {
-  const d = desc.toLowerCase()
-  if (/albert.heijn|jumbo|lidl|aldi|boni|plus super|dirk|ah |supermarkt/.test(d)) return 'boodschappen'
-  if (/shell|bp|tinq|tango|nexi|esso|benzine|brandstof/.test(d)) return 'auto'
-  if (/ns |trein|ov-chip|connexxion|arriva|bus |metro/.test(d)) return 'transport'
-  if (/restaurant|cafe |kafe|mcdonalds|subway|pizza|snack|brood|bakker|ontbijt|lunch|diner/.test(d)) return 'eten'
-  if (/spotify|netflix|prime|disney|videoland|bol\.com|steam/.test(d)) return 'abonnement'
-  if (/belasting|kvk|gemeente|overheid/.test(d)) return 'belasting'
-  if (/huur|hypotheek|energie|nuon|vattenfall|essent|ziggo|kpn|t-mobile/.test(d)) return 'vaste lasten'
-  if (/zalando|h&m|zara|coolblue|mediamarkt|ikea/.test(d)) return 'kleding'
-  return 'overig'
+function classifyDescription(desc: string) {
+  const enrichment = enrichTransaction({ title: desc, account: 'privé' })
+  return {
+    category: enrichment.category,
+    subcategory: enrichment.subcategory,
+    merchant_raw: desc,
+    merchant_normalized: enrichment.merchantKey,
+    category_confidence: enrichment.categoryConfidence,
+  }
 }
 
 function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
@@ -123,7 +126,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type: afBij.startsWith('bij') ? 'inkomst' : 'uitgave',
-        category: guessCategory(desc),
+        ...classifyDescription(desc),
         account: '',
       })
     }
@@ -153,7 +156,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
-        category: guessCategory(desc),
+        ...classifyDescription(desc),
         account: '',
       })
     }
@@ -184,7 +187,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
-        category: guessCategory(desc),
+        ...classifyDescription(desc),
         account: '',
       })
     }
@@ -240,7 +243,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
-        category: guessCategory(desc),
+        ...classifyDescription(desc),
         account: '',
       })
     }
@@ -276,7 +279,7 @@ function detectFormatAndParse(lines: string[], delimiter: string): ParsedRow[] {
         description: desc.trim().slice(0, 120) || 'Transactie',
         amount,
         type,
-        category: guessCategory(desc),
+        ...classifyDescription(desc),
         account: '',
       })
     }
@@ -315,17 +318,45 @@ export async function POST(req: NextRequest) {
   for (const row of rows) {
     try {
       const affected = await execute(`
-        INSERT INTO finance_items (type, title, amount, category, account, status, due_date, created_at)
-        SELECT $1, $2, $3, $4, $5, 'betaald', $6, NOW()
+        INSERT INTO finance_items (
+          type,
+          title,
+          amount,
+          category,
+          subcategory,
+          merchant_raw,
+          merchant_normalized,
+          category_confidence,
+          personal_business,
+          needs_review,
+          account,
+          status,
+          due_date,
+          created_at
+        )
+        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'betaald', $12, NOW()
         WHERE NOT EXISTS (
           SELECT 1 FROM finance_items
           WHERE type = $1
             AND title = $2
             AND ROUND(amount::numeric, 2) = ROUND($3::numeric, 2)
-            AND due_date = $6::date
-            AND account = $5
+            AND due_date = $12::date
+            AND account = $11
         )
-      `, [row.type, row.description, row.amount, row.category, account, row.date])
+      `, [
+        row.type,
+        row.description,
+        row.amount,
+        row.category,
+        row.subcategory,
+        row.merchant_raw,
+        row.merchant_normalized,
+        row.category_confidence,
+        account,
+        row.category_confidence < 0.65 ? 1 : 0,
+        account,
+        row.date,
+      ])
       if (affected > 0) imported++
     } catch { /* skip db errors */ }
   }

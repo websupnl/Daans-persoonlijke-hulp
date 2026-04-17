@@ -1,100 +1,92 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { query, queryOne } from '@/lib/db'
-import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { buildChatContext } from '@/lib/chat/context'
+import { executeChatActions, planMessage } from '@/lib/chat/engine'
+import type { ChatAction, StoredAction } from '@/lib/chat/types'
+
+function formatCreatedReply(actions: StoredAction[]): string {
+  const first = actions[0]
+  if (!first) return 'Opgeslagen.'
+
+  if (first.type === 'worklog_created') {
+    return `Opgeslagen als werklog: ${first.data.title}`
+  }
+
+  if (first.type === 'timeline_logged') {
+    return `Opgeslagen op je timeline: ${first.data.title}`
+  }
+
+  return 'Opgeslagen.'
+}
+
+function buildProposalReply(message: string, actions: ChatAction[], clarification?: string): string {
+  if (clarification) return clarification
+  if (actions.length === 0) return `Ik kon hier nog geen veilige actie uit halen uit "${message}".`
+
+  const lines = actions.map((action) => {
+    switch (action.type) {
+      case 'worklog_create':
+        return `- Werklog: ${action.payload.title} (${action.payload.duration_minutes} min, ${action.payload.context})`
+      case 'timeline_log':
+        return `- Timeline: ${action.payload.title}`
+      case 'memory_store':
+        return `- Memory: ${action.payload.value}`
+      case 'habit_log':
+        return `- Gewoonte: ${action.payload.habit_name}`
+      default:
+        return `- ${action.type}`
+    }
+  })
+
+  return `Ik zie hier meerdere mogelijke acties:\n${lines.join('\n')}\n\nBevestig alleen als dit klopt.`
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { text } = body
-  if (!text?.trim()) return NextResponse.json({ error: 'Geen tekst opgegeven' }, { status: 400 })
+  const text = String(body.text || '').trim()
+  const confirm = body.confirm === true
+  const actions = Array.isArray(body.actions) ? body.actions as ChatAction[] : []
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: 'Geen OpenAI API key geconfigureerd.' }, { status: 503 })
+  const context = await buildChatContext('chat', 'chat')
+
+  if (confirm) {
+    if (actions.length === 0) {
+      return NextResponse.json({ error: 'Geen acties om te bevestigen.' }, { status: 400 })
+    }
+    const executed = await executeChatActions(actions, context)
+    return NextResponse.json({
+      mode: 'created',
+      reply: formatCreatedReply(executed.actions),
+      actions: executed.actions,
+    }, { status: 201 })
   }
 
-  const projects = await query<{ id: number; title: string }>(`SELECT id, title FROM projects WHERE status = 'actief' ORDER BY title`)
-  const projectList = projects.map(p => `  ${p.id}: ${p.title}`).join('\n')
-  const todayStr = new Date().toISOString().split('T')[0]
+  if (!text) return NextResponse.json({ error: 'Geen tekst opgegeven' }, { status: 400 })
 
-  const systemPrompt = `Je bent een tijdregistratie-assistent voor Daan. Zet de tekst om naar een JSON werklog.
-Antwoord UITSLUITEND met geldige JSON, geen tekst eromheen.
+  const plan = planMessage(text, context)
 
-Beschikbare projecten:
-${projectList || '  (geen actieve projecten)'}
-
-Vandaag: ${todayStr}
-
-JSON schema (vul alle velden in):
-{
-  "title": "string",
-  "project_id": number of null,
-  "context": "Bouma" | "WebsUp" | "privé" | "studie" | "overig",
-  "category": "work" | "business" | "private",
-  "type": "deep_work" | "meeting" | "admin" | "physical" | "chill",
-  "actual_duration_minutes": number of null,
-  "expected_duration_minutes": number of null,
-  "interruptions": "string of null",
-  "difficulty": "easy" | "normal" | "hard"
-}
-
-Regels:
-- WebsUp, Camperhulp, Sjoeli, Prime Animals, SYNC → context "WebsUp", category "business"
-- Bouma, installaties, elektra → context "Bouma", category "work"
-- Sport, thuis, privé → context "privé", category "private"
-- Studie, leren, cursus → context "studie", category "private"
-- Coderen, bouwen, ontwerpen → type "deep_work"
-- Bellen, vergadering, meeting → type "meeting"
-- E-mail, administratie, factuur → type "admin"
-- Sporten, klussen, lopen → type "physical"
-- "dacht X uur, werd Y uur" → expected=X*60, actual=Y*60
-- Tijden als "2u", "2 uur", "2h" → 120 minuten
-- Tijden als "30 min", "45m" → dat aantal minuten
-- "van 09:00 tot 11:30" → actual=150 minuten`
-
-  let parsed: Record<string, unknown> | null = null
-
-  try {
-    const client = getOpenAIClient()
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Verwerk naar JSON: "${text}"` },
-      ],
-      temperature: 0.1,
-      max_tokens: 400,
-      response_format: { type: 'json_object' },
-    })
-
-    const raw = response.choices[0]?.message?.content
-    if (raw) parsed = JSON.parse(raw)
-  } catch (err) {
-    console.error('AI worklog parse error:', err)
-    return NextResponse.json({ error: 'AI verwerking mislukt.' }, { status: 422 })
+  if (
+    plan.primaryIntent === 'worklog_create' &&
+    plan.actions.length === 1 &&
+    plan.actions[0]?.type === 'worklog_create' &&
+    !plan.requiresConfirmation &&
+    !plan.clarification
+  ) {
+    const executed = await executeChatActions(plan.actions, context)
+    return NextResponse.json({
+      mode: 'created',
+      reply: formatCreatedReply(executed.actions),
+      actions: executed.actions,
+    }, { status: 201 })
   }
 
-  if (!parsed) return NextResponse.json({ error: 'Kon tekst niet verwerken.' }, { status: 422 })
-
-  const actualDur = typeof parsed.actual_duration_minutes === 'number' ? parsed.actual_duration_minutes : null
-  const expectedDur = typeof parsed.expected_duration_minutes === 'number' ? parsed.expected_duration_minutes : null
-  const dur = actualDur ?? expectedDur
-
-  const log = await queryOne(`
-    INSERT INTO work_logs (title, duration_minutes, actual_duration_minutes, expected_duration_minutes,
-      context, category, type, interruptions, source, date)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'ai', CURRENT_DATE)
-    RETURNING *
-  `, [
-    String(parsed.title || text).slice(0, 120),
-    dur,
-    actualDur,
-    expectedDur,
-    String(parsed.context || 'overig'),
-    String(parsed.category || 'business'),
-    String(parsed.type || 'deep_work'),
-    parsed.interruptions ? String(parsed.interruptions) : null,
-  ])
-
-  return NextResponse.json({ data: log, parsed }, { status: 201 })
+  return NextResponse.json({
+    mode: 'proposal',
+    reply: buildProposalReply(text, plan.actions, plan.clarification),
+    actions: plan.actions,
+    intent: plan.primaryIntent,
+    confidence: plan.confidence,
+    requiresConfirmation: plan.requiresConfirmation ?? plan.actions.length > 0,
+  }, { status: 202 })
 }

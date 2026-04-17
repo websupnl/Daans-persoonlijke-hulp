@@ -8,7 +8,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const id = parseInt(params.id)
   const body = await req.json()
 
-  const fields = ['title', 'description', 'amount', 'contact_id', 'project_id', 'status', 'due_date', 'paid_date', 'category']
+  const fields = [
+    'title', 'description', 'amount', 'contact_id', 'project_id', 'status', 'due_date', 'paid_date',
+    'category', 'subcategory', 'merchant_raw', 'merchant_normalized', 'category_confidence',
+    'recurrence_type', 'recurrence_confidence', 'subscription_status', 'fixed_cost_flag',
+    'essential_flag', 'personal_business', 'user_verified', 'user_notes', 'needs_review', 'question_queue_status'
+  ]
   const updates: string[] = []
   const values: unknown[] = []
   let i = 1
