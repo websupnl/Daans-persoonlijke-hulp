@@ -29,7 +29,7 @@ export interface ValidationContext {
   intent?: string
   domain?: string
   verifiedWrites?: VerifiedWrite[]
-  dataSource?: 'database' | 'ai_generated' | 'estimated' | 'unknown'
+  dataSource?: 'database' | 'ai_generated' | 'estimated' | 'unknown' | 'verified' | 'ai_verified'
   uncertaintyLevel?: 'low' | 'medium' | 'high'
 }
 
@@ -240,7 +240,7 @@ class TruthfulnessGuard {
       return mostSevere
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   private validateSuccessClaim(response: GeneratedResponse, context: ValidationContext): ValidationResult {
@@ -275,12 +275,12 @@ class TruthfulnessGuard {
       }
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   private validateDetails(response: GeneratedResponse, context: ValidationContext): ValidationResult {
     // Check if details are from verified data sources
-    if (context.dataSource !== 'database' && context.dataSource !== 'verified') {
+    if (context.dataSource !== 'database' && context.dataSource !== 'verified' && context.dataSource !== 'ai_verified') {
       return {
         valid: false,
         reason: 'FABRICATED_DETAILS',
@@ -295,7 +295,7 @@ class TruthfulnessGuard {
       }
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   private validatePendingActions(response: GeneratedResponse, context: ValidationContext): ValidationResult {
@@ -321,7 +321,7 @@ class TruthfulnessGuard {
       }
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   private validateDateReferences(response: GeneratedResponse, context: ValidationContext): ValidationResult {
@@ -344,7 +344,7 @@ class TruthfulnessGuard {
       }
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   private validateTransactionReferences(response: GeneratedResponse, context: ValidationContext): ValidationResult {
@@ -367,7 +367,7 @@ class TruthfulnessGuard {
       }
     }
 
-    return { valid: true }
+    return { valid: true, severity: 'low' as const }
   }
 
   // Helper methods for generating suggested changes
