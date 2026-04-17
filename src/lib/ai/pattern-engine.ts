@@ -175,30 +175,48 @@ export async function detectAbsenceSignals(): Promise<AbsenceSignal[]> {
   if (hour >= 14 && dayOfWeek >= 1 && dayOfWeek <= 5) {
     const hasWorkToday = (obsMap.get('work:has_log') ?? 0) > 0
     if (!hasWorkToday) {
-      // Kijk of de afgelopen 5 werkdagen wel logs hadden
-      const workDaysWithLog = recentWork.filter(w => Number(w.total_minutes) > 0).length
-      signals.push({
-        module: 'work',
-        signal: 'werklog_ontbreekt',
-        severity: workDaysWithLog >= 3 ? 'medium' : 'low',
-        detail: `Geen werklog voor vandaag terwijl het een werkdag is (${hour}:00u). Afgelopen week: ${workDaysWithLog}/5 dagen gelogd.`,
-      })
+      // Specifieke check voor vrijdag + WebsUp
+      if (dayOfWeek === 5) {
+        signals.push({
+          module: 'work',
+          signal: 'vrijdag_websup_ontbreekt',
+          severity: 'medium',
+          detail: 'Normaal doe je op vrijdag iets voor WebsUp, maar vandaag zie ik nog geen activiteit.',
+        })
+      } else {
+        // Kijk of de afgelopen 5 werkdagen wel logs hadden
+        const workDaysWithLog = recentWork.filter(w => Number(w.total_minutes) > 0).length
+        signals.push({
+          module: 'work',
+          signal: 'werklog_ontbreekt',
+          severity: workDaysWithLog >= 3 ? 'medium' : 'low',
+          detail: `Geen werklog voor vandaag terwijl het een werkdag is (${hour}:00u). Afgelopen week: ${workDaysWithLog}/5 dagen gelogd.`,
+        })
+      }
     }
   }
 
-  // Dagboek ontbreekt al meerdere dagen
+  // Dagboek ontbreekt al meerdere dagen of op specifieke dagen
   const journalDaysAgo = recentJournal?.days_ago ?? 999
   if (journalDaysAgo >= 3) {
     signals.push({
       module: 'journal',
       signal: 'dagboek_stilte',
       severity: journalDaysAgo >= 7 ? 'high' : 'medium',
-      detail: `Geen dagboek in ${journalDaysAgo} dagen.`,
+      detail: `Je dagboek is leeg terwijl je het normaal vaker invult. Al ${journalDaysAgo} dagen geen invoer.`,
     })
   }
 
-  // Financiën ontbreken lang
+  // Financiën ontbreken lang of geen uitgaven vandaag (na 21:00)
   const financeDaysAgo = recentFinance?.days_ago ?? 999
+  if (hour >= 21 && (obsMap.get('finance:transaction_count') ?? 0) === 0) {
+    signals.push({
+      module: 'finance',
+      signal: 'geen_uitgaven_vandaag',
+      severity: 'low',
+      detail: 'Je hebt vandaag niets uitgegeven. Klopt dat, of ontbreekt er nog iets?',
+    })
+  }
   if (financeDaysAgo >= 10) {
     signals.push({
       module: 'finance',
@@ -232,7 +250,7 @@ export async function detectAbsenceSignals(): Promise<AbsenceSignal[]> {
 export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
   const absenceSignals = await detectAbsenceSignals()
 
-  const [observations, journalEntries, financeItems, workLogs, habitLogs, existingTheories] = await Promise.all([
+  const [observations, journalEntries, financeItems, workLogs, habitLogs, existingTheories, personalRules] = await Promise.all([
     // Laatste 30 dagen observaties
     query<{ obs_date: string; module: string; metric_key: string; metric_value: number }>(`
       SELECT TO_CHAR(obs_date, 'YYYY-MM-DD') AS obs_date, module, metric_key,
@@ -283,51 +301,77 @@ export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
       FROM ai_theories
       ORDER BY last_updated DESC LIMIT 10
     `),
+
+    // Persoonlijke regels
+    query<{ rule_type: string; pattern: string; replacement: string }>(`
+      SELECT rule_type, pattern, replacement FROM pattern_rules WHERE is_active = 1
+    `),
   ])
 
   // Bouw data-context op voor GPT
   const context = buildAnalysisContext(observations, journalEntries, financeItems, workLogs, habitLogs)
+  const rulesText = (personalRules as any[] || []).map(r => `- [${r.rule_type}] ${r.pattern} -> ${r.replacement}`).join('\n')
 
-  const prompt = `Je analyseert gedragsdata van Daan en genereert HYPOTHESES en VRAGEN.
+  const prompt = `Je bent de Pattern Recognition Engine van Daan's Persoonlijke Hulp.
+  Analyseer de gedragsdata van Daan en genereer professionele OBSERVATIES, HYPOTHESES en VRAGEN.
 
-REGELS:
-- Hypotheses zijn ALTIJD voorzichtig geformuleerd: "lijkt te...", "mogelijk...", "ik zie dat..."
-- Nooit harde conclusies — alleen patronen die meerdere keren voorkomen
-- Maximaal 4 hypotheses, maximaal 3 vragen
-- Alleen hypotheses met echte data-onderbouwing
-- Geef category uit: financieel_gedrag / productiviteit / emotioneel_patroon / gewoonte / werk_privé
-- Bij vragen: vraag alleen bij echte twijfel, niet bij duidelijke dingen
+  KERNTAAK:
+  Leg cross-module verbanden (bijv. stemming vs uitgaven, tijdstip opstaan vs werkritme).
+  Detecteer niet alleen wat er is, maar ook wat ONTBRREEKT of AFWIJKT.
 
-BESTAANDE HYPOTHESES (niet herhalen):
-${existingTheories.map(t => `- [${t.category}] ${t.theory}`).join('\n') || 'Geen'}
+  PERSOONLIJKE REGELS (pas deze toe bij analyse):
+  ${rulesText || 'Geen'}
 
-DATA:
-${context}
+  STRUCTUUR:
+  - Observatie: Feitelijke vaststelling uit de data.
+  - Hypothese: Mogelijke verklaring of patroon (altijd met confidence score).
+  - Vraag: Verificatie bij de gebruiker om een hypothese te bevestigen.
 
-GEVRAAGD FORMAT (JSON):
-{
+  REGELS:
+  - Wees specifiek. Niet: "je geeft veel uit", maar: "Hypothese: op weken met lage stemming stijgen uitgaven aan vermoedelijke sigaretten."
+  - Gebruik confidence scores (0.0 - 1.0).
+  - Gebruik impact scores (0.0 - 1.0) voor hoe belangrijk dit inzicht is.
+  - Identificeer actiepotentie: kan de gebruiker hier iets mee?
+  - Geef category uit: financieel_gedrag / productiviteit / emotioneel_patroon / gewoonte / werk_privé / afwezigheid_signaal.
+
+  VOORBEELDEN TER INSPIRATIE:
+  - "Je doet deze maand vaker kleine supermarktbezoeken dan normaal."
+  - "Deze ronde €200 bij Jumbo lijkt niet op je normale boodschappenpatroon. Was dit contant opnemen?"
+  - "Op dagen dat je later opstaat, log je minder vaak je werk."
+  - "Vrijdagen lijken vaak WebsUp-dagen, maar vandaag zie ik nog weinig activiteit."
+  - "In weken waarin je stemming lager is, zie ik ook minder structuur in werklog."
+
+  BESTAANDE HYPOTHESES (vermijd duplicaten of update ze):
+  ${existingTheories.map(t => `- [${t.status}] [${t.category}] ${t.theory} (conf: ${t.confidence})`).join('\n') || 'Geen'}
+
+  DATA (Laatste 14-30 dagen):
+  ${context}
+
+  GEVRAAGD FORMAT (JSON):
+  {
   "hypotheses": [
     {
       "category": "financieel_gedrag",
-      "theory": "Op dagen met lage stemming lijkt Daan...",
-      "confidence": 0.55,
-      "impact_score": 0.7,
+      "theory": "...",
+      "confidence": 0.7,
+      "impact_score": 0.8,
       "source_modules": ["journal", "finance"],
-      "supporting_data": "5 observaties: ..."
+      "supporting_data": "Onderbouwing met cijfers uit de data...",
+      "action_potential": "Bespaar potentieel X door Y"
     }
   ],
   "questions": [
     {
       "source_module": "finance",
       "theory_category": "financieel_gedrag",
-      "question": "Ik zie vaker een bedrag rond €23 bij tankstations. Is dit meestal een pakje sigaretten?",
-      "rationale": "Terugkerend bedrag, niet passend bij brandstofvolumes",
-      "priority": 75,
-      "confidence": 0.45,
-      "impact_score": 0.65
+      "question": "Was die €23 bij het tankstation voor sigaretten?",
+      "rationale": "Dit bedrag komt vaak voor bij lagere stemming.",
+      "priority": 80,
+      "confidence": 0.6,
+      "impact_score": 0.7
     }
   ]
-}`
+  }`
 
   let hypothesesUpdated = 0
   let questionsCreated = 0
@@ -369,20 +413,22 @@ GEVRAAGD FORMAT (JSON):
           UPDATE ai_theories
           SET theory = $1, confidence = $2, impact_score = $3,
               source_modules = $4, status = 'hypothesis',
+              action_potential = $5,
               last_updated = NOW(), times_confirmed = times_confirmed + 0
-          WHERE id = $5
+          WHERE id = $6
         `, [
           h.theory,
           Math.min(0.95, Math.max(0.1, h.confidence)),
           Math.min(1, Math.max(0, h.impact_score)),
           JSON.stringify(h.source_modules ?? []),
+          (h as any).action_potential ?? null,
           existing.id,
         ])
       } else {
         await execute(`
           INSERT INTO ai_theories
-            (category, theory, confidence, impact_score, source_modules, supporting_data, status)
-          VALUES ($1, $2, $3, $4, $5, $6, 'hypothesis')
+            (category, theory, confidence, impact_score, source_modules, supporting_data, status, action_potential)
+          VALUES ($1, $2, $3, $4, $5, $6, 'hypothesis', $7)
         `, [
           h.category,
           h.theory,
@@ -390,6 +436,7 @@ GEVRAAGD FORMAT (JSON):
           Math.min(1, Math.max(0, h.impact_score)),
           JSON.stringify(h.source_modules ?? []),
           h.supporting_data ?? null,
+          (h as any).action_potential ?? null,
         ])
       }
       hypothesesUpdated++

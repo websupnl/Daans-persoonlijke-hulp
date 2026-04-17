@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Brain, Lightbulb, MessageSquare, AlertCircle, ChevronRight, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface Theory {
   id: number
@@ -129,9 +130,9 @@ export default function IntelligenceModule() {
       </div>
 
       <div className="mt-6 pt-6 border-t border-gray-50 text-center">
-        <button className="text-[11px] font-bold text-gray-400 hover:text-violet-500 transition-colors flex items-center gap-1 mx-auto">
+        <Link href="/patterns" className="text-[11px] font-bold text-gray-400 hover:text-violet-500 transition-colors flex items-center gap-1 mx-auto w-fit">
           Alle analyses bekijken <ChevronRight size={12} />
-        </button>
+        </Link>
       </div>
     </div>
   )

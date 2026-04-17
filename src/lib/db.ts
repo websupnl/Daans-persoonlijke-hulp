@@ -420,6 +420,7 @@ export async function initSchema(): Promise<void> {
     ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'hypothesis';
     ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS source_modules TEXT DEFAULT '[]';
     ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS impact_score NUMERIC(4,2) DEFAULT 0.5;
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS action_potential TEXT;
     ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS question_asked SMALLINT DEFAULT 0;
 
     -- Pattern Brain: question queue (cross-module, not just finance)
@@ -451,6 +452,18 @@ export async function initSchema(): Promise<void> {
       metadata TEXT DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(obs_date, module, metric_key)
+    );
+
+    -- Pattern Brain: user-defined or AI-learned rules
+    CREATE TABLE IF NOT EXISTS pattern_rules (
+      id SERIAL PRIMARY KEY,
+      rule_type TEXT NOT NULL, -- 'alias', 'category_link', 'habit_trigger'
+      pattern TEXT NOT NULL,
+      replacement TEXT NOT NULL,
+      confidence NUMERIC(4,3) DEFAULT 1.0,
+      is_active SMALLINT DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `)
 }
