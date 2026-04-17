@@ -410,6 +410,149 @@ Schrijf in het Nederlands. Scherp, eerlijk, actionable.`,
   return report
 }
 
+/**
+ * Morning Briefing — dagelijkse 08:00 samenvatting via Telegram.
+ * Combineert: hoog-prio taken, financiën, gisteren's prestaties, actieve projecten, memory flash.
+ */
+export async function runMorningBriefing(): Promise<boolean> {
+  const chatId = process.env.TELEGRAM_CHAT_ID
+  if (!chatId || !process.env.OPENAI_API_KEY) return false
+
+  // Check: al verstuurd vandaag?
+  const today = new Date().toISOString().slice(0, 10)
+  const alreadySent = await queryOne<{ id: number }>(`
+    SELECT id FROM proactive_log
+    WHERE trigger_type = 'morning_briefing' AND created_at::date = $1
+    LIMIT 1
+  `, [today]).catch(() => undefined)
+  if (alreadySent) return false
+
+  const snap = await buildLifeSnapshot()
+
+  const [highPrioTodos, openInvoices, recentMemories, yesterdayObs, activeProjects] = await Promise.all([
+    query<{ title: string; due_date: string | null; category: string }>(`
+      SELECT title, TO_CHAR(due_date, 'YYYY-MM-DD') as due_date, category
+      FROM todos
+      WHERE completed = 0 AND priority = 'hoog'
+      ORDER BY due_date ASC NULLS LAST LIMIT 5
+    `).catch(() => []),
+
+    query<{ title: string; amount: number; contact_name: string | null; due_date: string | null }>(`
+      SELECT fi.title, fi.amount::float, c.name as contact_name,
+             TO_CHAR(fi.due_date, 'YYYY-MM-DD') as due_date
+      FROM finance_items fi
+      LEFT JOIN contacts c ON c.id = fi.contact_id
+      WHERE fi.type = 'factuur' AND fi.status IN ('verstuurd','concept')
+      ORDER BY fi.due_date ASC NULLS LAST LIMIT 5
+    `).catch(() => []),
+
+    query<{ key: string; value: string }>(`
+      SELECT key, value FROM memory_log
+      ORDER BY last_reinforced_at DESC LIMIT 3
+    `).catch(() => []),
+
+    query<{ module: string; metric_key: string; metric_value: number }>(`
+      SELECT module, metric_key, metric_value::float
+      FROM pattern_observations
+      WHERE obs_date = CURRENT_DATE - 1
+    `).catch(() => []),
+
+    query<{ title: string }>(`
+      SELECT title FROM projects WHERE status = 'actief'
+      ORDER BY updated_at DESC LIMIT 5
+    `).catch(() => []),
+  ])
+
+  const obsMap = new Map(yesterdayObs.map(o => [`${o.module}:${o.metric_key}`, o.metric_value]))
+  const yesterdayWork = obsMap.get('work:total_minutes') ?? 0
+  const yesterdayMood = obsMap.get('journal:mood') ?? null
+  const yesterdayHabits = obsMap.get('habits:completion_rate') ?? null
+
+  const openai = getOpenAIClient()
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `Je bent Daan's Personal Brain. Je stuurt elke ochtend om 08:00 een Morning Briefing.
+
+Structuur het bericht ALTIJD zo:
+☀️ *Goedemorgen Daan*
+_[datum, dag van de week]_
+
+📋 *Vandaag prioriteit*
+[Top 2-3 taken, beknopt met deadline als aanwezig]
+
+💰 *Financieel*
+[Open facturen + maandsaldo in 1-2 zinnen]
+
+⚡ *Gisteren*
+[Werk, stemming, gewoontes — max 1 zin elk]
+
+🎯 *Focus van de dag*
+[Één concrete aanbeveling gebaseerd op actieve projecten + data]
+
+🧠 *Memory flash*
+[Één relevant langetermijnfeit]
+
+Maximaal 220 woorden. Direct, energiek, geen fluff. Schrijf in het Nederlands.`,
+      },
+      {
+        role: 'user',
+        content: `Datum: ${new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
+
+Hoog-prio taken:
+${highPrioTodos.map(t => `- ${t.title}${t.due_date ? ` (deadline: ${t.due_date})` : ''}`).join('\n') || 'geen'}
+
+Open facturen:
+${openInvoices.map(f => `- ${f.title}: €${Math.round(f.amount)}${f.contact_name ? ` (${f.contact_name})` : ''}${f.due_date ? ` — deadline ${f.due_date}` : ''}`).join('\n') || 'geen'}
+Maandsaldo: €${Math.round(snap.monthIncomeTotal)} inkomsten / €${Math.round(snap.monthExpenseTotal)} uitgaven
+
+Gisteren:
+- Werk: ${yesterdayWork > 0 ? `${Math.round(yesterdayWork / 60 * 10) / 10}u gelogd` : 'geen werklog'}
+- Stemming: ${yesterdayMood != null ? `${yesterdayMood}/5` : 'niet ingevuld'}
+- Gewoontes: ${yesterdayHabits != null ? `${Math.round(Number(yesterdayHabits) * 100)}%` : 'niet gelogd'}
+
+Actieve projecten: ${activeProjects.map(p => p.title).join(', ') || 'geen'}
+
+Langetermijnmemories:
+${recentMemories.map(m => `- ${m.value}`).join('\n') || 'geen'}
+
+Schrijf nu de Morning Briefing.`,
+      },
+    ],
+    temperature: 0.65,
+    max_tokens: 450,
+  })
+
+  const message = response.choices[0]?.message?.content?.trim()
+  if (!message) return false
+
+  try {
+    await sendTelegramMessage(
+      parseInt(chatId, 10),
+      message,
+      {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '📋 Taken', callback_data: 'todos_overview' },
+            { text: '💰 Financiën', callback_data: 'finance_overview' },
+            { text: '📔 Dagboek', callback_data: 'journal_start' },
+          ]]
+        }
+      }
+    )
+    await execute(`
+      INSERT INTO proactive_log (trigger_type, trigger_details, message_sent, telegram_sent)
+      VALUES ('morning_briefing', '{}', $1, 1)
+    `, [message])
+    return true
+  } catch (err) {
+    console.error('[MorningBriefing] Telegram error:', err instanceof Error ? err.message : err)
+    return false
+  }
+}
+
 function buildPlainDeepSync(snap: LifeSnapshot): string {
   return `🧠 *Persoonlijk Brein Rapport*
 

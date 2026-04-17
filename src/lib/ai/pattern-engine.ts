@@ -58,7 +58,7 @@ export interface WeeklyAnalysisResult {
 export async function collectDailyObservations(): Promise<void> {
   const today = new Date().toISOString().slice(0, 10)
 
-  const [financeData, journalData, workData, habitData, todoData] = await Promise.all([
+  const [financeData, journalData, workData, habitData, todoData, notesData, projectsData] = await Promise.all([
     // Finance: dagelijkse totalen
     query<{ total_expenses: number; total_income: number; transaction_count: number }>(`
       SELECT
@@ -97,6 +97,24 @@ export async function collectDailyObservations(): Promise<void> {
         (SELECT COUNT(*) FROM todos WHERE DATE(created_at) = $1)::int AS created_today,
         (SELECT COUNT(*) FROM todos WHERE completed = 0)::int AS still_open
     `, [today]),
+
+    // Notes: bijgewerkt/aangemaakt vandaag
+    queryOne<{ updated_today: number; total_7d: number }>(`
+      SELECT
+        (SELECT COUNT(*) FROM notes WHERE DATE(updated_at) = $1)::int AS updated_today,
+        (SELECT COUNT(*) FROM notes WHERE updated_at >= CURRENT_DATE - INTERVAL '7 days')::int AS total_7d
+    `, [today]),
+
+    // Projects: actief + zonder recente notities
+    queryOne<{ active_count: number; without_notes_3d: number }>(`
+      SELECT
+        (SELECT COUNT(*) FROM projects WHERE status = 'actief')::int AS active_count,
+        (SELECT COUNT(*) FROM projects p WHERE status = 'actief'
+          AND NOT EXISTS (
+            SELECT 1 FROM notes n
+            WHERE n.project_id = p.id AND n.updated_at >= CURRENT_DATE - INTERVAL '3 days'
+          ))::int AS without_notes_3d
+    `),
   ])
 
   // Sla alle metrics op (ON CONFLICT = update)
@@ -119,6 +137,10 @@ export async function collectDailyObservations(): Promise<void> {
     ['todos', 'completed_today', todoData?.completed_today ?? 0, null],
     ['todos', 'created_today', todoData?.created_today ?? 0, null],
     ['todos', 'still_open', todoData?.still_open ?? 0, null],
+    ['notes', 'updated_today', notesData?.updated_today ?? 0, null],
+    ['notes', 'total_7d', notesData?.total_7d ?? 0, null],
+    ['projects', 'active_count', projectsData?.active_count ?? 0, null],
+    ['projects', 'without_notes_3d', projectsData?.without_notes_3d ?? 0, null],
   ]
 
   for (const [module, key, value, text] of obs) {
@@ -250,7 +272,7 @@ export async function detectAbsenceSignals(): Promise<AbsenceSignal[]> {
 export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
   const absenceSignals = await detectAbsenceSignals()
 
-  const [observations, journalEntries, financeItems, workLogs, habitLogs, existingTheories, personalRules] = await Promise.all([
+  const [observations, journalEntries, financeItems, workLogs, habitLogs, existingTheories, personalRules, activeProjectsGaps] = await Promise.all([
     // Laatste 30 dagen observaties
     query<{ obs_date: string; module: string; metric_key: string; metric_value: number }>(`
       SELECT TO_CHAR(obs_date, 'YYYY-MM-DD') AS obs_date, module, metric_key,
@@ -306,11 +328,27 @@ export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
     query<{ rule_type: string; pattern: string; replacement: string }>(`
       SELECT rule_type, pattern, replacement FROM pattern_rules WHERE is_active = 1
     `),
+
+    // Actieve projecten zonder recente notities (context gaps)
+    query<{ title: string; days_since_note: number | null; open_todos: number }>(`
+      SELECT p.title,
+        (SELECT (CURRENT_DATE - MAX(n.updated_at::date))::int FROM notes n WHERE n.project_id = p.id) AS days_since_note,
+        (SELECT COUNT(*)::int FROM todos t WHERE t.project_id = p.id AND t.completed = 0) AS open_todos
+      FROM projects p
+      WHERE p.status = 'actief'
+      ORDER BY p.updated_at DESC LIMIT 8
+    `).catch(() => []),
   ])
 
   // Bouw data-context op voor GPT
   const context = buildAnalysisContext(observations, journalEntries, financeItems, workLogs, habitLogs)
-  const rulesText = (personalRules as any[] || []).map(r => `- [${r.rule_type}] ${r.pattern} -> ${r.replacement}`).join('\n')
+  const rulesText = (personalRules as any[] || []).map((r: any) => `- [${r.rule_type}] ${r.pattern} -> ${r.replacement}`).join('\n')
+
+  // Context gap samenvatting voor projecten
+  const projectGapsText = (activeProjectsGaps as Array<{ title: string; days_since_note: number | null; open_todos: number }>)
+    .filter(p => p.days_since_note === null || p.days_since_note > 2)
+    .map(p => `- "${p.title}": ${p.days_since_note != null ? `${p.days_since_note}d geen notitie` : 'nooit een notitie'}, ${p.open_todos} open taken`)
+    .join('\n')
 
   const prompt = `Je bent de Pattern Recognition Engine van Daan's Persoonlijke Hulp.
   Analyseer de gedragsdata van Daan en genereer professionele OBSERVATIES, HYPOTHESES en VRAGEN.
@@ -334,15 +372,28 @@ export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
   - Identificeer actiepotentie: kan de gebruiker hier iets mee?
   - Geef category uit: financieel_gedrag / productiviteit / emotioneel_patroon / gewoonte / werk_privé / afwezigheid_signaal.
 
+  CONTEXT GAP DETECTIE (speciaal aandacht):
+  Kijk actief of er DATA ONTBREEKT die er wél zou moeten zijn:
+  - Project actief maar geen notities afgelopen 3 dagen → vraag wat de laatste voortgang was
+  - Werk gelogd maar geen journal → vraag hoe de dag echt was
+  - Grote uitgave (>€50) maar geen journal vermelding → vraag of het gepland was
+  - Actief project maar al >5 dagen geen taken afgerond → vraag of er blokkades zijn
+  Genereer voor dit soort gaps een pending_question met hoge prioriteit (70-90).
+
   VOORBEELDEN TER INSPIRATIE:
   - "Je doet deze maand vaker kleine supermarktbezoeken dan normaal."
   - "Deze ronde €200 bij Jumbo lijkt niet op je normale boodschappenpatroon. Was dit contant opnemen?"
   - "Op dagen dat je later opstaat, log je minder vaak je werk."
   - "Vrijdagen lijken vaak WebsUp-dagen, maar vandaag zie ik nog weinig activiteit."
   - "In weken waarin je stemming lager is, zie ik ook minder structuur in werklog."
+  - "Je hebt [Project] als actief staan maar ik zie al 4 dagen geen notities. Wat was de laatste stap?"
+  - "Je hebt gisteren €67 bij [Merchant] uitgegeven, maar niets in je dagboek. Was dit gepland?"
 
   BESTAANDE HYPOTHESES (vermijd duplicaten of update ze):
   ${existingTheories.map(t => `- [${t.status}] [${t.category}] ${t.theory} (conf: ${t.confidence})`).join('\n') || 'Geen'}
+
+  ACTIEVE PROJECTEN ZONDER RECENTE NOTITIES (context gaps — genereer hier vragen voor):
+  ${projectGapsText || 'Geen gaps gedetecteerd'}
 
   DATA (Laatste 14-30 dagen):
   ${context}
