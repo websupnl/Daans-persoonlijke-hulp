@@ -410,11 +410,11 @@ class FinanceVerificationService {
       amount: parseFloat(transaction.amount.toString()),
       type: transaction.type,
       category: transaction.category.trim(),
-      subcategory: transaction.subcategory?.trim() || null,
+      subcategory: transaction.subcategory?.trim() || undefined,
       account: transaction.account || 'privé',
       status: transaction.status || 'betaald',
-      due_date: transaction.due_date || null,
-      description: transaction.description?.trim() || null
+      due_date: transaction.due_date || undefined,
+      description: transaction.description?.trim() || undefined
     }
 
     return validated
