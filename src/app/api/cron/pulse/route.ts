@@ -13,13 +13,14 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { runProactiveEngine } from '@/lib/ai/proactive-engine'
+import { runProactiveEngine, generateDeepQuestion } from '@/lib/ai/proactive-engine'
 import { updateAITheories } from '@/lib/ai/diary-personas'
 import { queryOne, query, execute } from '@/lib/db'
 import {
   collectDailyObservations,
   runDailyPatternAnalysis,
-  runWeeklyPatternAnalysis
+  runWeeklyPatternAnalysis,
+  detectAbsenceSignals
 } from '@/lib/ai/pattern-engine'
 import { sendTelegramMessage } from '@/lib/telegram/send-message'
 
@@ -120,6 +121,48 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 6. Hourly "Nothing new" Fallback -> Generate fresh question or nudge
+  // Ensure "every hour" Telegram message if it's daytime (8-23u)
+  const proactiveSent = (results.proactive as any)?.telegramSent
+  const questionSent = !!results.questionSent
+
+  if (!proactiveSent && !questionSent) {
+    const amsterdamHour = parseInt(new Date().toLocaleString('en-US', { 
+      timeZone: 'Europe/Amsterdam', 
+      hour: 'numeric', 
+      hour12: false 
+    }), 10)
+
+    if (amsterdamHour >= 8 && amsterdamHour < 23) {
+      try {
+        const chatId = process.env.TELEGRAM_CHAT_ID
+        if (chatId) {
+          // A. Try absence signals first (very relevant)
+          const absenceSignals = await detectAbsenceSignals()
+          if (absenceSignals.length > 0) {
+            const signal = absenceSignals[0]
+            await sendTelegramMessage(chatId, `🔍 *Brain Opmerking*\n\n${signal.detail}`)
+            results.absenceSignalSent = { type: signal.signal }
+          } else {
+            // B. Generate deep question on the fly
+            const question = await generateDeepQuestion()
+            await sendTelegramMessage(chatId, `🧠 *Brain Pulse*\n\n${question}`, {
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '📔 Beantwoord in dagboek', callback_data: 'journal_start' },
+                  { text: '💬 Stuur antwoord hier', callback_data: 'reply_here' },
+                ]]
+              }
+            })
+            results.questionGenerated = { sent: true }
+          }
+        }
+      } catch (err) {
+        console.error('[Pulse] Fallback hourly message error:', err)
+      }
+    }
+  }
+
   // Update AI theories every 6 hours (check last update time)
   try {
     const lastTheoryUpdate = await queryOne<{ last_updated: string }>(`
@@ -145,6 +188,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    status: proactiveSent || questionSent || results.absenceSignalSent || results.questionGenerated ? 'message_sent' : 'silent',
     duration,
     timestamp: new Date().toISOString(),
     results,
