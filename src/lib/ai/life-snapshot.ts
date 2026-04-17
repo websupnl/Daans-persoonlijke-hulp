@@ -30,7 +30,7 @@ export interface LifeSnapshot {
   monthIncomeTotal: number
   monthExpenseTotal: number
   vagueFinanceCount: number
-  vagueFinanceExamples: Array<{ title: string; amount: number; date: string }>
+  vagueFinanceExamples: Array<{ title: string; amount: number; date: string; merchant: string | null }>
   detailedAnomalies: FinanceAnomaly[]
 
   // Journal
@@ -131,7 +131,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
         COUNT(*) as count,
         (SELECT COUNT(*) FROM finance_items WHERE needs_review = 1 OR category = 'overig' OR personal_business = 'unknown') as vague_count,
         (SELECT JSON_AGG(sub) FROM (
-           SELECT title, amount, TO_CHAR(created_at, 'YYYY-MM-DD') as date 
+           SELECT title, amount, TO_CHAR(created_at, 'YYYY-MM-DD') as date, merchant_raw as merchant 
            FROM finance_items 
            WHERE needs_review = 1 OR category = 'overig' OR personal_business = 'unknown'
            ORDER BY created_at DESC LIMIT 3
@@ -250,7 +250,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
   let monthIncomeTotal = 0
   let monthExpenseTotal = 0
   let vagueFinanceCount = 0
-  let vagueFinanceExamples: Array<{ title: string; amount: number; date: string }> = []
+  let vagueFinanceExamples: Array<{ title: string; amount: number; date: string; merchant: string | null }> = []
   if (financeStats.length > 0) {
     vagueFinanceCount = parseInt(financeStats[0].vague_count || '0', 10)
     try {
@@ -337,6 +337,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     totalWorkMinutesToday,
     detailedAnomalies: financeAnalysis?.anomalies ?? [],
     vagueFinanceCount,
+    vagueFinanceExamples,
   })
 
   return {
@@ -395,6 +396,7 @@ interface AnomalyInput {
   totalWorkMinutesToday: number
   detailedAnomalies: FinanceAnomaly[]
   vagueFinanceCount: number
+  vagueFinanceExamples: Array<{ title: string; amount: number; date: string; merchant: string | null }>
 }
 
 function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
@@ -405,10 +407,11 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
 
   // Vague finance items
   if (s.vagueFinanceCount >= 3) {
+    const examples = s.vagueFinanceExamples.map(e => `${e.title} (€${e.amount})`).join(', ')
     flags.push({
       type: 'vague_finance_items',
       severity: s.vagueFinanceCount >= 8 ? 'medium' : 'low',
-      detail: `${s.vagueFinanceCount} transacties missen nog details of categorie`,
+      detail: `${s.vagueFinanceCount} onduidelijke transacties, bijv: ${examples}`,
       nudgeTopic: 'finance_vague_items',
     })
   }
@@ -548,7 +551,7 @@ export function formatSnapshotForPrompt(snap: LifeSnapshot): string {
 
   if (snap.vagueFinanceExamples.length > 0) {
     lines.push(`Onduidelijke transacties:`)
-    snap.vagueFinanceExamples.forEach(e => lines.push(`  - ${e.date}: ${e.title} €${e.amount}`))
+    snap.vagueFinanceExamples.forEach(e => lines.push(`  - ${e.date}: ${e.title} €${e.amount}${e.merchant ? ` [merchant: ${e.merchant}]` : ''}`))
   }
 
   if (snap.topTheories.length > 0) {
