@@ -32,6 +32,8 @@ export async function GET() {
     FROM habits WHERE active = 1
   `)
 
+  const groceryStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM groceries WHERE completed = 0')
+
   // Recente todos (vandaag + overdue)
   const urgentTodos = await query(`
     SELECT t.*, p.color as project_color, p.title as project_title
@@ -88,6 +90,7 @@ export async function GET() {
         monthExpenses: financeStats?.month_expenses || 0,
       },
       habits: { total: habitStats?.total ?? 0, completedToday: habitStats?.completed_today ?? 0 },
+      groceries: { total: groceryStats?.total ?? 0 },
     },
     urgentTodos,
     recentNotes,

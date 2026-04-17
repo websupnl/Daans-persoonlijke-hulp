@@ -149,11 +149,23 @@ export type ChatActionType =
   | 'habit_listed'
   | 'journal_opened'
   | 'memory_saved'
+  | 'grocery_added'
+  | 'grocery_listed'
   | 'unknown'
 
 export interface ChatAction {
   type: ChatActionType
   data?: unknown
+}
+
+export interface GroceryItem {
+  id: number
+  title: string
+  quantity?: string
+  category: string
+  completed: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface WorkLog {
@@ -232,4 +244,5 @@ export interface DashboardStats {
     total: number
     completedToday: number
   }
+  groceries: { total: number }
 }

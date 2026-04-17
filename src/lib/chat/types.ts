@@ -79,6 +79,8 @@ export interface ChatRuntimeContext {
 }
 
 export type StoredAction =
+  | { type: 'grocery_added'; data: { id?: number; title: string } }
+  | { type: 'grocery_listed'; data: { items: Array<{ title: string; quantity?: string }> } }
   | { type: 'todo_created'; data: { id?: number; title: string; due_date?: string | null; priority?: Priority } }
   | { type: 'todo_updated'; data: { id: number; title?: string; priority?: Priority; due_date?: string | null } }
   | { type: 'todo_completed'; data: { id: number; title: string } }
