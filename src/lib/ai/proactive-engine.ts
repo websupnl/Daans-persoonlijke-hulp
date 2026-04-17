@@ -35,6 +35,7 @@ const NUDGE_COOLDOWN_HOURS: Record<string, number> = {
   user_silence: 24,
   mood_decline: 48,
   workload_today: 12,
+  finance_vague_items: 24,
 }
 
 /**
@@ -197,6 +198,7 @@ function buildPlainNudge(anomaly: AnomalyFlag, _snap: LifeSnapshot): string {
     workload_overload: '⚡ Werkdruk',
     stale_todo: '🔍 Oude taken',
     open_invoices_aging: '🧾 Openstaande facturen',
+    vague_finance_items: '💰 Onduidelijke transacties',
   }
 
   const label = labels[anomaly.type] ?? '🧠 Melding'
@@ -227,10 +229,10 @@ Je stuurt nu een proactief Telegram-bericht gebaseerd op gedetecteerde anomalie�
 REGELS:
 - Maximaal 3-4 zinnen. Kort en krachtig.
 - Combineer 2 modules als dat een scherper inzicht geeft (cross-pollination)
-- Wees specifiek — gebruik echte getallen uit de snapshot. Als er financiële uitschieters zijn, noem dan specifiek de merchant name, het bedrag en de reden van de anomalie.
+- Wees specifiek — gebruik echte getallen uit de snapshot. Als er financiële uitschieters of onduidelijke transacties zijn, noem dan specifiek de merchant name, het bedrag en de datum van de item(s).
 - Niet vaag ("misschien moet je...") maar direct ("je hebt X — doe Y")
 - Telegramformattering: *bold*, _italic_, geen HTML
-- Sluit altijd af met één concrete actievraag. Stel specifieke vragen over vage financiële transacties, uitschieters of tegenpartijen als die in de snapshot/financiën naar voren komen.
+- Sluit altijd af met één concrete actievraag. Stel specifieke vragen over vage financiële transacties (needs review/onbekende categorie), uitschieters of tegenpartijen als die in de snapshot/financiën naar voren komen.
 - Toon: slim, betrokken, niet opdringerig. Zoals een goede compagnon die iets opmerkt.
 - Schrijf in het Nederlands
 

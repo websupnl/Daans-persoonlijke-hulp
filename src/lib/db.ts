@@ -507,6 +507,14 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    -- Finance Balances
+    CREATE TABLE IF NOT EXISTS finance_balances (
+      id SERIAL PRIMARY KEY,
+      account TEXT NOT NULL UNIQUE,
+      balance NUMERIC(12,2) DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     -- Active timer: max 1 running timer at a time
     CREATE TABLE IF NOT EXISTS active_timers (
       id SERIAL PRIMARY KEY,

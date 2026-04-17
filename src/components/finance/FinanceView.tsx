@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight, Pencil, Copy } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addWeeks, addMonths, format, startOfDay, endOfDay } from 'date-fns'
 import { nl } from 'date-fns/locale'
+import TransactionModal from './TransactionModal'
 
 interface FinanceItem {
   id: number
@@ -28,6 +29,12 @@ interface Stats {
   active_month: string | null
   total_balance_prive: number
   total_balance_zakelijk: number
+}
+
+interface Balance {
+  account: string
+  balance: number
+  updated_at: string
 }
 
 interface CategoryStat {
@@ -141,8 +148,10 @@ export default function FinanceView() {
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([])
   const [typeFilter, setTypeFilter] = useState('Alles')
   const [accountFilter, setAccountFilter] = useState('Alle rekeningen')
+  const [actualBalances, setActualBalances] = useState<Balance[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<FinanceItem | null>(null)
   const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -218,9 +227,10 @@ export default function FinanceView() {
     params.set('from', format(dateRange.start, 'yyyy-MM-dd'))
     params.set('to', format(dateRange.end, 'yyyy-MM-dd'))
 
-    const [financeRes, catRes] = await Promise.all([
+    const [financeRes, catRes, balanceRes] = await Promise.all([
       fetch(`/api/finance?${params}`).then(r => r.json()),
       fetch(`/api/finance/stats?from=${format(dateRange.start, 'yyyy-MM-dd')}&to=${format(dateRange.end, 'yyyy-MM-dd')}`).then(r => r.json()).catch(() => ({ categories: [], monthly: [] })),
+      fetch('/api/finance/balances').then(r => r.json()).catch(() => ({ data: [] })),
     ])
 
     const filtered = (financeRes.data || []).filter((i: FinanceItem) => i.type !== 'factuur' as string)
@@ -228,6 +238,7 @@ export default function FinanceView() {
     setStats(financeRes.stats)
     setCategoryStats(catRes.categories || [])
     setMonthlyData(catRes.monthly || [])
+    setActualBalances(balanceRes.data || [])
     setLoading(false)
   }, [typeFilter, accountFilter, dateRange.start, dateRange.end])
 
@@ -264,12 +275,12 @@ export default function FinanceView() {
 
   async function handleAdjust() {
     if (!adjustForm.actual_balance) return
-    await fetch('/api/finance/adjust', {
+    await fetch('/api/finance/balances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         account: adjustForm.account,
-        actual_balance: parseFloat(adjustForm.actual_balance)
+        balance: parseFloat(adjustForm.actual_balance)
       })
     })
     setShowAdjust(false)
@@ -749,20 +760,48 @@ export default function FinanceView() {
               negative={net < 0}
               prefix={net >= 0 ? '+' : '-'}
             />
-            <MiniStat
-              icon="🏠"
-              label="Saldo Privé"
-              value={formatCurrency(stats.total_balance_prive)}
-              positive={stats.total_balance_prive >= 0}
-              negative={stats.total_balance_prive < 0}
-            />
-            <MiniStat
-              icon="💼"
-              label="Saldo Zakelijk"
-              value={formatCurrency(stats.total_balance_zakelijk)}
-              positive={stats.total_balance_zakelijk >= 0}
-              negative={stats.total_balance_zakelijk < 0}
-            />
+            
+            {/* Balance Card Privé */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
+              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                <span className="text-pink-500">🏠</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Saldo Privé</span>
+              </div>
+              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'privé')?.balance ?? stats.total_balance_prive) >= 0 ? 'text-gray-800' : 'text-red-500')}>
+                {formatCurrency(actualBalances.find(b => b.account === 'privé')?.balance ?? stats.total_balance_prive)}
+              </p>
+              <div className="flex items-center justify-between mt-1 relative z-10">
+                <p className="text-[9px] text-gray-400 font-medium">Systeem: {formatCurrency(stats.total_balance_prive)}</p>
+                <button 
+                  onClick={() => { setAdjustForm({ account: 'privé', actual_balance: '' }); setShowAdjust(true) }}
+                  className="p-1 hover:bg-pink-50 rounded-lg text-pink-400 transition-colors"
+                >
+                  <RefreshCw size={10} />
+                </button>
+              </div>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-pink-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+            </div>
+
+            {/* Balance Card Zakelijk */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
+              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                <span className="text-blue-500">💼</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Saldo Zakelijk</span>
+              </div>
+              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'zakelijk')?.balance ?? stats.total_balance_zakelijk) >= 0 ? 'text-gray-800' : 'text-red-500')}>
+                {formatCurrency(actualBalances.find(b => b.account === 'zakelijk')?.balance ?? stats.total_balance_zakelijk)}
+              </p>
+              <div className="flex items-center justify-between mt-1 relative z-10">
+                <p className="text-[9px] text-gray-400 font-medium">Systeem: {formatCurrency(stats.total_balance_zakelijk)}</p>
+                <button 
+                  onClick={() => { setAdjustForm({ account: 'zakelijk', actual_balance: '' }); setShowAdjust(true) }}
+                  className="p-1 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors"
+                >
+                  <RefreshCw size={10} />
+                </button>
+              </div>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+            </div>
           </div>
         </div>
       )}
@@ -940,45 +979,60 @@ export default function FinanceView() {
         ) : items.length === 0 ? (
           <div className="text-center py-12"><p className="text-gray-400 text-sm">Geen items gevonden.</p></div>
         ) : (
-          <div className="space-y-2 pb-4">
+          <div className="space-y-1 pb-4">
             {items.map(item => (
-              <div key={item.id} className="flex items-center gap-3 p-3 sm:p-3.5 bg-white border border-gray-100 rounded-2xl hover:shadow-sm transition-all group">
+              <div 
+                key={item.id} 
+                className="flex items-center gap-2.5 p-2 sm:p-2.5 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all group relative cursor-pointer"
+                onClick={() => setSelectedTransaction(item)}
+              >
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm"
                   style={{ background: GRAD }}
                 >
-                  {item.type === 'inkomst' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  {item.type === 'inkomst' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 font-medium truncate">{item.title}</p>
-                  {item.user_notes && (
-                    <p className="text-[10px] text-pink-600 font-medium mt-0.5 italic flex items-center gap-1">
-                      <Sparkles size={10} /> {item.user_notes}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-[10px] text-gray-400 capitalize">{item.category}</span>
-                    <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-gray-100 text-gray-400')}>
-                      {item.account === 'zakelijk' ? '💼' : '🏠'} {item.account}
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-700 font-bold truncate">{item.title}</p>
+                    <span className={cn('text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500')}>
+                      {item.account === 'zakelijk' ? 'zakelijk' : 'privé'}
                     </span>
-                    {item.due_date && (
-                      <span className={cn('text-[10px] font-medium', isOverdue(item.due_date) && item.status !== 'betaald' ? 'text-red-400' : 'text-gray-400')}>
-                        {formatDate(item.due_date)}
-                      </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] text-gray-400 font-medium capitalize">{item.category}</span>
+                    <span className="text-[10px] text-gray-300">•</span>
+                    <span className="text-[10px] text-gray-400">{formatDate(item.due_date || item.created_at)}</span>
+                    {item.user_notes && (
+                      <>
+                        <span className="text-[10px] text-gray-300">•</span>
+                        <p className="text-[10px] text-pink-400 font-bold truncate flex items-center gap-1">
+                          <Sparkles size={8} /> {item.user_notes}
+                        </p>
+                      </>
                     )}
-                    <span className="text-[10px] text-gray-300">{item.created_at?.split('T')[0]}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
+                <div className="flex items-center gap-3 flex-shrink-0 mr-1">
+                  <span className={cn('text-xs font-black tabular-nums', item.type === 'inkomst' ? 'text-emerald-600' : 'text-gray-800')}>
                     {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
                   </span>
-                  <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingItem(item)} className="text-gray-300 hover:text-pink-400">
-                      <Pencil size={13} />
+                  
+                  {/* Hover Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSelectedTransaction(item) }}
+                      className="p-1.5 bg-gray-50 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
+                      title="Snel aanpassen"
+                    >
+                      <Pencil size={12} />
                     </button>
-                    <button onClick={() => deleteItem(item.id)} className="text-gray-300 hover:text-red-400">
-                      <Trash2 size={13} />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteItem(item.id) }}
+                      className="p-1.5 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      title="Verwijderen"
+                    >
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
@@ -987,6 +1041,14 @@ export default function FinanceView() {
           </div>
         )}
       </div>
+
+      <TransactionModal
+        isOpen={!!selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        transaction={selectedTransaction}
+        onSave={updateTransaction}
+        onDelete={deleteItem}
+      />
     </div>
   )
 }
