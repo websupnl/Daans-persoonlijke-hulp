@@ -29,6 +29,24 @@ interface Question {
 export default function IntelligenceModule() {
   const [data, setData] = useState<{ theories: Theory[], questions: Question[] } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/ai/sync', { method: 'POST' })
+      const d = await res.json()
+      if (d.success) {
+        const refreshRes = await fetch('/api/intelligence')
+        const refreshData = await refreshRes.json()
+        setData(refreshData)
+      }
+    } catch (err) {
+      console.error('[IntelligenceModule] Sync error:', err)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/intelligence')
@@ -50,10 +68,6 @@ export default function IntelligenceModule() {
     )
   }
 
-  if (!data || (data.theories.length === 0 && data.questions.length === 0)) {
-    return null
-  }
-
   return (
     <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
       <div className="flex items-center justify-between mb-6">
@@ -61,9 +75,25 @@ export default function IntelligenceModule() {
           <Brain size={18} className="text-violet-500" />
           Intelligence &amp; Patronen
         </h2>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">
-          Beta
-        </span>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className={cn(
+              "text-[10px] font-bold px-2 py-1 rounded-lg transition-all flex items-center gap-1",
+              syncing 
+                ? "bg-violet-100 text-violet-400 animate-pulse cursor-not-allowed" 
+                : "bg-violet-50 text-violet-600 hover:bg-violet-100 active:scale-95"
+            )}
+            title="Update AI analyse en geheugen"
+          >
+            <Zap size={10} className={cn(syncing && "animate-spin")} />
+            {syncing ? 'SYNC...' : 'AI SYNC'}
+          </button>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded-lg">
+            Beta
+          </span>
+        </div>
       </div>
 
       <div className="space-y-6">

@@ -7,6 +7,7 @@ import { buildChatContext, getSessionKey } from './context'
 import { normalizeDutch } from './normalize'
 import { planMessage, SMALL_TALK_RESPONSES } from './deterministic'
 import { loadSession, saveSession } from './session-state'
+import { extractAndLogHabits } from '@/lib/ai/habit-extractor'
 
 import type {
   ChatAction,
@@ -16,6 +17,22 @@ import type {
   StoredAction,
 } from './types'
 import { AIAction } from '@/lib/ai/action-schema'
+
+// Background sync trigger (non-blocking)
+async function triggerBackgroundSync() {
+  try {
+    // We fetch our own API to keep it clean and use existing logic
+    // In a server environment, we might call the functions directly
+    // but calling the internal API ensures all steps are executed.
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    fetch(`${baseUrl}/api/ai/sync`, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }).catch(err => console.error('[BackgroundSync] Fetch error:', err))
+  } catch (err) {
+    console.error('[BackgroundSync] Error:', err)
+  }
+}
 
 export { planMessage, SMALL_TALK_RESPONSES }
 export { executeChatActions } from './actions-runner'
@@ -127,6 +144,14 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
   const sessionKey = request.sessionKey ?? getSessionKey(request.source, request.senderPhone)
   const context = await buildChatContext(request.source, sessionKey)
   const userContent = formatUserMessageForStorage(request)
+
+  // 0. Trigger background sync & habit extraction (non-blocking)
+  triggerBackgroundSync()
+  extractAndLogHabits(request.message).then(res => {
+    if (res.logged.length > 0) {
+      console.log(`[HabitExtractor] Auto-logged: ${res.logged.join(', ')}`)
+    }
+  })
 
   // 1. Store user message
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', userContent, '[]'])

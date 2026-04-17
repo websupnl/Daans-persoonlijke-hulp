@@ -13,7 +13,7 @@ interface TransactionModalProps {
 }
 
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
-const CATEGORIES = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding']
+const CATEGORIES = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding', 'buffer', 'btw', 'sparen']
 const ACCOUNTS = ['privé', 'zakelijk']
 
 export default function TransactionModal({ isOpen, onClose, onSave, onDelete, transaction }: TransactionModalProps) {

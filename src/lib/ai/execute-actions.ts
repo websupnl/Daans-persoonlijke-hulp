@@ -254,6 +254,15 @@ async function executeSingleAction(
           energy = COALESCE(EXCLUDED.energy, journal_entries.energy),
           updated_at = NOW()
       `, [date, content, mood ?? null, energy ?? null])
+      
+      // Auto-extract habits from journal
+      const { extractAndLogHabits } = await import('./habit-extractor')
+      extractAndLogHabits(content).then(res => {
+        if (res.logged.length > 0) {
+          console.log(`[JournalHabits] Auto-logged: ${res.logged.join(', ')}`)
+        }
+      })
+
       await logActivity({ entityType: 'journal', action: 'created', title: `Dagboek ${date}`, summary: 'Journal aangemaakt via AI' })
       return { type: action.type, success: true, data: { date, content: content.slice(0, 80) } }
     }

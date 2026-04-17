@@ -126,6 +126,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   belasting: 'bg-red-400',
   'vaste lasten': 'bg-orange-400',
   kleding: 'bg-pink-400',
+  buffer: 'bg-indigo-400',
+  btw: 'bg-purple-400',
+  sparen: 'bg-teal-400',
   overig: 'bg-gray-300',
 }
 
@@ -879,7 +882,7 @@ export default function FinanceView() {
           </div>
           <div className="flex gap-2 mb-3">
             <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }}>
-              {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding'].map(c => <option key={c} value={c}>{c}</option>)}
+              {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding','buffer','btw','sparen'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {ACCOUNTS.map(acc => (
               <button
@@ -895,6 +898,83 @@ export default function FinanceView() {
           <div className="flex justify-end gap-2">
             <button onClick={() => setShowAdd(false)} className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">Annuleer</button>
             <button onClick={addItem} className="text-sm text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm transition-opacity hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
+          </div>
+        </div>
+      )}
+
+      {/* Categorieën per rekeningtype */}
+      {categoryStats.length > 0 && (
+        <div className="px-4 sm:px-6 pt-3 pb-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Privé categorieën */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-pink-500"></span>
+                <p className="text-xs font-bold text-pink-600">Privé Categorieën</p>
+              </div>
+              <div className="space-y-2">
+                {categoryStats
+                  .filter(cat => items.some(item => item.category === cat.category && item.account === 'privé'))
+                  .slice(0, 4)
+                  .map(cat => {
+                    const privéItems = items.filter(item => item.category === cat.category && item.account === 'privé')
+                    const total = privéItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
+                    const maxCat = Math.max(...categoryStats
+                      .filter(cat => items.some(item => item.category === cat.category && item.account === 'privé'))
+                      .map(cat => {
+                        const privéItems = items.filter(item => item.category === cat.category && item.account === 'privé')
+                        return privéItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
+                      })
+                    ) || 1
+                    const pct = Math.round((total / maxCat) * 100)
+                    const colorClass = CATEGORY_COLORS[cat.category] || 'bg-gray-300'
+                    return (
+                      <div key={`privé-${cat.category}`} className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500 w-20 truncate capitalize">{cat.category}</span>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[10px] font-medium text-pink-600 w-14 text-right">{formatCurrency(total)}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+
+            {/* Zakelijke categorieën */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-blue-500"></span>
+                <p className="text-xs font-bold text-blue-600">Zakelijke Categorieën</p>
+              </div>
+              <div className="space-y-2">
+                {categoryStats
+                  .filter(cat => items.some(item => item.category === cat.category && item.account === 'zakelijk'))
+                  .slice(0, 4)
+                  .map(cat => {
+                    const zakelijkItems = items.filter(item => item.category === cat.category && item.account === 'zakelijk')
+                    const total = zakelijkItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
+                    const maxCat = Math.max(...categoryStats
+                      .filter(cat => items.some(item => item.category === cat.category && item.account === 'zakelijk'))
+                      .map(cat => {
+                        const zakelijkItems = items.filter(item => item.category === cat.category && item.account === 'zakelijk')
+                        return zakelijkItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
+                      })
+                    ) || 1
+                    const pct = Math.round((total / maxCat) * 100)
+                    const colorClass = CATEGORY_COLORS[cat.category] || 'bg-gray-300'
+                    return (
+                      <div key={`zakelijk-${cat.category}`} className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500 w-20 truncate capitalize">{cat.category}</span>
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[10px] font-medium text-blue-600 w-14 text-right">{formatCurrency(total)}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
           </div>
         </div>
       )}
