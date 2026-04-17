@@ -516,7 +516,7 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
   const anomalies: FinanceAnomaly[] = []
   const byMerchant = new Map<string, Array<typeof rows[number]>>()
 
-  for (const item of rows.filter(item => item.row.type === 'uitgave' && !item.row.user_verified)) {
+  for (const item of rows.filter(item => item.row.type === 'uitgave')) {
     const current = byMerchant.get(item.enrichment.merchantKey) || []
     current.push(item)
     byMerchant.set(item.enrichment.merchantKey, current)
@@ -576,7 +576,7 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
   for (const group of groups) {
     const priorityBase = group.amountPerCharge >= 250 || (group.monthlyEquivalent || 0) >= 100 ? 90 : 60
 
-    if ((group.recurrenceType === 'uncertain_recurring_expense' && !group.userVerified) || (group.merchantType === 'fuel_station' && !group.userVerified)) {
+    if (group.recurrenceType === 'uncertain_recurring_expense' || (group.merchantType === 'fuel_station' && !group.userVerified)) {
       if (group.merchantType === 'fuel_station') {
         questions.push({
           queueKey: `${group.merchantKey}:fuel-review`,
@@ -906,10 +906,10 @@ export async function upsertFinanceRule(input: FinanceRule): Promise<FinanceRule
     input.recurrence_type || null,
     input.subscription_override || null,
     input.personal_business || null,
-    input.fixed_cost_flag ? 1 : 0,
-    input.essential_flag ? 1 : 0,
+    input.fixed_cost_flag ?? null,
+    input.essential_flag ?? null,
     input.notes || null,
-    input.user_verified ? 1 : 0,
+    input.user_verified ?? true,
   ])
 
   const [saved] = await query<FinanceRule>(`

@@ -20,10 +20,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   for (const field of fields) {
     if (field in body) {
-      updates.push(`${field} = ${i++}`)
-      let val = body[field] ?? null
-      if (typeof val === 'boolean') val = val ? 1 : 0
-      values.push(val)
+      updates.push(`${field} = $${i++}`)
+      values.push(body[field] ?? null)
     }
   }
 
