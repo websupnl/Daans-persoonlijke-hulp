@@ -54,11 +54,11 @@ export async function POST(req: NextRequest) {
           WHERE type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=(SELECT month FROM active)
           GROUP BY category ORDER BY total DESC LIMIT 5
         `),
-        query<{ type: string; title: string; amount: number }>(`
+        query<{ type: string; title: string; description: string | null; merchant_raw: string | null; user_notes: string | null; amount: number }>(`
           WITH active AS (
             SELECT COALESCE(TO_CHAR(MAX(COALESCE(due_date, created_at::date)), 'YYYY-MM'), TO_CHAR(NOW(), 'YYYY-MM')) as month FROM finance_items
           )
-          SELECT type, title, amount FROM finance_items
+          SELECT type, title, description, merchant_raw, user_notes, amount FROM finance_items
           WHERE TO_CHAR(COALESCE(due_date, created_at::date),'YYYY-MM')=(SELECT month FROM active)
           ORDER BY COALESCE(due_date, created_at::date) DESC LIMIT 5
         `),
@@ -79,7 +79,7 @@ Top uitgavecategorieën:
 ${categories.map(c => `- ${c.category}: €${Number(c.total).toFixed(2)} (${c.count}x)`).join('\n') || '- Geen data'}
 
 Recente transacties:
-${recentItems.map(i => `- [${i.type}] ${i.title}: €${Number(i.amount).toFixed(2)}`).join('\n') || '- Geen data'}`
+${recentItems.map(i => `- [${i.type}] ${i.title}${i.description ? ` (${i.description})` : ''}${i.merchant_raw && i.merchant_raw !== i.title ? ` [raw: ${i.merchant_raw}]` : ''}${i.user_notes ? ` (notitie: ${i.user_notes})` : ''}: €${Number(i.amount).toFixed(2)}`).join('\n') || '- Geen data'}`
     }
 
     if (type === 'worklogs') {
