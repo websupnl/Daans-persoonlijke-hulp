@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles, TrendingDown } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
+import IntelligenceModule from './IntelligenceModule'
 
 interface PlanningData {
   type: string
@@ -239,6 +240,7 @@ export default function Dashboard() {
 
         {/* Right column */}
         <div className="space-y-6">
+          <IntelligenceModule />
           {/* Finance summary */}
           {data && (
             <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">

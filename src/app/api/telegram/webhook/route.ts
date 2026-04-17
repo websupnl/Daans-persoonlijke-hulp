@@ -124,19 +124,19 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     return
   }
 
-  // ── Check if there's a pending diary follow-up for this user ──────────────
-  const pendingJournalConvo = await queryOne<{
+  // ── Check if there's a pending diary follow-up or pattern question for this user ──
+  const pendingConvo = await queryOne<{
     session_id: string
-    pending_question: string
+    pending_question: string | null
     state: string
   }>(
     `SELECT session_id, pending_question, state
      FROM journal_conversation
-     WHERE session_id = $1 AND state = 'waiting_followup'`,
+     WHERE session_id = $1 AND state IN ('waiting_followup', 'waiting_pattern_answer')`,
     [String(chatId)]
   )
 
-  if (pendingJournalConvo?.pending_question) {
+  if (pendingConvo?.state === 'waiting_followup') {
     // This message is the answer to the pending follow-up
     // Save it as additional journal content and analyze further
     await execute(
@@ -159,6 +159,25 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
         },
       }
     )
+    return
+  }
+
+  if (pendingConvo?.state === 'waiting_pattern_answer') {
+    const qId = parseInt(pendingConvo.pending_question || '0', 10)
+    await execute(`
+      UPDATE pending_questions 
+      SET answer = $1, status = 'answered', answered_at = NOW() 
+      WHERE id = $2
+    `, [text, qId])
+
+    await execute(
+      `UPDATE journal_conversation SET state = 'complete', updated_at = NOW() WHERE session_id = $1`,
+      [String(chatId)]
+    )
+
+    // Mark corresponding theory as confirmed if it was high confidence? 
+    // For now just acknowledge.
+    await sendTelegramMessage(chatId, '✅ Bedankt voor je antwoord! Ik heb dit meegenomen in mijn patroonherkenning.')
     return
   }
 
@@ -409,6 +428,31 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<void> {
             SET state = 'waiting_followup', updated_at = NOW()
         `, [String(chatId)])
       }
+      return
+    }
+
+    // ── Pattern Brain Question: Reply ─────────────────────────────────────
+    if (action === 'pattern_q_reply') {
+      const qId = parseInt(rest, 10)
+      await answerCallbackQuery(cb.id, 'Antwoord vastleggen...')
+      if (chatId) {
+        await sendTelegramMessage(chatId, '_Ik luister naar je antwoord. Wat wil je hierover kwijt?_')
+        await execute(`
+          INSERT INTO journal_conversation (session_id, state, pending_question, context_snapshot)
+          VALUES ($1, 'waiting_pattern_answer', $2, '{}')
+          ON CONFLICT(session_id) DO UPDATE
+            SET state = 'waiting_pattern_answer', pending_question = EXCLUDED.pending_question, updated_at = NOW()
+        `, [String(chatId), String(qId)])
+      }
+      return
+    }
+
+    // ── Pattern Brain Question: Dismiss ───────────────────────────────────
+    if (action === 'pattern_q_dismiss') {
+      const qId = parseInt(rest, 10)
+      await execute(`UPDATE pending_questions SET status = 'dismissed' WHERE id = $1`, [qId])
+      await answerCallbackQuery(cb.id, 'Vraag overgeslagen')
+      if (chatId) await sendTelegramMessage(chatId, '👍 Prima, we slaan deze even over.')
       return
     }
 
