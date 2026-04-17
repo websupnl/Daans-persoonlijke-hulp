@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { processChatMessage } from '@/lib/chat/engine'
+import { processChatMessage } from '@/lib/chat/SimpleChatProcessor'
 
 export async function GET() {
   const messages = await query<Record<string, unknown>>(`
@@ -25,17 +25,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Bericht is leeg' }, { status: 400 })
   }
 
-  const result = await processChatMessage({
-    message,
-    source: 'chat',
-    sessionKey: 'chat',
-  })
+  const result = await processChatMessage(message)
 
   return NextResponse.json({
-    response: result.reply,
-    intent: result.intent,
-    parser: result.parserType,
-    confidence: result.confidence,
+    response: result.message,
+    success: result.success,
     actions: result.actions,
+    debug: result.debug,
   })
 }

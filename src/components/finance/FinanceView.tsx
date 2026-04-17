@@ -6,6 +6,8 @@ import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addWeeks, addMonths, format, startOfDay, endOfDay } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import TransactionModal from './TransactionModal'
+import StandardPageLayout, { Section, StatsGrid, MainWithSidebar } from '@/components/layout/StandardPageLayout'
+import { StatsCard, LightCard, CompactListItem } from '@/components/ui/DesignSystem'
 
 interface FinanceItem {
   id: number
@@ -474,27 +476,24 @@ export default function FinanceView() {
     : viewMode === 'week' ? 'deze week' : 'vandaag'
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
-      {/* Header */}
-      <div className="px-4 sm:px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0 gap-2">
-        <div>
-          <h1 className="text-xl font-extrabold text-gradient">Financiën</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-medium">Inkomsten &amp; uitgaven</p>
-        </div>
+    <StandardPageLayout
+      title="Financiën"
+      subtitle="Inkomsten & uitgaven"
+      actions={
         <div className="flex items-center gap-2">
           <button
             onClick={runAnalyse}
             disabled={analyseLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ background: GRAD }}
             title="AI Analyse"
           >
-            {analyseLoading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {analyseLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
             <span className="hidden sm:inline">{analyseLoading ? 'Analyseren...' : 'Analyseer'}</span>
           </button>
           <button
             onClick={() => setShowBulkDelete(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400 transition-colors"
             title="Alles verwijderen"
           >
             <Trash2 size={14} />
@@ -532,8 +531,7 @@ export default function FinanceView() {
             <span className="hidden sm:inline">Toevoegen</span>
           </button>
         </div>
-      </div>
-
+      }>
       {/* Date Navigation */}
       <div className="px-4 sm:px-6 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200">
@@ -1149,7 +1147,7 @@ export default function FinanceView() {
         onSave={updateTransaction}
         onDelete={deleteItem}
       />
-    </div>
+    </StandardPageLayout>
   )
 }
 

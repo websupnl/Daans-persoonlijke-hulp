@@ -5,6 +5,8 @@ import { Plus, Check, Trash2, Calendar, LayoutGrid, ListTodo } from 'lucide-reac
 import { cn, formatDate, isOverdue, PRIORITY_COLORS } from '@/lib/utils'
 import AIActionButton from '@/components/ai/AIActionButton'
 import ContextInput from '@/components/ai/ContextInput'
+import StandardPageLayout, { Section, StatsGrid } from '@/components/layout/StandardPageLayout'
+import { StatsCard, LightCard, CompactListItem } from '@/components/ui/DesignSystem'
 
 interface Todo {
   id: number
@@ -140,60 +142,54 @@ export default function TodosView() {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
-      <div className="border-b border-gray-100 px-6 py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-gradient">Todos</h1>
-            <p className="mt-1 text-xs font-medium text-gray-400">
-              {openCount} open, {todayCount} vandaag, {overdueCount} te laat
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
-              <button
-                onClick={() => setViewMode('board')}
-                className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', viewMode === 'board' ? 'text-white shadow-sm' : 'text-gray-500')}
-                style={viewMode === 'board' ? { background: GRAD } : undefined}
-              >
-                <span className="flex items-center gap-1.5">
-                  <LayoutGrid size={12} />
-                  Board
-                </span>
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', viewMode === 'list' ? 'text-white shadow-sm' : 'text-gray-500')}
-                style={viewMode === 'list' ? { background: GRAD } : undefined}
-              >
-                <span className="flex items-center gap-1.5">
-                  <ListTodo size={12} />
-                  Lijst
-                </span>
-              </button>
-            </div>
-
+    <StandardPageLayout
+      title="Todos"
+      subtitle={`${openCount} open, ${todayCount} vandaag, ${overdueCount} te laat`}
+      actions={
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
             <button
-              onClick={getRecommendation}
-              disabled={loadingRecommendation}
-              className="flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-600 shadow-sm transition-all hover:bg-orange-100 disabled:opacity-50"
+              onClick={() => setViewMode('board')}
+              className={cn('rounded-md px-3 py-1.5 text-xs font-semibold transition-all', viewMode === 'board' ? 'text-white shadow-sm' : 'text-gray-500')}
+              style={viewMode === 'board' ? { background: GRAD } : undefined}
             >
-              <LayoutGrid size={14} />
-              {loadingRecommendation ? 'Denken...' : 'Wat moet ik nu doen?'}
+              <span className="flex items-center gap-1.5">
+                <LayoutGrid size={12} />
+                Board
+              </span>
             </button>
-
             <button
-              onClick={() => setShowAdd((s) => !s)}
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90"
-              style={{ background: GRAD }}
+              onClick={() => setViewMode('list')}
+              className={cn('rounded-md px-3 py-1.5 text-xs font-semibold transition-all', viewMode === 'list' ? 'text-white shadow-sm' : 'text-gray-500')}
+              style={viewMode === 'list' ? { background: GRAD } : undefined}
             >
-              <Plus size={14} />
-              Toevoegen
+              <span className="flex items-center gap-1.5">
+                <ListTodo size={12} />
+                Lijst
+              </span>
             </button>
           </div>
+
+          <button
+            onClick={getRecommendation}
+            disabled={loadingRecommendation}
+            className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-600 shadow-sm transition-all hover:bg-orange-100 disabled:opacity-50"
+          >
+            <LayoutGrid size={12} />
+            {loadingRecommendation ? 'Denken...' : 'Wat nu?'}
+          </button>
+
+          <button
+            onClick={() => setShowAdd((s) => !s)}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90"
+            style={{ background: GRAD }}
+          >
+            <Plus size={12} />
+            Toevoegen
+          </button>
         </div>
-      </div>
+      }
+    >
 
       {recommendation && (
         <div className="mx-6 mt-4 rounded-3xl border border-orange-100 bg-orange-50/50 p-4">
@@ -337,7 +333,7 @@ export default function TodosView() {
           </div>
         )}
       </div>
-    </div>
+    </StandardPageLayout>
   )
 }
 
