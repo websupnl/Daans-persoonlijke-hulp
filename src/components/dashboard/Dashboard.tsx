@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles, TrendingDown } from 'lucide-react'
+import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles, TrendingDown, ShoppingCart } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
 import IntelligenceModule from './IntelligenceModule'
@@ -19,6 +19,7 @@ interface DashboardData {
     contacts: { total: number }
     finance: { openInvoices: number; openAmount: number; monthIncome: number; monthExpenses: number }
     habits: { total: number; completedToday: number }
+    groceries: { total: number }
   }
   urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_color?: string; project_title?: string }>
   recentNotes: Array<{ id: number; title: string; updated_at: string }>
@@ -195,6 +196,13 @@ export default function Dashboard() {
           value={inboxCount}
           sub={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
           alert={inboxCount > 0}
+        />
+        <StatCard
+          href="/groceries"
+          icon={<ShoppingCart size={18} />}
+          label="Boodschappen"
+          value={stats?.groceries.total ?? 0}
+          sub="items op lijst"
         />
       </div>
 

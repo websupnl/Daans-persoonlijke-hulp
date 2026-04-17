@@ -23,6 +23,8 @@ export type Intent =
   | 'habit_list'
   | 'journal_open'
   | 'memory_add'
+  | 'grocery_add'
+  | 'grocery_list'
   | 'worklog_add'
   | 'worklog_list'
   | 'event_add'
@@ -241,6 +243,22 @@ export function parseIntent(input: string): ParsedIntent {
 
   if (/\b(dagboek|journal|dagelijkse log|schrijf in dagboek|open dagboek)\b/.test(lower)) {
     return { intent: 'journal_open', confidence: 0.9, params: {}, raw: text }
+  }
+
+  if (/\b(toon|laat|geef|welke|wat)\b.*\b(boodschappen|boodschappenlijst|grocery|groceries)\b|\bboodschappenlijstje?\b/.test(lower)) {
+    return { intent: 'grocery_list', confidence: 0.95, params: {}, raw: text }
+  }
+
+  if (/\b(voeg.{0,10}toe aan boodschappen|zet.{0,10}op boodschappenlijst|koop|boodschap:|boodschappen:)\b/i.test(text) || /\b(is op|zijn op|moet op het lijstje)\b/i.test(text)) {
+    const title = text
+      .replace(/\b(voeg.{0,10}toe aan boodschappen|zet.{0,10}op boodschappenlijst|koop|boodschap:|boodschappen:|boodschappenlijstje?|is op|zijn op|moet op het lijstje)\b/gi, '')
+      .trim()
+    return {
+      intent: 'grocery_add',
+      confidence: 0.9,
+      params: { title: title || text },
+      raw: text,
+    }
   }
 
   if (
@@ -502,6 +520,16 @@ export function generateResponse(intent: ParsedIntent, actionResult?: unknown): 
       return 'Hier is je overzicht:'
     case 'memory_add':
       return `Onthouden: "${params.fact}"`
+    case 'grocery_add': {
+      const item = actionResult as { title?: string } | undefined
+      return `Boodschap toegevoegd: "${item?.title || params.title}"`
+    }
+    case 'grocery_list': {
+      const items = actionResult as Array<{ title: string; quantity?: string }> | undefined
+      if (!items || items.length === 0) return 'Je boodschappenlijst is leeg.'
+      const list = items.map((i) => `• ${i.title}${i.quantity ? ` (${i.quantity})` : ''}`).join('\n')
+      return `Boodschappenlijst:\n${list}`
+    }
     case 'worklog_add': {
       const log = actionResult as { title?: string; duration_minutes?: number } | undefined
       return `Werklog opgeslagen: "${log?.title || params.title || 'Werklog'}"`

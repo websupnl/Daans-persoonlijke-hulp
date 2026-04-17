@@ -6,7 +6,7 @@ import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
   Users, Euro, Activity, BookOpen, FolderOpen, Clock,
   Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles,
-  HelpCircle
+  HelpCircle, ShoppingCart
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +41,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/journal', label: 'Dagboek', icon: BookOpen },
       { href: '/habits', label: 'Gewoontes', icon: Activity },
+      { href: '/groceries', label: 'Boodschappen', icon: ShoppingCart },
     ],
   },
   {

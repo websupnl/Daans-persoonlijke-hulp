@@ -308,6 +308,12 @@ function mapAIResultsToStoredActions(
       case 'inbox_capture':
         mapped.push({ type: 'inbox_captured', data: { id: data?.id, text: data?.raw_text ?? 'Capture' } })
         break
+      case 'grocery_create':
+        mapped.push({ type: 'grocery_added', data: { id: data?.id, title: data?.title ?? 'Boodschap' } })
+        break
+      case 'grocery_list':
+        mapped.push({ type: 'grocery_listed', data: { items: data } })
+        break
     }
   }
 

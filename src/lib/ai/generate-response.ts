@@ -41,6 +41,8 @@ function getActionLabel(type: string): string {
     event_create: 'Event aanmaken',
     daily_plan_request: 'Dagplanning maken',
     weekly_plan_request: 'Weekplanning maken',
+    grocery_create: 'Boodschap toevoegen',
+    grocery_list: 'Boodschappenlijst tonen',
   }
   return labels[type] ?? type
 }

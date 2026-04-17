@@ -276,6 +276,16 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS groceries (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      quantity TEXT,
+      category TEXT DEFAULT 'overig',
+      completed SMALLINT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS activity_log (
       id SERIAL PRIMARY KEY,
       entity_type TEXT NOT NULL,

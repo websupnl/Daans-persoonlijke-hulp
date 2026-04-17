@@ -34,6 +34,10 @@ function generateTelegramUI(actions: StoredAction[]): InlineKeyboardMarkup | und
     if (action.type === 'worklog_created' && action.data.id) {
       buttons.push({ text: `Werkstatus`, callback_data: `worklog_status:${action.data.id}` })
     }
+
+    if (action.type === 'grocery_added' && action.data.id) {
+      buttons.push({ text: `Afvinken [ID: ${action.data.id}]`, callback_data: `grocery_complete:${action.data.id}` })
+    }
   }
 
   if (buttons.length === 0) return undefined
