@@ -207,6 +207,32 @@ export async function executeChatActions(
             action.payload.project_id ?? null,
             action.payload.work_type ?? 'deep_work',
           ])
+
+          // AUTO-COMPLETE TASK (Close the loop)
+          // Look for an open todo that matches this worklog title
+          const relatedTodo = await queryOne<{ id: number; title: string }>(`
+            SELECT id, title FROM todos 
+            WHERE completed = 0 
+            AND (
+              title ILIKE $1 
+              OR $2 ILIKE '%' || title || '%'
+            )
+            LIMIT 1
+          `, [action.payload.title, action.payload.title])
+
+          if (relatedTodo) {
+            await execute('UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
+            stored.push({ type: 'todo_completed', data: { id: relatedTodo.id, title: relatedTodo.title } })
+            
+            await logActivity({
+              entityType: 'todo',
+              entityId: relatedTodo.id,
+              action: 'completed',
+              title: relatedTodo.title,
+              summary: `Automatisch afgevinkt door worklog: "${action.payload.title}"`,
+            })
+          }
+
           stored.push({
             type: 'worklog_created',
             data: {
@@ -349,7 +375,38 @@ export async function executeChatActions(
             `,
             [action.payload.key, action.payload.value, action.payload.category, action.payload.confidence]
           )
+
+          await logActivity({
+            entityType: 'memory',
+            action: 'stored',
+            title: action.payload.key,
+            summary: `Memory expliciet opgeslagen: "${action.payload.value}"`,
+            metadata: { category: action.payload.category, confidence: action.payload.confidence },
+          })
+
           stored.push({ type: 'memory_saved', data: { key: action.payload.key, value: action.payload.value, category: action.payload.category } })
+          break
+        }
+
+        case 'inbox_capture': {
+          const row = await queryOne<{ id: number }>(`
+            INSERT INTO inbox_items (raw_text, suggested_type, suggested_context)
+            VALUES ($1, $2, $3)
+            RETURNING id
+          `, [action.payload.raw_text, action.payload.suggested_type ?? null, action.payload.suggested_context ?? null])
+
+          if (row?.id) {
+            await logActivity({
+              entityType: 'inbox',
+              entityId: row.id,
+              action: 'captured',
+              title: action.payload.raw_text.slice(0, 80),
+              summary: 'Gevangen in de inbox voor latere verwerking',
+              metadata: { type: action.payload.suggested_type, context: action.payload.suggested_context },
+            })
+          }
+
+          stored.push({ type: 'inbox_captured', data: { id: row?.id, text: action.payload.raw_text } })
           break
         }
       }

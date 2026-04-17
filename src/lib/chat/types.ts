@@ -102,6 +102,7 @@ export type StoredAction =
   | { type: 'contact_created'; data: { id?: number; name: string; company?: string | null } }
   | { type: 'contact_answered'; data: { query: string } }
   | { type: 'timeline_logged'; data: { title: string; summary?: string; category?: string } }
+  | { type: 'inbox_captured'; data: { id?: number; text: string } }
   | { type: 'clarification_requested'; data: { module?: string; reason: string } }
   | { type: 'confirmation_requested'; data: { preview: string } }
   | { type: 'confirmation_cancelled'; data: { preview: string } }
@@ -243,6 +244,14 @@ export type ChatAction =
         value: string
         category: string
         confidence: number
+      }
+    }
+  | {
+      type: 'inbox_capture'
+      payload: {
+        raw_text: string
+        suggested_type?: string
+        suggested_context?: string
       }
     }
 
