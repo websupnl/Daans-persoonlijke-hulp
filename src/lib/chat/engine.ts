@@ -299,6 +299,12 @@ function mapAIResultsToStoredActions(
       case 'project_update':
         mapped.push({ type: 'project_updated', data: { id: data?.id, title: data?.title ?? 'Project', status: data?.status } })
         break
+      case 'timer_start':
+        mapped.push({ type: 'timer_started', data: { id: data?.id, title: data?.title ?? 'Timer', project_id: data?.project_id } })
+        break
+      case 'timer_stop':
+        mapped.push({ type: 'timer_stopped', data: { id: data?.id, title: data?.title ?? 'Timer', duration_minutes: data?.duration_minutes ?? 0 } })
+        break
       case 'contact_create':
         mapped.push({ type: 'contact_created', data: { id: data?.id, name: data?.name ?? 'Contact' } })
         break

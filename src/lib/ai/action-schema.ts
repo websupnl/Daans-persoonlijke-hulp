@@ -9,6 +9,7 @@ export const TodoCreateAction = z.object({
     due_date: z.string().optional(),
     category: z.string().optional(),
     project_id: z.number().optional(),
+    project_name: z.string().optional(),
   }),
 })
 
@@ -121,8 +122,24 @@ export const WorklogCreateAction = z.object({
     date: z.string().optional(),
     description: z.string().optional(),
     project_id: z.number().optional(),
+    project_name: z.string().optional(),
     energy_level: z.number().min(1).max(5).optional(),
   }),
+})
+
+export const TimerStartAction = z.object({
+  type: z.literal('timer_start'),
+  payload: z.object({
+    title: z.string(),
+    context: z.enum(['Bouma', 'WebsUp', 'privé', 'studie', 'overig']),
+    project_id: z.number().optional(),
+    project_name: z.string().optional(),
+  }),
+})
+
+export const TimerStopAction = z.object({
+  type: z.literal('timer_stop'),
+  payload: z.object({}),
 })
 
 export const WorklogUpdateLastAction = z.object({
@@ -225,6 +242,8 @@ export const AnyAction = z.discriminatedUnion('type', [
   EventUpdateAction,
   DailyPlanRequestAction,
   WeeklyPlanRequestAction,
+  TimerStartAction,
+  TimerStopAction,
 ])
 
 export type AIAction = z.infer<typeof AnyAction>

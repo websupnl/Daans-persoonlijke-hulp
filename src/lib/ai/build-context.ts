@@ -16,6 +16,7 @@ export interface AIContext {
   recentActivity: Array<{ entity_type: string; action: string; title: string; summary?: string }>
   historicalResonance: Array<{ type: string; date: string; excerpt: string }>
   pendingAction?: { preview: string; actions: any[]; created_at: string }
+  activeTimer?: { id: number; title: string; project_title?: string; context: string; started_at: string; elapsed_minutes: number }
   irritationLevel: number
   todayMood?: number
 }
@@ -40,6 +41,7 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     nostalgiaProject,
     todayJournal,
     pendingAction,
+    activeTimerRaw,
   ] = await Promise.all([
     query<AIContext['recentTodos'][number]>(`
       SELECT id, title, priority, due_date, category
@@ -105,6 +107,12 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     sessionKey ? query<{ preview: string; payload: string; created_at: string }>(`
       SELECT preview, payload, created_at FROM pending_actions WHERE session_key = $1 AND expires_at > NOW() LIMIT 1
     `, [sessionKey]).then(rows => rows[0]).catch(() => undefined) : Promise.resolve(undefined),
+    query<{ id: number; title: string; project_title: string | null; context: string; started_at: string }>(`
+      SELECT at.id, at.title, p.title as project_title, at.context, at.started_at
+      FROM active_timers at
+      LEFT JOIN projects p ON p.id = at.project_id
+      ORDER BY at.started_at DESC LIMIT 1
+    `).then(rows => rows[0]).catch(() => undefined),
   ])
 
   const recentMessages = recentMessagesRaw.reverse().map(m => ({
@@ -173,6 +181,16 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     })
   }
 
+  const timerRaw = activeTimerRaw as { id: number; title: string; project_title: string | null; context: string; started_at: string } | undefined
+  const activeTimer = timerRaw ? {
+    id: timerRaw.id,
+    title: timerRaw.title,
+    project_title: timerRaw.project_title ?? undefined,
+    context: timerRaw.context,
+    started_at: timerRaw.started_at,
+    elapsed_minutes: Math.round((Date.now() - new Date(timerRaw.started_at).getTime()) / 60000),
+  } : undefined
+
   return {
     currentDate: now.toISOString().split('T')[0],
     currentDay: days[now.getDay()],
@@ -191,6 +209,7 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     irritationLevel,
     todayMood: todayMoodValue,
     pendingAction: parsedPendingAction,
+    activeTimer,
   }
 }
 
@@ -212,6 +231,14 @@ export function formatContextForPrompt(ctx: AIContext): string {
   parts.push(`- Gewerkt vandaag: ${workH}u`)
   if (ctx.todayMood !== undefined) {
     parts.push(`- Stemming vandaag: ${ctx.todayMood}/5`)
+  }
+
+  if (ctx.activeTimer) {
+    const h = Math.floor(ctx.activeTimer.elapsed_minutes / 60)
+    const m = ctx.activeTimer.elapsed_minutes % 60
+    const elapsed = h > 0 ? `${h}u ${m}m` : `${m}m`
+    const proj = ctx.activeTimer.project_title ? ` (project: ${ctx.activeTimer.project_title})` : ''
+    parts.push(`\nACTIEVE TIMER: "${ctx.activeTimer.title}"${proj} — loopt ${elapsed} (context: ${ctx.activeTimer.context})`)
   }
 
   if (ctx.pendingAction) {

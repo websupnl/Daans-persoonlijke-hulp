@@ -465,6 +465,17 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- Active timer: max 1 running timer at a time
+    CREATE TABLE IF NOT EXISTS active_timers (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      context TEXT NOT NULL DEFAULT 'overig',
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      source TEXT DEFAULT 'chat',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 }
 

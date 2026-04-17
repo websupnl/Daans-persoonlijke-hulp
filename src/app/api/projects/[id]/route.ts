@@ -1,8 +1,33 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { queryOne, execute } from '@/lib/db'
+import { queryOne, execute, query } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const id = parseInt(params.id)
+  const [project, todos, notes, worklogs, finance] = await Promise.all([
+    queryOne(`
+      SELECT p.*,
+        COUNT(DISTINCT CASE WHEN t.completed = 0 THEN t.id END) as open_todos,
+        COUNT(DISTINCT t.id) as total_todos,
+        COUNT(DISTINCT n.id) as note_count,
+        COALESCE(SUM(COALESCE(wl.actual_duration_minutes, wl.duration_minutes)), 0) as total_minutes
+      FROM projects p
+      LEFT JOIN todos t ON t.project_id = p.id
+      LEFT JOIN notes n ON n.project_id = p.id
+      LEFT JOIN work_logs wl ON wl.project_id = p.id
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [id]),
+    query(`SELECT * FROM todos WHERE project_id = $1 ORDER BY completed ASC, CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`, [id]),
+    query(`SELECT id, title, content_text, tags, pinned, created_at FROM notes WHERE project_id = $1 ORDER BY pinned DESC, created_at DESC`, [id]),
+    query(`SELECT id, title, date, COALESCE(actual_duration_minutes, duration_minutes) as duration_minutes, context, source FROM work_logs WHERE project_id = $1 ORDER BY date DESC, created_at DESC LIMIT 50`, [id]),
+    query(`SELECT id, type, title, amount, status, due_date FROM finance_items WHERE project_id = $1 ORDER BY created_at DESC`, [id]),
+  ])
+  if (!project) return NextResponse.json({ error: 'Niet gevonden' }, { status: 404 })
+  return NextResponse.json({ data: project, todos, notes, worklogs, finance })
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)

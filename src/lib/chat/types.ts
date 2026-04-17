@@ -108,6 +108,8 @@ export type StoredAction =
   | { type: 'confirmation_cancelled'; data: { preview: string } }
   | { type: 'confirmation_executed'; data: { preview: string } }
   | { type: 'fallback_answer'; data: { mode: 'ai' | 'rule' } }
+  | { type: 'timer_started'; data: { id?: number; title: string; project_id?: number | null } }
+  | { type: 'timer_stopped'; data: { id?: number; title: string; duration_minutes: number } }
 
 export type ChatAction =
   | {

@@ -2,6 +2,29 @@ import { queryOne, execute, query } from '../db'
 import { logActivity, syncEntityLinks } from '../activity'
 import { AIAction } from './action-schema'
 
+function normalizeProjectName(name: string): string {
+  return name.toLowerCase().replace(/[\s\-_\.]+/g, '').replace(/[^a-z0-9]/g, '')
+}
+
+async function resolveOrCreateProject(projectName: string): Promise<number | null> {
+  const normalized = normalizeProjectName(projectName)
+  const projects = await query<{ id: number; title: string }>('SELECT id, title FROM projects WHERE status != $1', ['afgerond'])
+  const match = projects.find(p => normalizeProjectName(p.title) === normalized)
+  if (match) return match.id
+  // Fuzzy: check if normalized name is a substring of a project or vice versa
+  const fuzzy = projects.find(p => {
+    const pn = normalizeProjectName(p.title)
+    return pn.includes(normalized) || normalized.includes(pn)
+  })
+  if (fuzzy) return fuzzy.id
+  // Auto-create
+  const row = await queryOne<{ id: number }>('INSERT INTO projects (title) VALUES ($1) RETURNING id', [projectName])
+  if (row?.id) {
+    await logActivity({ entityType: 'project', entityId: row.id, action: 'created', title: projectName, summary: 'Project automatisch aangemaakt via chat' })
+  }
+  return row?.id ?? null
+}
+
 export interface ActionResult {
   type: string
   success: boolean
@@ -36,7 +59,11 @@ async function executeSingleAction(
 ): Promise<ActionResult> {
   switch (action.type) {
     case 'todo_create': {
-      const { title, description, priority, due_date, category, project_id } = action.payload
+      const { title, description, priority, due_date, category, project_name } = action.payload
+      let { project_id } = action.payload
+      if (!project_id && project_name) {
+        project_id = (await resolveOrCreateProject(project_name)) ?? undefined
+      }
       const row = await queryOne<{ id: number }>(`
         INSERT INTO todos (title, description, priority, due_date, category, project_id)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -91,7 +118,11 @@ async function executeSingleAction(
     }
 
     case 'worklog_create': {
-      const { title, duration_minutes, context, date, description, project_id } = action.payload
+      const { title, duration_minutes, context, date, description, project_name } = action.payload
+      let { project_id } = action.payload
+      if (!project_id && project_name) {
+        project_id = (await resolveOrCreateProject(project_name)) ?? undefined
+      }
       const row = await queryOne<{ id: number }>(`
         INSERT INTO work_logs (title, duration_minutes, actual_duration_minutes, context, date, description, project_id, source)
         VALUES ($1, $2, $2, $3, $4, $5, $6, 'ai')
@@ -221,6 +252,38 @@ async function executeSingleAction(
         INSERT INTO inbox_items (raw_text, suggested_type) VALUES ($1, $2) RETURNING id
       `, [raw_text, suggested_type ?? null])
       return { type: action.type, success: true, data: { id: row?.id, raw_text } }
+    }
+
+    case 'timer_start': {
+      const { title, context, project_name } = action.payload
+      let { project_id } = action.payload
+      if (!project_id && project_name) {
+        project_id = (await resolveOrCreateProject(project_name)) ?? undefined
+      }
+      // Stop any running timer first (silent)
+      await execute('DELETE FROM active_timers', [])
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO active_timers (title, project_id, context, source)
+        VALUES ($1, $2, $3, 'chat') RETURNING id
+      `, [title, project_id ?? null, context])
+      await logActivity({ entityType: 'timer', entityId: row?.id, action: 'started', title, summary: `Timer gestart: ${title}` })
+      return { type: action.type, success: true, data: { id: row?.id, title, project_id } }
+    }
+
+    case 'timer_stop': {
+      const timer = await queryOne<{ id: number; title: string; project_id: number | null; context: string; started_at: string }>(`
+        SELECT id, title, project_id, context, started_at FROM active_timers ORDER BY started_at DESC LIMIT 1
+      `)
+      if (!timer) return { type: action.type, success: false, error: 'Geen actieve timer gevonden' }
+      const elapsed = Math.round((Date.now() - new Date(timer.started_at).getTime()) / 60000)
+      const duration = Math.max(1, elapsed)
+      await execute('DELETE FROM active_timers', [])
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO work_logs (title, duration_minutes, actual_duration_minutes, context, project_id, source)
+        VALUES ($1, $2, $2, $3, $4, 'timer') RETURNING id
+      `, [timer.title, duration, timer.context, timer.project_id ?? null])
+      await logActivity({ entityType: 'worklog', entityId: row?.id, action: 'created', title: timer.title, summary: `Timer gestopt na ${duration} minuten` })
+      return { type: action.type, success: true, data: { id: row?.id, title: timer.title, duration_minutes: duration } }
     }
 
     default:
