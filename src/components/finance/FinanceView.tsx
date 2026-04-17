@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addWeeks, addMonths, format, startOfDay, endOfDay } from 'date-fns'
 import { nl } from 'date-fns/locale'
@@ -487,12 +487,22 @@ export default function FinanceView() {
             <span className="hidden sm:inline">Kasverschil</span>
           </button>
           <button
-            onClick={() => { setShowAdd(!showAdd); setShowImport(false); setShowAdjust(false); setEditingItem(null) }}
+            onClick={() => {
+              if (showAdd && editingItem) {
+                setEditingItem(null)
+                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+              } else {
+                setShowAdd(!showAdd)
+                setShowImport(false)
+                setShowAdjust(false)
+                setEditingItem(null)
+              }
+            }}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
             style={{ background: GRAD }}
           >
             <Plus size={14} />
-            <span className="hidden sm:inline">{editingItem ? 'Bewerken' : 'Toevoegen'}</span>
+            <span className="hidden sm:inline">Toevoegen</span>
           </button>
         </div>
       </div>
@@ -727,34 +737,34 @@ export default function FinanceView() {
 
       {/* Stats */}
       {stats && (
-        <>
-          <div className="px-4 sm:px-6 pt-4 pb-2 grid grid-cols-3 gap-3 flex-shrink-0">
-            <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten (${activePeriod})`} value={formatCurrency(stats.month_income)} positive />
-            <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven (${activePeriod})`} value={formatCurrency(stats.month_expenses)} negative />
+        <div className="px-4 sm:px-6 pt-4 pb-2 space-y-3 flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten`} value={formatCurrency(stats.month_income)} positive />
+            <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven`} value={formatCurrency(stats.month_expenses)} negative />
             <MiniStat
               icon={net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-              label={`Netto (${activePeriod})`}
+              label={`Netto`}
               value={formatCurrency(Math.abs(net))}
               positive={net >= 0}
               negative={net < 0}
               prefix={net >= 0 ? '+' : '-'}
             />
+            <MiniStat
+              icon="🏠"
+              label="Saldo Privé"
+              value={formatCurrency(stats.total_balance_prive)}
+              positive={stats.total_balance_prive >= 0}
+              negative={stats.total_balance_prive < 0}
+            />
+            <MiniStat
+              icon="💼"
+              label="Saldo Zakelijk"
+              value={formatCurrency(stats.total_balance_zakelijk)}
+              positive={stats.total_balance_zakelijk >= 0}
+              negative={stats.total_balance_zakelijk < 0}
+            />
           </div>
-          <div className="px-4 sm:px-6 py-1 grid grid-cols-2 gap-3 flex-shrink-0">
-            <div className="bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Totaal Privé</span>
-              <span className={cn('text-xs font-black', stats.total_balance_prive >= 0 ? 'text-gray-600' : 'text-red-500')}>
-                {formatCurrency(stats.total_balance_prive)}
-              </span>
-            </div>
-            <div className="bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Totaal Zakelijk</span>
-              <span className={cn('text-xs font-black', stats.total_balance_zakelijk >= 0 ? 'text-gray-600' : 'text-red-500')}>
-                {formatCurrency(stats.total_balance_zakelijk)}
-              </span>
-            </div>
-          </div>
-        </>
+        </div>
       )}
 
       {/* Kasverschil form */}
@@ -813,11 +823,12 @@ export default function FinanceView() {
           <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Omschrijving *" className="w-full bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none mb-2 border border-gray-200" style={{ fontSize: '16px' }} />
           <div className="flex gap-2 mb-2">
             <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (€)" className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
+            <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
+          </div>
+          <div className="flex gap-2 mb-3">
             <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }}>
               {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding'].map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-          </div>
-          <div className="flex gap-2 mb-3">
             {ACCOUNTS.map(acc => (
               <button
                 key={acc}
@@ -825,7 +836,7 @@ export default function FinanceView() {
                 className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', form.account === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
                 style={form.account === acc ? { background: GRAD } : {}}
               >
-                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+                {acc === 'privé' ? '🏠' : '💼'} {acc}
               </button>
             ))}
           </div>
@@ -964,7 +975,7 @@ export default function FinanceView() {
                   </span>
                   <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <button onClick={() => setEditingItem(item)} className="text-gray-300 hover:text-pink-400">
-                      <Eye size={13} />
+                      <Pencil size={13} />
                     </button>
                     <button onClick={() => deleteItem(item.id)} className="text-gray-300 hover:text-red-400">
                       <Trash2 size={13} />
