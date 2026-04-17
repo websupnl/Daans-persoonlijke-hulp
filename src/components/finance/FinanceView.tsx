@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -17,6 +17,7 @@ interface FinanceItem {
   category: string
   account: string
   created_at: string
+  user_notes?: string
 }
 
 interface Stats {
@@ -74,7 +75,7 @@ interface AnalyseResult {
   }>
   patterns: Array<{ merchant: string; totalSpent: number; visits: number; avgAmount: number; category: string; confidenceLabel: 'high' | 'medium' | 'low' }>
   trends: Array<{ month: string; income: number; expenses: number; net: number; topCategory: string }>
-  anomalies: Array<{ title: string; amount: number; date: string; reason: string; severity: 'low' | 'medium' | 'high' }>
+  anomalies: Array<{ id?: number; title: string; amount: number; date: string; reason: string; severity: 'low' | 'medium' | 'high' }>
   reviewQuestions: Array<{
     queueKey: string
     merchantKey: string
@@ -337,6 +338,21 @@ export default function FinanceView() {
     }
   }
 
+  async function updateTransaction(id: number, data: Record<string, unknown>) {
+    try {
+      const res = await fetch(`/api/finance/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) throw new Error('Update mislukt')
+      await runAnalyse()
+      fetchData()
+    } catch (err) {
+      setAnalyseError('Fout bij bijwerken transactie')
+    }
+  }
+
   function resetImport() {
     setImportFile(null)
     setImportPreview(null)
@@ -487,6 +503,7 @@ export default function FinanceView() {
           setShowAnalyse={setShowAnalyse}
           applyingRuleKey={applyingRuleKey}
           onApplyRule={applyFinanceRule}
+          onUpdateTransaction={updateTransaction}
         />
       )}
 
@@ -743,6 +760,11 @@ export default function FinanceView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-700 font-medium truncate">{item.title}</p>
+                  {item.user_notes && (
+                    <p className="text-[10px] text-pink-600 font-medium mt-0.5 italic flex items-center gap-1">
+                      <Sparkles size={10} /> {item.user_notes}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-[10px] text-gray-400 capitalize">{item.category}</span>
                     <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded-full', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-gray-100 text-gray-400')}>
@@ -795,13 +817,18 @@ function FinanceAnalysisPanel({
   setShowAnalyse,
   applyingRuleKey,
   onApplyRule,
+  onUpdateTransaction,
 }: {
   analyseResult: AnalyseResult
   showAnalyse: boolean
   setShowAnalyse: React.Dispatch<React.SetStateAction<boolean>>
   applyingRuleKey: string | null
   onApplyRule: (questionKey: string, rulePatch: Record<string, unknown>) => Promise<void>
+  onUpdateTransaction: (id: number, data: Record<string, unknown>) => Promise<void>
 }) {
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const [savingNoteId, setSavingNoteId] = useState<number | null>(null)
+
   return (
     <div className="mx-4 sm:mx-6 mt-3 rounded-3xl border border-violet-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 overflow-hidden">
       <button
@@ -852,11 +879,20 @@ function FinanceAnalysisPanel({
                         {confidenceText(question.confidenceLabel)}
                       </span>
                     </div>
+
+                    <input
+                      type="text"
+                      placeholder="Voeg notitie toe..."
+                      value={notes[question.queueKey] || ''}
+                      onChange={(e) => setNotes(prev => ({ ...prev, [question.queueKey]: e.target.value }))}
+                      className="w-full mt-3 px-3 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-100 bg-white/50"
+                    />
+
                     <div className="flex flex-wrap gap-2 mt-3">
                       {question.suggestedActions.map(action => (
                         <button
                           key={action.label}
-                          onClick={() => onApplyRule(question.queueKey, action.rulePatch)}
+                          onClick={() => onApplyRule(question.queueKey, { ...action.rulePatch, notes: notes[question.queueKey] })}
                           disabled={applyingRuleKey === question.queueKey}
                           className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 hover:text-gray-800 disabled:opacity-60"
                         >
@@ -980,14 +1016,39 @@ function FinanceAnalysisPanel({
               <div className="space-y-1.5">
                 {analyseResult.anomalies.map(anomaly => {
                   const colors = { high: 'bg-red-50 border-red-100 text-red-600', medium: 'bg-amber-50 border-amber-100 text-amber-600', low: 'bg-gray-50 border-gray-100 text-gray-500' }
+                  const noteKey = anomaly.id ? `anomaly-${anomaly.id}` : `anomaly-${anomaly.title}-${anomaly.date}`
                   return (
-                    <div key={`${anomaly.title}-${anomaly.date}-${anomaly.amount}`} className={`flex items-start gap-3 rounded-xl px-3 py-2.5 border ${colors[anomaly.severity]}`}>
-                      <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">{anomaly.title}</p>
-                        <p className="text-[10px] opacity-70">{anomaly.reason}</p>
+                    <div key={`${anomaly.title}-${anomaly.date}-${anomaly.amount}`} className={`flex flex-col gap-2 rounded-xl px-3 py-2.5 border ${colors[anomaly.severity]}`}>
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{anomaly.title}</p>
+                          <p className="text-[10px] opacity-70">{anomaly.reason}</p>
+                        </div>
+                        <span className="text-xs font-bold flex-shrink-0">{formatCurrency(anomaly.amount)}</span>
                       </div>
-                      <span className="text-xs font-bold flex-shrink-0">â‚¬{anomaly.amount.toFixed(2)}</span>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Verklaring (bijv. wat was dit?)"
+                          value={notes[noteKey] || ''}
+                          onChange={(e) => setNotes(prev => ({ ...prev, [noteKey]: e.target.value }))}
+                          className="flex-1 px-2.5 py-1.5 text-[10px] border border-black/5 rounded-lg focus:outline-none bg-white/40 placeholder:text-black/30"
+                        />
+                        {anomaly.id && (
+                          <button
+                            onClick={async () => {
+                              setSavingNoteId(anomaly.id!)
+                              await onUpdateTransaction(anomaly.id!, { user_notes: notes[noteKey], user_verified: true })
+                              setSavingNoteId(null)
+                            }}
+                            disabled={savingNoteId === anomaly.id || !notes[noteKey]}
+                            className="px-3 py-1.5 rounded-lg bg-white/60 text-[10px] font-bold hover:bg-white/80 transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {savingNoteId === anomaly.id ? 'Bezig...' : 'Opslaan'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
