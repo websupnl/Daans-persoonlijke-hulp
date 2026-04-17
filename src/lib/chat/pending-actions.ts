@@ -314,7 +314,7 @@ class PendingActionManager {
         payload: pending.payload
       }
 
-      const results = await executeActions([action])
+      const results = await executeActions([action as any])
       const result = results[0]
 
       await correlationTracker.trackWrite(correlationId, {
