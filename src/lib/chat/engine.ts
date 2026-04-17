@@ -63,7 +63,7 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
   }
 
   // 3. AI Processing
-  const aiResult = await parseCommandWithAI(request.message)
+  const aiResult = await parseCommandWithAI(request.message, sessionKey)
   
   if (!aiResult || aiResult.confidence < 0.4) {
     const result: ChatResult = {
@@ -263,14 +263,26 @@ function mapAIResultsToStoredActions(
       case 'todo_update':
         mapped.push({ type: 'todo_updated', data: { id: data?.id, title: data?.title } })
         break
+      case 'todo_delete':
+        mapped.push({ type: 'todo_deleted', data: { id: data?.id, title: data?.title ?? 'Taak' } })
+        break
+      case 'todo_delete_many':
+        mapped.push({ type: 'todos_deleted', data: { count: data?.count ?? 0 } })
+        break
       case 'todo_complete':
         mapped.push({ type: 'todo_completed', data: { id: data?.id, title: data?.title ?? 'Taak' } })
         break
       case 'event_create':
         mapped.push({ type: 'event_created', data: { id: data?.id, title: data?.title, date: data?.date, time: data?.time } })
         break
+      case 'event_update':
+        mapped.push({ type: 'event_updated', data: { id: data?.id, title: data?.title, date: data?.date, time: data?.time } })
+        break
       case 'worklog_create':
         mapped.push({ type: 'worklog_created', data: { id: data?.id, title: data?.title ?? summary ?? 'Werklog', duration_minutes: data?.duration_minutes ?? 0, context: data?.context ?? 'overig' } })
+        break
+      case 'worklog_update_last':
+        mapped.push({ type: 'worklog_updated', data: { id: data?.id, title: data?.title ?? 'Werklog', duration_minutes: data?.duration_minutes ?? 0 } })
         break
       case 'habit_log':
         mapped.push({ type: 'habit_logged', data: { habit_id: data?.id, habit_name: data?.name ?? 'Gewoonte' } })

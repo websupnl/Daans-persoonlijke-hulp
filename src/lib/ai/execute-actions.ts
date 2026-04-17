@@ -65,6 +65,19 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: { id } }
     }
 
+    case 'todo_delete': {
+      const { id } = action.payload as any
+      await execute(`DELETE FROM todos WHERE id = $1`, [id])
+      return { type: action.type, success: true, data: { id } }
+    }
+
+    case 'todo_delete_many': {
+      const { ids } = action.payload as any
+      if (!ids.length) return { type: action.type, success: true, data: { count: 0 } }
+      await execute(`DELETE FROM todos WHERE id = ANY($1)`, [ids])
+      return { type: action.type, success: true, data: { count: ids.length } }
+    }
+
     case 'todo_complete': {
       const { title_search } = action.payload
       const todo = await queryOne<{ id: number; title: string }>(`
@@ -105,6 +118,18 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: { id: row?.id, title, duration_minutes } }
     }
 
+    case 'worklog_update_last': {
+      const { duration_minutes } = action.payload
+      const lastWorklog = await queryOne<{ id: number }>(`
+        SELECT id FROM work_logs 
+        WHERE source = 'ai' OR source = 'chat' OR source = 'telegram'
+        ORDER BY created_at DESC LIMIT 1
+      `)
+      if (!lastWorklog) return { type: action.type, success: false, error: 'Geen recente werklog gevonden' }
+      await execute(`UPDATE work_logs SET duration_minutes = $1, actual_duration_minutes = $1, updated_at = NOW() WHERE id = $2`, [duration_minutes, lastWorklog.id])
+      return { type: action.type, success: true, data: { id: lastWorklog.id, duration_minutes } }
+    }
+
     case 'event_create': {
       const { title, date, time, type, description, duration } = action.payload
       const row = await queryOne<{ id: number }>(`
@@ -113,6 +138,16 @@ async function executeSingleAction(
         RETURNING id
       `, [title, date, time ?? null, type ?? 'algemeen', description ?? null, duration ?? 60])
       return { type: action.type, success: true, data: { id: row?.id, title, date, time } }
+    }
+
+    case 'event_update': {
+      const { id, ...updates } = action.payload
+      const entries = Object.entries(updates).filter(([, v]) => v !== undefined)
+      if (entries.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
+      const setClauses = entries.map(([k], idx) => `${k} = $${idx + 1}`)
+      const values = entries.map(([, v]) => v)
+      await execute(`UPDATE events SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1}`, [...values, id])
+      return { type: action.type, success: true, data: { id } }
     }
 
     case 'habit_log': {
@@ -138,6 +173,15 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: { id: row?.id, title, amount } }
     }
 
+    case 'finance_create_income': {
+      const { title, amount, category } = action.payload
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO finance_items (type, title, amount, category, status) 
+        VALUES ('inkomst', $1, $2, $3, 'betaald') RETURNING id
+      `, [title, amount, category ?? 'overig'])
+      return { type: action.type, success: true, data: { id: row?.id, title, amount } }
+    }
+
     case 'memory_store': {
       const { key, value, category, confidence } = action.payload
       await execute(`
@@ -159,6 +203,16 @@ async function executeSingleAction(
       const { title } = action.payload
       const row = await queryOne<{ id: number }>(`INSERT INTO projects (title) VALUES ($1) RETURNING id`, [title])
       return { type: action.type, success: true, data: { id: row?.id, title } }
+    }
+
+    case 'project_update': {
+      const { id, ...updates } = action.payload
+      const entries = Object.entries(updates).filter(([, v]) => v !== undefined)
+      if (entries.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
+      const setClauses = entries.map(([k], idx) => `${k} = $${idx + 1}`)
+      const values = entries.map(([, v]) => v)
+      await execute(`UPDATE projects SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1}`, [...values, id])
+      return { type: action.type, success: true, data: { id } }
     }
 
     case 'inbox_capture': {

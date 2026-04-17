@@ -8,18 +8,19 @@ export interface AIContext {
   overdueTodoCount: number
   activeProjects: Array<{ id: number; title: string; status: string }>
   memories: Array<{ key: string; value: string; category: string }>
-  recentMessages: Array<{ role: string; content: string }>
+  recentMessages: Array<{ role: string; content: string; actions?: any[] }>
   recentInbox: Array<{ id: number; raw_text: string; suggested_type?: string }>
   todayWorklogs: Array<{ title: string; duration_minutes: number; context: string }>
   upcomingEvents: Array<{ title: string; date: string; time?: string; type: string }>
   habits: Array<{ name: string; icon: string; completedToday: boolean; streak: number }>
   recentActivity: Array<{ entity_type: string; action: string; title: string; summary?: string }>
   historicalResonance: Array<{ type: string; date: string; excerpt: string }>
+  pendingAction?: { preview: string; actions: any[]; created_at: string }
   irritationLevel: number
   todayMood?: number
 }
 
-export async function buildContext(lastN: number = 5): Promise<AIContext> {
+export async function buildContext(lastN: number = 5, sessionKey?: string): Promise<AIContext> {
   const now = new Date()
   const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
   const currentHour = now.getHours()
@@ -29,7 +30,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     overdueTodosRaw,
     activeProjects,
     memories,
-    recentMessages,
+    recentMessagesRaw,
     recentInbox,
     todayWorklogs,
     upcomingEvents,
@@ -38,6 +39,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     historicalJournal,
     nostalgiaProject,
     todayJournal,
+    pendingAction,
   ] = await Promise.all([
     query<AIContext['recentTodos'][number]>(`
       SELECT id, title, priority, due_date, category
@@ -55,8 +57,8 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     query<AIContext['memories'][number]>(`
       SELECT key, value, category FROM memory_log ORDER BY last_reinforced_at DESC LIMIT 20
     `),
-    query<AIContext['recentMessages'][number]>(`
-      SELECT role, content FROM chat_messages ORDER BY created_at DESC LIMIT $1
+    query<{ role: string; content: string; actions: string }>(`
+      SELECT role, content, actions FROM chat_messages ORDER BY created_at DESC LIMIT $1
     `, [lastN * 2]),
     query<AIContext['recentInbox'][number]>(`
       SELECT id, raw_text, suggested_type FROM inbox_items WHERE parsed_status = 'pending' ORDER BY created_at DESC LIMIT 5
@@ -100,7 +102,16 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     query<{ mood: number; energy: number }>(`
       SELECT mood, energy FROM journal_entries WHERE date = CURRENT_DATE LIMIT 1
     `).catch(() => []),
+    sessionKey ? query<{ preview: string; payload: string; created_at: string }>(`
+      SELECT preview, payload, created_at FROM pending_actions WHERE session_key = $1 AND expires_at > NOW() LIMIT 1
+    `, [sessionKey]).then(rows => rows[0]).catch(() => undefined) : Promise.resolve(undefined),
   ])
+
+  const recentMessages = recentMessagesRaw.reverse().map(m => ({
+    role: m.role,
+    content: m.content,
+    actions: m.actions ? JSON.parse(m.actions) : []
+  }))
 
   const habits = (habitsRaw as Array<{ id: number; name: string; icon: string; completed_today: number; recent_count: number }>).map(h => ({
     name: h.name,
@@ -117,6 +128,24 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
   const workHoursToday = totalWorkMinutesToday / 60
 
   const todayMoodValue = (todayJournal as Array<{ mood: number; energy: number }>)[0]?.mood
+
+  let parsedPendingAction = undefined
+  if (pendingAction) {
+    try {
+      const payload = JSON.parse(pendingAction.payload)
+      parsedPendingAction = {
+        preview: pendingAction.preview,
+        created_at: pendingAction.created_at,
+        actions: payload.aiActions || payload.actions || [],
+      }
+    } catch {
+      parsedPendingAction = {
+        preview: pendingAction.preview,
+        created_at: pendingAction.created_at,
+        actions: [],
+      }
+    }
+  }
 
   let irritationLevel = 0
   irritationLevel += Math.min(overdueTodoCount * 1.5, 4)
@@ -152,7 +181,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     overdueTodoCount,
     activeProjects,
     memories,
-    recentMessages: recentMessages.reverse(),
+    recentMessages,
     recentInbox,
     todayWorklogs,
     upcomingEvents,
@@ -161,6 +190,7 @@ export async function buildContext(lastN: number = 5): Promise<AIContext> {
     historicalResonance,
     irritationLevel,
     todayMood: todayMoodValue,
+    pendingAction: parsedPendingAction,
   }
 }
 
@@ -182,6 +212,23 @@ export function formatContextForPrompt(ctx: AIContext): string {
   parts.push(`- Gewerkt vandaag: ${workH}u`)
   if (ctx.todayMood !== undefined) {
     parts.push(`- Stemming vandaag: ${ctx.todayMood}/5`)
+  }
+
+  if (ctx.pendingAction) {
+    parts.push(`\nOPENSTAANDE ACTIE (Wacht op bevestiging):`)
+    parts.push(`- Voorstel: ${ctx.pendingAction.preview}`)
+    parts.push(`- Sinds: ${ctx.pendingAction.created_at}`)
+    if (ctx.pendingAction.actions && ctx.pendingAction.actions.length > 0) {
+      parts.push(`- Geplande acties: ${JSON.stringify(ctx.pendingAction.actions)}`)
+    }
+  }
+
+  if (ctx.recentMessages && ctx.recentMessages.length > 0) {
+    parts.push('\nRecente chatgeschiedenis:')
+    ctx.recentMessages.forEach(m => {
+      const role = m.role === 'user' ? 'Daan' : 'Assistent'
+      parts.push(`- ${role}: ${m.content}`)
+    })
   }
 
   if (ctx.memories.length > 0) {

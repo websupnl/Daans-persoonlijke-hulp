@@ -23,6 +23,20 @@ export const TodoUpdateAction = z.object({
   }),
 })
 
+export const TodoDeleteAction = z.object({
+  type: z.literal('todo_delete'),
+  payload: z.object({
+    id: z.number(),
+  }),
+})
+
+export const TodoDeleteManyAction = z.object({
+  type: z.literal('todo_delete_many'),
+  payload: z.object({
+    ids: z.array(z.number()),
+  }),
+})
+
 export const TodoCompleteAction = z.object({
   type: z.literal('todo_complete'),
   payload: z.object({
@@ -111,6 +125,14 @@ export const WorklogCreateAction = z.object({
   }),
 })
 
+export const WorklogUpdateLastAction = z.object({
+  type: z.literal('worklog_update_last'),
+  payload: z.object({
+    duration_minutes: z.number(),
+    expected_previous_minutes: z.number().optional(),
+  }),
+})
+
 export const JournalCreateAction = z.object({
   type: z.literal('journal_create'),
   payload: z.object({
@@ -159,6 +181,17 @@ export const EventCreateAction = z.object({
   }),
 })
 
+export const EventUpdateAction = z.object({
+  type: z.literal('event_update'),
+  payload: z.object({
+    id: z.number(),
+    title: z.string().optional(),
+    date: z.string().optional(),
+    time: z.string().optional(),
+    type: z.enum(['vergadering', 'deadline', 'afspraak', 'herinnering', 'algemeen']).optional(),
+  }),
+})
+
 export const DailyPlanRequestAction = z.object({
   type: z.literal('daily_plan_request'),
   payload: z.object({}),
@@ -172,6 +205,8 @@ export const WeeklyPlanRequestAction = z.object({
 export const AnyAction = z.discriminatedUnion('type', [
   TodoCreateAction,
   TodoUpdateAction,
+  TodoDeleteAction,
+  TodoDeleteManyAction,
   TodoCompleteAction,
   NoteCreateAction,
   NoteUpdateAction,
@@ -181,11 +216,13 @@ export const AnyAction = z.discriminatedUnion('type', [
   FinanceCreateExpenseAction,
   FinanceCreateIncomeAction,
   WorklogCreateAction,
+  WorklogUpdateLastAction,
   JournalCreateAction,
   HabitLogAction,
   MemoryStoreAction,
   InboxCaptureAction,
   EventCreateAction,
+  EventUpdateAction,
   DailyPlanRequestAction,
   WeeklyPlanRequestAction,
 ])
