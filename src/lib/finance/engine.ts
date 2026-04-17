@@ -123,6 +123,7 @@ export interface FinanceTrend {
 }
 
 export interface FinanceAnomaly {
+  id?: number
   title: string
   amount: number
   date: string
@@ -530,6 +531,7 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
         const ratio = Number(item.row.amount) / base
         if (ratio >= 1.8 && Number(item.row.amount) - base >= 75) {
           anomalies.push({
+            id: item.row.id,
             title: item.row.title,
             amount: Number(item.row.amount),
             date: item.row.transaction_date,
@@ -552,6 +554,7 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
   for (const [merchantKey, items] of Array.from(duplicates.entries())) {
     if (items.length > 1) {
       anomalies.push({
+        id: items[0].row.id,
         title: items[0].row.title,
         amount: Number(items[0].row.amount),
         date: items[0].row.transaction_date,
