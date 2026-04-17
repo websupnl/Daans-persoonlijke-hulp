@@ -103,13 +103,21 @@ async function executeSingleAction(
 
     case 'finance_create_expense': {
       const { title, amount, category, description } = action.payload
-      const row = await queryOne<{ id: number }>(`INSERT INTO finance_items (type, title, amount, category, description, status) VALUES ('uitgave', $1, $2, $3, $4, 'betaald') RETURNING id`, [title, amount, category ?? null, description ?? null])
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO finance_items (type, title, amount, category, description, status, due_date, account)
+        VALUES ('uitgave', $1, $2, $3, $4, 'betaald', CURRENT_DATE, 'privé')
+        RETURNING id
+      `, [title, amount, category ?? 'overig', description ?? null])
       return { type: action.type, success: true, data: { id: row?.id } }
     }
 
     case 'finance_create_income': {
       const { title, amount, category } = action.payload
-      const row = await queryOne<{ id: number }>(`INSERT INTO finance_items (type, title, amount, category, status) VALUES ('inkomst', $1, $2, $3, 'betaald') RETURNING id`, [title, amount, category ?? null])
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO finance_items (type, title, amount, category, status, due_date, paid_date, account)
+        VALUES ('inkomst', $1, $2, $3, 'betaald', CURRENT_DATE, CURRENT_DATE, 'privé')
+        RETURNING id
+      `, [title, amount, category ?? 'overig'])
       return { type: action.type, success: true, data: { id: row?.id } }
     }
 

@@ -20,8 +20,8 @@ export async function GET() {
     SELECT
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END) as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_invoices,
-      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald' AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
-      SUM(CASE WHEN type='uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
+      SUM(CASE WHEN type = 'inkomst' AND status = 'betaald' AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_income,
+      SUM(CASE WHEN type = 'uitgave' AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN amount ELSE 0 END) as month_expenses
     FROM finance_items
   `)
 

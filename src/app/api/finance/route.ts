@@ -48,14 +48,14 @@ export async function GET(req: NextRequest) {
     SELECT
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END)::float as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_count,
-      SUM(CASE WHEN type IN ('inkomst','factuur') AND status='betaald'
+      SUM(CASE WHEN type = 'inkomst' AND status = 'betaald'
         AND ($3::text IS NULL OR account = $3)
         AND (
-          ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(paid_date, due_date, created_at::date) BETWEEN $1 AND $2)
-          OR ($1::date IS NULL AND TO_CHAR(COALESCE(paid_date, due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
+          ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
+          OR ($1::date IS NULL AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
         )
         THEN amount ELSE 0 END)::float as month_income,
-      SUM(CASE WHEN type='uitgave'
+      SUM(CASE WHEN type = 'uitgave'
         AND ($3::text IS NULL OR account = $3)
         AND (
           ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
