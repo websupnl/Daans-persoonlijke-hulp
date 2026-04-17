@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
   Users, Euro, Activity, BookOpen, FolderOpen, Clock,
-  Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles
+  Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles,
+  HelpCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -46,10 +47,11 @@ const NAV_GROUPS = [
     label: 'AI & Tools',
     items: [
       { href: '/chat', label: 'Chat', icon: MessageSquare },
-      { href: '/memory', label: 'Memory', icon: Brain },
+      { href: '/patterns', label: 'Patronen', icon: Brain },
+      { href: '/memory', label: 'Memory', icon: Sparkles },
       { href: '/inbox', label: 'Inbox', icon: Inbox },
       { href: '/timeline', label: 'Timeline', icon: History },
-      { href: '/uitleg', label: 'Hoe werkt het?', icon: Sparkles },
+      { href: '/uitleg', label: 'Hoe werkt het?', icon: HelpCircle },
     ],
   },
 ]
