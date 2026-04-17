@@ -12,7 +12,6 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { waitUntil } from '@vercel/functions'
 import { sendTelegramMessage, sendChatAction, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram/send-message'
 import { ingestMessage } from '@/lib/telegram/ingest'
 import { queryOne, execute, query } from '@/lib/db'
@@ -46,13 +45,9 @@ export async function POST(request: NextRequest) {
 
   try {
     if (update.callback_query) {
-      waitUntil(
-        handleCallbackQuery(update).catch(err => console.error('[Telegram webhook] Callback processing error:', err))
-      )
+      await handleCallbackQuery(update).catch(err => console.error('[Telegram webhook] Callback processing error:', err))
     } else {
-      waitUntil(
-        handleUpdate(update).catch(err => console.error('[Telegram webhook] Update processing error:', err))
-      )
+      await handleUpdate(update).catch(err => console.error('[Telegram webhook] Update processing error:', err))
     }
   } catch (err) {
     console.error('[Telegram webhook] Processing error:', err)

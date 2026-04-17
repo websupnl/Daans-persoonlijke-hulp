@@ -97,8 +97,19 @@ export default function IntelligenceModule() {
       </div>
 
       <div className="space-y-6">
+        {/* Empty State */}
+        {(!data || (data.questions.length === 0 && data.theories.length === 0)) && (
+          <div className="py-8 text-center">
+            <div className="bg-gray-50 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Zap size={20} className="text-gray-300" />
+            </div>
+            <p className="text-sm font-medium text-gray-500">Nog geen nieuwe inzichten.</p>
+            <p className="text-[11px] text-gray-400 mt-1">Druk op AI SYNC om je data te analyseren.</p>
+          </div>
+        )}
+
         {/* Active Questions */}
-        {data.questions.length > 0 && (
+        {data && data.questions && data.questions.length > 0 && (
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <MessageSquare size={10} /> Openstaande Vragen
@@ -121,7 +132,7 @@ export default function IntelligenceModule() {
         )}
 
         {/* Theories / Hypotheses */}
-        {data.theories.length > 0 && (
+        {data && data.theories && data.theories.length > 0 && (
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Lightbulb size={10} /> Gedragshypotheses
