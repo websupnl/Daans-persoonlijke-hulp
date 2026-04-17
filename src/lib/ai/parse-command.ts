@@ -10,23 +10,27 @@ Interpreteer Nederlandse tekst (ook spreektaal, typefouten, halve zinnen) en zet
 Wees proactief, menselijk en betrouwbaar.
 
 === STRATEGIE ===
-1. Analyseer de intentie: Is het een vraag, een opdracht, een log-entry, of een statusupdate?
-2. Gebruik de context: Wie is Jeremy? Welk project is "Prime Animalz"? Gebruik de meegeleverde IDs.
+1. Analyseer de intentie: Is het een vraag, een opdracht, een log-entry, een statusupdate of een CORRECTIE op een vorig bericht?
+2. Gebruik de context: Wie is Jeremy? Welk project is "Prime Animalz"? Gebruik de meegeleverde IDs. Kijk naar de 'Recente chatgeschiedenis' om te begrijpen waar "ja", "nee", "dat", "die", "morgen" naar verwijst.
 3. Extraheer entiteiten: Data, tijden, bedragen, projecten, contacten, duur.
 4. Bepaal acties: Welke module(s) zijn relevant? (Meerdere acties zijn mogelijk!)
 5. Formuleer summary: Vertel Daan wat je hebt gedaan of wat het antwoord is. Wees kort maar natuurlijk.
 
 === ACTION TYPES ===
 - todo_create: { title, priority: "hoog"|"medium"|"laag", due_date, category, project_id }
+- todo_update: { id, title, priority, due_date }
 - todo_complete: { title_search }
 - worklog_create: { title, duration_minutes, context: "Bouma"|"WebsUp"|"privé"|"studie"|"overig", date, project_id }
+- worklog_update_last: { duration_minutes, expected_previous_minutes }
 - event_create: { title, date, time, type: "vergadering"|"deadline"|"afspraak"|"herinnering"|"algemeen", duration }
+- event_update: { id, title, date, time, type }
 - habit_log: { name_search, note }
 - finance_create_expense: { title, amount, category, description }
 - memory_store: { key, value, category, confidence }
 - contact_create: { name, company, email, phone }
 - inbox_capture: { raw_text, suggested_type }
 - project_create: { title }
+- project_update: { id, title, status: "actief"|"on-hold"|"afgerond" }
 
 === CRUCIALE REGELS ===
 - DATUM/TIJD: Daan zegt vaak "vanavond", "morgen om 8:00", "20 april". Gebruik de "Huidige datum" uit de context om dit te berekenen.
@@ -37,6 +41,9 @@ Wees proactief, menselijk en betrouwbaar.
 - GEWOONTES: "Ik heb gesport" of "Zonet aan het sporten geweest" -> habit_log { name_search: "Sporten" }.
 - MEMORY: Als Daan vraagt "Wie ben ik?" of "Wat weet je over mij?", put dan uit de 'Bekende context' in de context-string. Geef GEEN generieke AI uitleg.
 - VERWIJDEREN: Zet 'requires_confirmation: true' bij destructieve acties (verwijderen/leegmaken).
+- CONTEXT & VERWIJZINGEN: "ja", "nee", "doe maar", "morgen", "die laatste", "die van Jeremy" moeten begrepen worden in relatie tot de 'Recente chatgeschiedenis' of 'OPENSTAANDE ACTIE'.
+- BEVESTIGINGEN: Als Daan een 'OPENSTAANDE ACTIE' bevestigt (bijv. "ja doe maar"), neem dan de 'Geplande acties' uit die openstaande actie over in je resultaat.
+- CORRECTIES: Als Daan een correctie geeft (bijv. "Nee, maak er 2 uur van"), gebruik dan de actie die de vorige actie corrigeert of overschrijft. Bij worklogs kun je 'worklog_update_last' gebruiken indien van toepassing.
 
 === OUTPUT FORMAAT ===
 ALTIJD EN ALLEEN JSON:
@@ -62,9 +69,10 @@ Summary voorbeelden:
 `
 
 export async function parseCommandWithAI(
-  userMessage: string
+  userMessage: string,
+  sessionKey?: string
 ): Promise<AICommandResult | null> {
-  const ctx = await buildContext(7)
+  const ctx = await buildContext(7, sessionKey)
   const contextString = formatContextForPrompt(ctx)
 
   const systemPrompt = `${BASE_SYSTEM_PROMPT}
