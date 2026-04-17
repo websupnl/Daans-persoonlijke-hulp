@@ -105,6 +105,7 @@ export function inferMomentLabel(text: string): string | undefined {
   if (normalized.includes('morgenavond')) return 'morgenavond'
   if (normalized.includes('morgenochtend')) return 'morgenochtend'
   if (normalized.includes('morgenmiddag')) return 'morgenmiddag'
+  if (/\b(straks|zo meteen|zometeen|later vandaag)\b/.test(normalized)) return 'straks'
   return undefined
 }
 
@@ -162,7 +163,7 @@ function inferYearForMonthDay(day: number, monthName: string, now: Date): number
 function nextWeekday(now: Date, targetDay: number): Date {
   const result = new Date(now)
   result.setHours(0, 0, 0, 0)
-  const diff = (targetDay - result.getDay() + 7) % 7
+  const diff = (targetDay - result.getDay() + 7) % 7 || 7
   result.setDate(result.getDate() + diff)
   return result
 }
