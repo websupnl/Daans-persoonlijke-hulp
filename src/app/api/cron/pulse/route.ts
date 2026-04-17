@@ -15,7 +15,13 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { runProactiveEngine } from '@/lib/ai/proactive-engine'
 import { updateAITheories } from '@/lib/ai/diary-personas'
-import { queryOne } from '@/lib/db'
+import { queryOne, query, execute } from '@/lib/db'
+import {
+  collectDailyObservations,
+  runDailyPatternAnalysis,
+  runWeeklyPatternAnalysis
+} from '@/lib/ai/pattern-engine'
+import { sendTelegramMessage } from '@/lib/telegram/send-message'
 
 export async function GET(request: NextRequest) {
   // Verify Vercel cron secret
@@ -30,8 +36,17 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now()
   const results: Record<string, unknown> = {}
 
+  // 1. Collect daily observations (hourly update)
   try {
-    // Run the proactive engine
+    await collectDailyObservations()
+    results.observations = { updated: true }
+  } catch (err) {
+    console.error('[Pulse] Observation error:', err)
+    results.observations = { error: err instanceof Error ? err.message : 'unknown' }
+  }
+
+  // 2. Run the proactive engine
+  try {
     const proactiveResult = await runProactiveEngine()
     results.proactive = {
       triggered: proactiveResult.triggered,
@@ -43,6 +58,66 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('[Pulse] Proactive engine error:', err instanceof Error ? err.message : err)
     results.proactive = { error: err instanceof Error ? err.message : 'unknown error' }
+  }
+
+  // 3. Daily Pattern Analysis (once a day)
+  try {
+    const lastDaily = await queryOne<{ last_date: string }>(`
+      SELECT TO_CHAR(MAX(created_at), 'YYYY-MM-DD') as last_date 
+      FROM ai_theories WHERE category != 'wekelijks_inzicht'
+    `)
+    const today = new Date().toISOString().slice(0, 10)
+    
+    if (lastDaily?.last_date !== today) {
+      const dailyRes = await runDailyPatternAnalysis()
+      results.dailyAnalysis = dailyRes
+    }
+  } catch (err) {
+    console.error('[Pulse] Daily analysis error:', err)
+  }
+
+  // 4. Weekly Pattern Analysis (once a week, Sunday)
+  try {
+    const isSunday = new Date().getDay() === 0
+    const lastWeekly = await queryOne<{ last_date: string }>(`
+      SELECT TO_CHAR(MAX(created_at), 'YYYY-MM-DD') as last_date 
+      FROM ai_theories WHERE category = 'wekelijks_inzicht'
+    `)
+    const weekAgo = new Date(Date.now() - 6 * 24 * 3600000).toISOString().slice(0, 10)
+
+    if (isSunday && (!lastWeekly?.last_date || lastWeekly.last_date < weekAgo)) {
+      const weeklyRes = await runWeeklyPatternAnalysis()
+      results.weeklyAnalysis = weeklyRes
+    }
+  } catch (err) {
+    console.error('[Pulse] Weekly analysis error:', err)
+  }
+
+  // 5. Send Pending Question (if no proactive message was sent and we have a high-prio question)
+  if (!results.proactive || !(results.proactive as any).telegramSent) {
+    try {
+      const pendingQ = await queryOne<{ id: number; question: string; rationale: string; source_module: string }>(`
+        SELECT id, question, rationale, source_module FROM pending_questions
+        WHERE status = 'pending'
+        ORDER BY priority DESC, created_at DESC LIMIT 1
+      `)
+
+      const chatId = process.env.TELEGRAM_CHAT_ID
+      if (pendingQ && chatId) {
+        await sendTelegramMessage(chatId, `🧠 *Pattern Brain Vraag*\n\n${pendingQ.question}`, {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '📔 Beantwoord', callback_data: `pattern_q_reply:${pendingQ.id}` },
+              { text: '⏩ Sla over', callback_data: `pattern_q_dismiss:${pendingQ.id}` },
+            ]]
+          }
+        })
+        await execute(`UPDATE pending_questions SET status = 'sent', sent_at = NOW() WHERE id = $1`, [pendingQ.id])
+        results.questionSent = { id: pendingQ.id }
+      }
+    } catch (err) {
+      console.error('[Pulse] Question delivery error:', err)
+    }
   }
 
   // Update AI theories every 6 hours (check last update time)

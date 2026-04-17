@@ -472,7 +472,7 @@ export async function runWeeklyPatternAnalysis(): Promise<WeeklyAnalysisResult> 
   const lastMap = new Map(lastWeek.map(r => [`${r.module}:${r.metric_key}`, r.avg_value]))
 
   const changes: string[] = []
-  for (const [key, thisVal] of thisMap.entries()) {
+  for (const [key, thisVal] of Array.from(thisMap.entries())) {
     const lastVal = lastMap.get(key)
     if (lastVal == null || lastVal === 0) continue
     const pct = ((thisVal - lastVal) / lastVal) * 100
@@ -554,8 +554,8 @@ function buildAnalysisContext(
       if (!byModule.has(k)) byModule.set(k, [])
       byModule.get(k)!.push({ date: o.obs_date, key: o.metric_key, val: o.metric_value })
     }
-    for (const [mod, rows] of byModule.entries()) {
-      const summary = rows.slice(0, 8).map(r => `${r.date} ${r.key}=${r.val?.toFixed(1)}`).join(', ')
+    for (const [mod, rows] of Array.from(byModule.entries())) {
+      const summary = rows.slice(0, 8).map((r: any) => `${r.date} ${r.key}=${r.val?.toFixed(1)}`).join(', ')
       parts.push(`[${mod.toUpperCase()}] ${summary}`)
     }
   }
@@ -576,10 +576,10 @@ function buildAnalysisContext(
       if (!merchantMap.has(key)) merchantMap.set(key, [])
       merchantMap.get(key)!.push(f.amount)
     }
-    const topMerchants = [...merchantMap.entries()]
+    const topMerchants = Array.from(merchantMap.entries())
       .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 8)
-      .map(([name, amounts]) => `${name}: ${amounts.length}x (gem €${(amounts.reduce((a, b) => a + b) / amounts.length).toFixed(0)})`)
+      .map(([name, amounts]) => `${name}: ${amounts.length}x (gem €${(amounts.reduce((a: number, b: number) => a + b) / amounts.length).toFixed(0)})`)
     parts.push('[FINANCIËN]\n' + topMerchants.join('\n'))
   }
 
@@ -597,7 +597,7 @@ function buildAnalysisContext(
     for (const h of habitLogs) {
       habitMap.set(h.habit_name, (habitMap.get(h.habit_name) ?? 0) + 1)
     }
-    const hLines = [...habitMap.entries()].map(([name, count]) => `${name}: ${count}x`)
+    const hLines = Array.from(habitMap.entries()).map(([name, count]) => `${name}: ${count}x`)
     parts.push('[GEWOONTES]\n' + hLines.join('\n'))
   }
 
