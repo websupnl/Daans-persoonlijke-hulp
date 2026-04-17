@@ -29,6 +29,8 @@ export interface LifeSnapshot {
   daysSinceLastFinanceEntry: number
   monthIncomeTotal: number
   monthExpenseTotal: number
+  vagueFinanceCount: number
+  vagueFinanceExamples: Array<{ title: string; amount: number; date: string }>
   detailedAnomalies: FinanceAnomaly[]
 
   // Journal
@@ -78,6 +80,7 @@ export type AnomalyType =
   | 'stale_todo'
   | 'open_invoices_aging'
   | 'finance_anomaly'
+  | 'vague_finance_items'
 
 export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
   const now = new Date()
@@ -120,9 +123,19 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
       LIMIT 5
     `),
 
-    // Finance stats this month
-    query<{ type: string; total: string; count: string }>(`
-      SELECT type, SUM(amount) as total, COUNT(*) as count
+    // Finance stats this month + vague items count
+    query<{ type: string; total: string; count: string; vague_count: string; vague_examples: string }>(`
+      SELECT 
+        type, 
+        SUM(amount) as total, 
+        COUNT(*) as count,
+        (SELECT COUNT(*) FROM finance_items WHERE needs_review = 1 OR category = 'overig' OR personal_business = 'unknown') as vague_count,
+        (SELECT JSON_AGG(sub) FROM (
+           SELECT title, amount, TO_CHAR(created_at, 'YYYY-MM-DD') as date 
+           FROM finance_items 
+           WHERE needs_review = 1 OR category = 'overig' OR personal_business = 'unknown'
+           ORDER BY created_at DESC LIMIT 3
+         ) sub) as vague_examples
       FROM finance_items
       WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)
       GROUP BY type
@@ -236,9 +249,23 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
 
   let monthIncomeTotal = 0
   let monthExpenseTotal = 0
-  for (const row of financeStats) {
-    if (row.type === 'inkomst') monthIncomeTotal = parseFloat(String(row.total ?? '0'))
-    if (row.type === 'uitgave') monthExpenseTotal = parseFloat(String(row.total ?? '0'))
+  let vagueFinanceCount = 0
+  let vagueFinanceExamples: Array<{ title: string; amount: number; date: string }> = []
+  if (financeStats.length > 0) {
+    vagueFinanceCount = parseInt(financeStats[0].vague_count || '0', 10)
+    try {
+      vagueFinanceExamples = financeStats[0].vague_examples 
+        ? (typeof financeStats[0].vague_examples === 'string' 
+            ? JSON.parse(financeStats[0].vague_examples) 
+            : financeStats[0].vague_examples) 
+        : []
+    } catch {
+      vagueFinanceExamples = []
+    }
+    for (const row of financeStats) {
+      if (row.type === 'inkomst') monthIncomeTotal = parseFloat(String(row.total ?? '0'))
+      if (row.type === 'uitgave') monthExpenseTotal = parseFloat(String(row.total ?? '0'))
+    }
   }
 
   // Process journal data
@@ -309,6 +336,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     oldestPendingInboxHours,
     totalWorkMinutesToday,
     detailedAnomalies: financeAnalysis?.anomalies ?? [],
+    vagueFinanceCount,
   })
 
   return {
@@ -326,6 +354,8 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     daysSinceLastFinanceEntry,
     monthIncomeTotal,
     monthExpenseTotal,
+    vagueFinanceCount,
+    vagueFinanceExamples,
     detailedAnomalies: financeAnalysis?.anomalies ?? [],
     daysSinceLastJournal,
     lastSevenMoods,
@@ -364,6 +394,7 @@ interface AnomalyInput {
   oldestPendingInboxHours: number | null
   totalWorkMinutesToday: number
   detailedAnomalies: FinanceAnomaly[]
+  vagueFinanceCount: number
 }
 
 function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
@@ -371,6 +402,16 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
 
   // No nudges between 23:00 and 08:00
   if (s.hourOfDay >= 23 || s.hourOfDay < 8) return []
+
+  // Vague finance items
+  if (s.vagueFinanceCount >= 3) {
+    flags.push({
+      type: 'vague_finance_items',
+      severity: s.vagueFinanceCount >= 8 ? 'medium' : 'low',
+      detail: `${s.vagueFinanceCount} transacties missen nog details of categorie`,
+      nudgeTopic: 'finance_vague_items',
+    })
+  }
 
   // Finance detailed anomalies
   if (s.detailedAnomalies.length > 0) {
@@ -492,7 +533,7 @@ export function formatSnapshotForPrompt(snap: LifeSnapshot): string {
   const lines: string[] = [
     `=== LIFE SNAPSHOT (${snap.generatedAt.slice(0, 16)}) ===`,
     `Taken: ${snap.openTodosCount} open, ${snap.overdueTodosCount} achterstallig, ${snap.highPriorityOpen} hoog-prio`,
-    `Financiën: €${Math.round(snap.monthIncomeTotal)} inkomsten / €${Math.round(snap.monthExpenseTotal)} uitgaven deze maand | ${snap.openInvoicesCount} facturen open (€${Math.round(snap.openInvoicesTotal)}) | laatste invoer: ${snap.daysSinceLastFinanceEntry}d geleden`,
+    `Financiën: €${Math.round(snap.monthIncomeTotal)} inkomsten / €${Math.round(snap.monthExpenseTotal)} uitgaven deze maand | ${snap.openInvoicesCount} facturen open (€${Math.round(snap.openInvoicesTotal)}) | ${snap.vagueFinanceCount} onduidelijke items | laatste invoer: ${snap.daysSinceLastFinanceEntry}d geleden`,
     `Dagboek: laatste entry ${snap.daysSinceLastJournal}d geleden | gem. stemming 7d: ${snap.avgMood7Days ?? 'onbekend'}/5 | keywords: ${snap.journalKeywords.slice(0, 5).join(', ') || 'geen'}`,
     `Gewoontes: ${Math.round(snap.habitCompletionRate7Days * 100)}% completie 7d | max achtereenvolgende missers: ${snap.missedHabitsConsecutive}`,
     `Inbox: ${snap.pendingInboxCount} onverwerkt`,
@@ -503,6 +544,11 @@ export function formatSnapshotForPrompt(snap: LifeSnapshot): string {
   if (snap.detailedAnomalies.length > 0) {
     lines.push(`Financiële uitschieters:`)
     snap.detailedAnomalies.forEach(a => lines.push(`  - ${a.date}: ${a.title} €${a.amount} (${a.reason})`))
+  }
+
+  if (snap.vagueFinanceExamples.length > 0) {
+    lines.push(`Onduidelijke transacties:`)
+    snap.vagueFinanceExamples.forEach(e => lines.push(`  - ${e.date}: ${e.title} €${e.amount}`))
   }
 
   if (snap.topTheories.length > 0) {

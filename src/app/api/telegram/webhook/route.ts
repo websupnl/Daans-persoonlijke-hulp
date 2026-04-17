@@ -43,9 +43,9 @@ export async function POST(request: NextRequest) {
 
   try {
     if (update.callback_query) {
-      await handleCallbackQuery(update)
+      handleCallbackQuery(update).catch(err => console.error('[Telegram webhook] Callback processing error:', err))
     } else {
-      await handleUpdate(update)
+      handleUpdate(update).catch(err => console.error('[Telegram webhook] Update processing error:', err))
     }
   } catch (err) {
     console.error('[Telegram webhook] Processing error:', err)
