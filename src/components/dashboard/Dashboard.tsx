@@ -5,6 +5,7 @@ import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkle
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
 import IntelligenceModule from './IntelligenceModule'
+import { StatsCard, LightCard, CompactListItem, ProgressIndicator } from '@/components/ui/DesignSystem'
 
 interface PlanningData {
   type: string
@@ -148,219 +149,178 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10">
-        <StatCard
-          href="/todos"
-          icon={<CheckSquare size={18} />}
-          label="Open todos"
+      {/* Stat cards - nieuw lightweight design */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatsCard
+          title="Open Todos"
           value={stats?.todos.open ?? 0}
-          sub={stats?.todos.overdue ? `${stats.todos.overdue} te laat` : stats?.todos.dueToday ? `${stats.todos.dueToday} vandaag` : 'Alles op schema'}
-          alert={!!stats?.todos.overdue}
+          subtitle={stats?.todos.overdue ? `${stats.todos.overdue} te laat` : stats?.todos.dueToday ? `${stats.todos.dueToday} vandaag` : 'Alles op schema'}
+          icon={<CheckSquare size={18} />}
+          trend={stats?.todos.overdue ? 'down' : 'neutral'}
         />
-        <StatCard
-          href="/finance"
-          icon={<TrendingUp size={18} />}
-          label="Netto deze maand"
+        <StatsCard
+          title="Netto Maand"
           value={formatCurrency(Math.abs(net))}
-          sub={net >= 0 ? 'positief saldo' : 'negatief saldo'}
-          alert={net < 0}
-          prefix={net >= 0 ? '+' : '-'}
+          subtitle={net >= 0 ? 'positief saldo' : 'negatief saldo'}
+          icon={<TrendingUp size={18} />}
+          trend={net >= 0 ? 'up' : 'down'}
         />
-        <StatCard
-          href="/notes"
-          icon={<FileText size={18} />}
-          label="Notes"
+        <StatsCard
+          title="Notes"
           value={stats?.notes.total ?? 0}
-          sub="in kennisbank"
+          subtitle="in kennisbank"
+          icon={<FileText size={18} />}
         />
-        <StatCard
-          href="/habits"
-          icon={<Activity size={18} />}
-          label="Gewoontes"
+        <StatsCard
+          title="Gewoontes"
           value={`${stats?.habits.completedToday ?? 0}/${stats?.habits.total ?? 0}`}
-          sub="vandaag gedaan"
-          alert={(stats?.habits.completedToday ?? 0) < (stats?.habits.total ?? 0) && new Date().getHours() >= 20}
+          subtitle="vandaag gedaan"
+          icon={<Activity size={18} />}
+          trend={(stats?.habits.completedToday ?? 0) < (stats?.habits.total ?? 0) && new Date().getHours() >= 20 ? 'down' : 'neutral'}
         />
-        <StatCard
-          href="/worklogs"
-          icon={<Clock size={18} />}
-          label="Werklog vandaag"
+      </div>
+
+      {/* Second row stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        <StatsCard
+          title="Werklog Vandaag"
           value={todayMinutes >= 60 ? `${Math.floor(todayMinutes / 60)}u ${todayMinutes % 60}m` : `${todayMinutes}m`}
-          sub="gelogd vandaag"
+          subtitle="gelogd vandaag"
+          icon={<Clock size={18} />}
         />
-        <StatCard
-          href="/inbox"
-          icon={<Inbox size={18} />}
-          label="Inbox"
+        <StatsCard
+          title="Inbox"
           value={inboxCount}
-          sub={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
-          alert={inboxCount > 0}
+          subtitle={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
+          icon={<Inbox size={18} />}
+          trend={inboxCount > 0 ? 'down' : 'neutral'}
         />
-        <StatCard
-          href="/groceries"
-          icon={<ShoppingCart size={18} />}
-          label="Boodschappen"
+        <StatsCard
+          title="Boodschappen"
           value={stats?.groceries.total ?? 0}
-          sub="items op lijst"
+          subtitle="items op lijst"
+          icon={<ShoppingCart size={18} />}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Urgent todos */}
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+        {/* Urgent todos - lightweight design */}
+        <LightCard className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
               <Clock size={16} className="text-pink-500" />
-              Urgent &amp; Vandaag
+              Urgent & Vandaag
             </h2>
-            <Link href="/todos" className="text-xs font-semibold text-pink-500 hover:opacity-70 transition-opacity">
+            <Link href="/todos" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">
               Alle todos →
             </Link>
           </div>
           <div className="space-y-1">
             {!data?.urgentTodos?.length ? (
-              <div className="text-center py-12">
-                <p className="text-gray-400 text-sm font-medium">Niets urgent — lekker bezig! 🎉</p>
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm font-medium">Niets urgent — lekker bezig! 🎉</p>
               </div>
             ) : (
               data.urgentTodos.map(todo => (
-                <div key={todo.id} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-gray-50 transition-colors group">
-                  <span className={cn('w-2 h-2 rounded-full mt-2 flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
+                <CompactListItem 
+                  key={todo.id} 
+                  hover={true}
+                  onClick={() => window.location.href = `/todos`}
+                >
+                  <span className={cn('w-2 h-2 rounded-full flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 font-bold truncate">{todo.title}</p>
+                    <p className="text-sm text-gray-700 font-medium truncate">{todo.title}</p>
                     {todo.due_date && (
-                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-400 font-bold' : 'text-gray-400')}>
+                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-500 font-medium' : 'text-gray-500')}>
                         {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
                       </p>
                     )}
                   </div>
                   {todo.project_title && (
-                    <span className="text-[10px] px-2.5 py-1 rounded-full font-bold" style={{ background: (todo.project_color ?? '#888') + '15', color: todo.project_color ?? '#888' }}>
+                    <span className="text-[10px] px-2 py-1 rounded-md font-medium" style={{ background: (todo.project_color ?? '#888') + '15', color: todo.project_color ?? '#888' }}>
                       {todo.project_title}
                     </span>
                   )}
-                </div>
+                </CompactListItem>
               ))
             )}
           </div>
-        </div>
+        </LightCard>
 
         {/* Right column */}
         <div className="space-y-6">
           <IntelligenceModule />
-          {/* Finance summary */}
+          {/* Finance summary - lightweight */}
           {data && (
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+            <LightCard>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                   <TrendingUp size={16} className="text-emerald-500" />
                   Financiën
                 </h2>
-                <Link href="/finance" className="text-xs font-semibold text-emerald-500 hover:opacity-70 transition-opacity">Overzicht →</Link>
+                <Link href="/finance" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">Overzicht →</Link>
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-gray-400">Inkomsten</span>
+                  <span className="text-sm font-medium text-gray-600">Inkomsten</span>
                   <span className="text-sm font-bold text-emerald-600">+{formatCurrency(data.stats.finance.monthIncome)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-gray-400">Uitgaven</span>
+                  <span className="text-sm font-medium text-gray-600">Uitgaven</span>
                   <span className="text-sm font-bold text-red-500">-{formatCurrency(data.stats.finance.monthExpenses)}</span>
                 </div>
-                <div className="border-t border-gray-50 pt-3 flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-500">Netto</span>
-                  <span className={cn('text-sm font-extrabold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-700">Netto</span>
+                  <span className={cn('text-sm font-bold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
                     {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
                   </span>
                 </div>
-
-                {/* Recent transactions */}
-                {data.recentFinance && data.recentFinance.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-50">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Recente transacties</p>
-                    <div className="space-y-3">
-                      {data.recentFinance.map(f => (
-                        <div key={f.id} className="flex justify-between items-center group">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-gray-600 truncate">{f.title}</p>
-                            <p className="text-[10px] text-gray-400 capitalize">{f.category}</p>
-                          </div>
-                          <span className={cn('text-xs font-bold ml-2', f.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
-                            {f.type === 'inkomst' ? '+' : '-'}{formatCurrency(f.amount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
+            </LightCard>
           )}
 
-          {/* Planning widget */}
+          {/* Planning widget - lightweight */}
           {planning && (
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+            <LightCard>
               <div className="flex items-center gap-2 mb-4">
                 <Zap size={16} className="text-violet-500" />
                 <h2 className="text-base font-bold text-gray-800">Dagplanning</h2>
               </div>
-              <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{planning.recommendation.replace(/\*\*/g, '')}</p>
-            </div>
+              <p className="text-sm text-gray-600 leading-relaxed">{planning.recommendation.replace(/\*\*/g, '')}</p>
+            </LightCard>
           )}
 
-          {/* Recente notes */}
-          <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+          {/* Recente notes - lightweight */}
+          <LightCard>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                 <FileText size={16} className="text-blue-500" />
-                Recente notes
+                Recente Notes
               </h2>
-              <Link href="/notes" className="text-xs font-semibold text-blue-500 hover:opacity-70 transition-opacity">Alle →</Link>
+              <Link href="/notes" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">Alle →</Link>
             </div>
             {!data?.recentNotes?.length ? (
-              <p className="text-gray-400 text-xs text-center py-4">Nog geen notes</p>
+              <p className="text-gray-500 text-sm text-center py-4">Nog geen notes</p>
             ) : (
               <div className="space-y-1">
                 {data.recentNotes.map(note => (
-                  <Link key={note.id} href={`/notes/${note.id}`} className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-gray-50 transition-colors group">
-                    <div className="w-6 h-6 rounded-lg bg-blue-50 flex items-center justify-center text-blue-400 group-hover:bg-blue-100 transition-colors">
+                  <CompactListItem 
+                    key={note.id} 
+                    hover={true}
+                    onClick={() => window.location.href = `/notes/${note.id}`}
+                  >
+                    <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-600">
                       <FileText size={12} />
                     </div>
-                    <span className="text-xs text-gray-600 font-bold truncate group-hover:text-blue-500 transition-colors">{note.title}</span>
-                  </Link>
+                    <span className="text-sm text-gray-700 font-medium truncate">{note.title}</span>
+                  </CompactListItem>
                 ))}
               </div>
             )}
-          </div>
+          </LightCard>
         </div>
       </div>
     </div>
   )
 }
 
-function StatCard({
-  href, icon, label, value, sub, alert = false, prefix,
-}: {
-  href: string
-  icon: React.ReactNode
-  label: string
-  value: string | number
-  sub: string
-  alert?: boolean
-  prefix?: string
-}) {
-  return (
-    <Link href={href} className="bg-white rounded-3xl border border-gray-100 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all block group">
-      <div
-        className="w-10 h-10 rounded-2xl flex items-center justify-center mb-4 text-white shadow-sm group-hover:scale-110 transition-transform"
-        style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
-      >
-        {icon}
-      </div>
-      <p className="text-2xl sm:text-3xl font-extrabold text-gradient leading-none mb-1">{prefix}{value}</p>
-      <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{label}</p>
-      <p className={cn('text-xs mt-2 font-medium', alert ? 'text-red-400' : 'text-gray-400')}>{sub}</p>
-    </Link>
-  )
-}

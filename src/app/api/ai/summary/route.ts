@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { getCachedSummary, setCachedSummary } from '@/lib/ai/cache'
 
 export async function POST(req: NextRequest) {
   let body: { type: string }
@@ -24,6 +25,13 @@ export async function POST(req: NextRequest) {
   }
 
   const { type } = body
+  
+  // Check cache eerst om AI tokens te besparen
+  const cachedSummary = getCachedSummary(type)
+  if (cachedSummary) {
+    return NextResponse.json({ summary: cachedSummary })
+  }
+  
   let contextData = ''
 
   try {
@@ -185,6 +193,12 @@ Gebruik geen markdown.`,
     })
 
     const summary = completion.choices[0]?.message?.content?.trim() ?? null
+    
+    // Sla op in cache voor toekomstig gebruik
+    if (summary) {
+      setCachedSummary(type, summary)
+    }
+    
     return NextResponse.json({ summary })
   } catch (err) {
     console.error('[ai/summary] Error:', err)
