@@ -214,7 +214,7 @@ class UnifiedSessionManager {
         WHERE session_id = $${paramIndex}
       `, updateValues)
 
-      await chatLogger.logPhase(correlationId, 'session_update', {
+      await correlationTracker.logPhase(correlationId, 'session_update', {
         sessionId: session.sessionId,
         updates: Object.keys(updates)
       })
@@ -287,7 +287,7 @@ class UnifiedSessionManager {
         WHERE expires_at <= NOW()
       `)
       
-      return result.rowCount || 0
+      return result || 0
     } catch (err) {
       console.error('[UnifiedSessionManager] Failed to cleanup expired sessions:', err)
       return 0
