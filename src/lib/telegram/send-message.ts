@@ -110,10 +110,17 @@ export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; des
   const token = getToken()
   const url = `${TELEGRAM_API}/bot${token}/setWebhook`
 
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  const body: any = { url: webhookUrl }
+  
+  if (webhookSecret) {
+    body.secret_token = webhookSecret
+  }
+
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: webhookUrl }),
+    body: JSON.stringify(body),
   })
 
   return res.json() as Promise<{ ok: boolean; description?: string }>
