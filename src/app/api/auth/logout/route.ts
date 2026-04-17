@@ -3,10 +3,10 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 
 import {
-  getLogoutCookieOptions,
   getSessionTokenFromRequest,
   hasAllowedOrigin,
   invalidateSessionByToken,
+  getLogoutCookieOptions,
 } from '@/lib/auth/session-store'
 
 export async function POST(request: NextRequest) {

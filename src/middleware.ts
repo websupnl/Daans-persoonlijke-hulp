@@ -12,6 +12,7 @@ const PUBLIC_PAGE_PATHS = new Set(['/login'])
 const PUBLIC_API_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/auth/unlock',
   '/api/telegram/webhook',
 ])
 const ALT_AUTH_API_PATHS = new Set([

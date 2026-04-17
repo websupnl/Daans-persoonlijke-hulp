@@ -8,21 +8,26 @@ import { verifyPassword } from '@/lib/auth/password'
 import { getSafeRedirectPath } from '@/lib/auth/request-session'
 import {
   clearFailedLogins,
+  createTrustedDevice,
   createSession,
   getClientIp,
   getLoginThrottle,
   getLogoutCookieOptions,
   getSessionCookieOptions,
   getSessionTokenFromRequest,
+  getTrustedDeviceCookieOptions,
+  getTrustedDeviceTokenFromRequest,
   getUserAgent,
   hasAllowedOrigin,
   invalidateSessionByToken,
+  invalidateTrustedDeviceByToken,
   recordFailedLogin,
 } from '@/lib/auth/session-store'
 
 const loginSchema = z.object({
   password: z.string().min(1).max(512),
   next: z.string().max(2048).optional(),
+  trustDevice: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -57,6 +62,9 @@ export async function POST(request: NextRequest) {
   }
 
   await invalidateSessionByToken(getSessionTokenFromRequest(request))
+  if (body.trustDevice) {
+    await invalidateTrustedDeviceByToken(getTrustedDeviceTokenFromRequest(request))
+  }
 
   const session = await createSession({
     ipAddress,
@@ -79,6 +87,19 @@ export async function POST(request: NextRequest) {
     value: session.token,
     expires: session.absoluteExpiresAt,
   })
+
+  if (body.trustDevice) {
+    const trustedDevice = await createTrustedDevice({
+      ipAddress,
+      userAgent: getUserAgent(request),
+      label: 'Eigen browser',
+    })
+    response.cookies.set({
+      ...getTrustedDeviceCookieOptions(request),
+      value: trustedDevice.token,
+      expires: trustedDevice.expiresAt,
+    })
+  }
 
   return response
 }

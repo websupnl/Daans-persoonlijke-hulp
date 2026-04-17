@@ -7,9 +7,12 @@ import {
   AUTH_IDLE_TIMEOUT_MINUTES,
   AUTH_LOGIN_MAX_ATTEMPTS,
   AUTH_LOGIN_WINDOW_MINUTES,
+  AUTH_TRUSTED_DEVICE_DAYS,
   AUTH_TOUCH_INTERVAL_SECONDS,
   getAllAuthCookieNames,
+  getAllTrustedDeviceCookieNames,
   getAuthCookieName,
+  getTrustedDeviceCookieName,
   isProduction,
 } from './config'
 
@@ -35,6 +38,17 @@ type AttemptRow = {
   first_attempt_at: string
   last_attempt_at: string
   blocked_until: string | null
+}
+
+type TrustedDeviceRow = {
+  id: number
+  token_hash: string
+  created_at: string
+  expires_at: string
+  revoked_at: string | null
+  ip_address: string | null
+  user_agent: string | null
+  label: string | null
 }
 
 export type AuthSession = {
@@ -83,6 +97,17 @@ async function ensureAuthSchema() {
       last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       blocked_until TIMESTAMPTZ
     );
+
+    CREATE TABLE IF NOT EXISTS auth_trusted_devices (
+      id SERIAL PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      ip_address TEXT,
+      user_agent TEXT,
+      label TEXT
+    );
   `)
   authSchemaReady = true
 }
@@ -124,6 +149,14 @@ export function getSessionTokenFromRequest(request: NextRequest): string | null 
   return null
 }
 
+export function getTrustedDeviceTokenFromRequest(request: NextRequest): string | null {
+  for (const cookieName of getAllTrustedDeviceCookieNames()) {
+    const token = request.cookies.get(cookieName)?.value
+    if (token) return token
+  }
+  return null
+}
+
 export function getSessionCookieOptions(_request?: NextRequest) {
   const secure = isProduction()
   return {
@@ -139,6 +172,32 @@ export function getSessionCookieOptions(_request?: NextRequest) {
 export function getLogoutCookieOptions(_request?: NextRequest) {
   const secure = isProduction()
   return getAllAuthCookieNames().map((name) => ({
+    name,
+    value: '',
+    httpOnly: true,
+    secure: name.startsWith('__Host-') ? true : secure,
+    sameSite: 'strict' as const,
+    path: '/',
+    expires: new Date(0),
+    maxAge: 0,
+  }))
+}
+
+export function getTrustedDeviceCookieOptions(_request?: NextRequest) {
+  const secure = isProduction()
+  return {
+    name: getTrustedDeviceCookieName(secure),
+    httpOnly: true,
+    secure,
+    sameSite: 'strict' as const,
+    path: '/',
+    maxAge: AUTH_TRUSTED_DEVICE_DAYS * 24 * 60 * 60,
+  }
+}
+
+export function getTrustedDeviceClearCookieOptions(_request?: NextRequest) {
+  const secure = isProduction()
+  return getAllTrustedDeviceCookieNames().map((name) => ({
     name,
     value: '',
     httpOnly: true,
@@ -171,11 +230,36 @@ export async function createSession(args: { ipAddress: string; userAgent: string
   }
 }
 
+export async function createTrustedDevice(args: { ipAddress: string; userAgent: string; label?: string | null }) {
+  await ensureAuthSchema()
+
+  const token = getRandomToken()
+  const tokenHash = await hashToken(token)
+  const expiresAt = addHours(new Date(), AUTH_TRUSTED_DEVICE_DAYS * 24)
+
+  await pool.query(`
+    INSERT INTO auth_trusted_devices (token_hash, expires_at, ip_address, user_agent, label)
+    VALUES ($1, $2, $3, $4, $5)
+  `, [tokenHash, expiresAt.toISOString(), args.ipAddress, args.userAgent, args.label ?? null])
+
+  return {
+    token,
+    expiresAt,
+  }
+}
+
 export async function invalidateSessionByToken(token: string | null) {
   if (!token) return
   await ensureAuthSchema()
   const tokenHash = await hashToken(token)
   await pool.query('DELETE FROM auth_sessions WHERE token_hash = $1', [tokenHash])
+}
+
+export async function invalidateTrustedDeviceByToken(token: string | null) {
+  if (!token) return
+  await ensureAuthSchema()
+  const tokenHash = await hashToken(token)
+  await pool.query('DELETE FROM auth_trusted_devices WHERE token_hash = $1', [tokenHash])
 }
 
 export async function validateSessionToken(token: string | null, options?: { touch?: boolean }): Promise<AuthSession | null> {
@@ -218,6 +302,41 @@ export async function validateSessionToken(token: string | null, options?: { tou
   }
 
   return mapSession(row)
+}
+
+export async function validateTrustedDeviceToken(
+  token: string | null,
+  requestContext?: { userAgent?: string; ipAddress?: string }
+): Promise<{ id: number; expiresAt: string } | null> {
+  if (!token) return null
+  await ensureAuthSchema()
+
+  const tokenHash = await hashToken(token)
+  const result = await pool.query<TrustedDeviceRow>(`
+    SELECT *
+    FROM auth_trusted_devices
+    WHERE token_hash = $1 AND revoked_at IS NULL
+    LIMIT 1
+  `, [tokenHash])
+
+  const row = result.rows[0]
+  if (!row) return null
+
+  const now = new Date()
+  const expiresAt = new Date(row.expires_at)
+  if (expiresAt <= now) {
+    await pool.query('DELETE FROM auth_trusted_devices WHERE token_hash = $1', [tokenHash])
+    return null
+  }
+
+  if (requestContext?.userAgent && row.user_agent && requestContext.userAgent !== row.user_agent) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    expiresAt: row.expires_at,
+  }
 }
 
 function getAttemptKey(ipAddress: string) {

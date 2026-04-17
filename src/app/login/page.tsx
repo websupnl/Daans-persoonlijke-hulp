@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 
 import LoginForm from '@/components/auth/LoginForm'
 import { getSafeRedirectPath } from '@/lib/auth/request-session'
-import { getCurrentSession } from '@/lib/auth/server'
+import { getCurrentSession, hasTrustedDeviceCookie } from '@/lib/auth/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#ffe2d1,transparent_35%),linear-gradient(180deg,#fff7f7_0%,#ffffff_45%,#f8fafc_100%)] px-6 py-12">
-      <LoginForm />
+      <LoginForm hasQuickUnlock={hasTrustedDeviceCookie()} />
     </main>
   )
 }

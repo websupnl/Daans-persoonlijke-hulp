@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LockKeyhole } from 'lucide-react'
+import { KeyRound, LockKeyhole } from 'lucide-react'
 
 function getSafeNextPath(value: string | null): string {
   if (!value) return '/'
@@ -11,27 +11,36 @@ function getSafeNextPath(value: string | null): string {
   return value
 }
 
-export default function LoginForm() {
+export default function LoginForm({ hasQuickUnlock = false }: { hasQuickUnlock?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = useMemo(() => getSafeNextPath(searchParams.get('next')), [searchParams])
 
   const [password, setPassword] = useState('')
+  const [pin, setPin] = useState('')
+  const [trustDevice, setTrustDevice] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'password' | 'pin'>(hasQuickUnlock ? 'pin' : 'password')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!password || loading) return
+    if (loading) return
+    if (mode === 'password' && !password) return
+    if (mode === 'pin' && !pin) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(mode === 'pin' ? '/api/auth/unlock' : '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, next: nextPath }),
+        body: JSON.stringify(
+          mode === 'pin'
+            ? { pin, next: nextPath }
+            : { password, next: nextPath, trustDevice }
+        ),
       })
 
       const data = await response.json().catch(() => ({}))
@@ -62,19 +71,83 @@ export default function LoginForm() {
         </p>
       </div>
 
-      <label className="mb-3 block text-sm font-semibold text-gray-700" htmlFor="password">
-        Wachtwoord
-      </label>
-      <input
-        id="password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        className="mb-4 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition-colors focus:border-pink-300 focus:ring-4 focus:ring-pink-100"
-        placeholder="Voer je wachtwoord in"
-        disabled={loading}
-      />
+      {hasQuickUnlock && (
+        <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('pin')
+              setError(null)
+            }}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${mode === 'pin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            Pincode
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('password')
+              setError(null)
+            }}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${mode === 'password' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            Wachtwoord
+          </button>
+        </div>
+      )}
+
+      {mode === 'password' ? (
+        <>
+          <label className="mb-3 block text-sm font-semibold text-gray-700" htmlFor="password">
+            Wachtwoord
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="mb-4 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition-colors focus:border-pink-300 focus:ring-4 focus:ring-pink-100"
+            placeholder="Voer je wachtwoord in"
+            disabled={loading}
+          />
+
+          <label className="mb-5 flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={trustDevice}
+              onChange={(event) => setTrustDevice(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-pink-500 focus:ring-pink-400"
+            />
+            <span className="text-sm text-gray-600">
+              Vertrouw deze browser zodat je hier later met pincode kunt ontgrendelen.
+            </span>
+          </label>
+        </>
+      ) : (
+        <>
+          <label className="mb-3 block text-sm font-semibold text-gray-700" htmlFor="pin">
+            Pincode
+          </label>
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 focus-within:border-pink-300 focus-within:ring-4 focus-within:ring-pink-100">
+            <KeyRound size={18} className="text-gray-400" />
+            <input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={pin}
+              onChange={(event) => setPin(event.target.value)}
+              className="w-full bg-transparent text-gray-900 outline-none"
+              placeholder="Voer je pincode in"
+              disabled={loading}
+            />
+          </div>
+          <p className="mb-5 text-sm text-gray-500">
+            Alleen beschikbaar op een eerder vertrouwde browser.
+          </p>
+        </>
+      )}
 
       {error && (
         <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -84,11 +157,11 @@ export default function LoginForm() {
 
       <button
         type="submit"
-        disabled={loading || !password}
+        disabled={loading || (mode === 'password' ? !password : !pin)}
         className="w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
         style={{ background: 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)' }}
       >
-        {loading ? 'Bezig met inloggen...' : 'Inloggen'}
+        {loading ? 'Bezig...' : mode === 'pin' ? 'Ontgrendelen met pincode' : 'Inloggen'}
       </button>
     </form>
   )

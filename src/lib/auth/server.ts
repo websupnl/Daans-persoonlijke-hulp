@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-import { getAllAuthCookieNames } from './config'
+import { getAllAuthCookieNames, getAllTrustedDeviceCookieNames } from './config'
 import { validateSessionToken } from './session-store'
 
 export async function getCurrentSession(options?: { touch?: boolean }) {
@@ -14,4 +14,9 @@ export async function getCurrentSession(options?: { touch?: boolean }) {
   }
 
   return null
+}
+
+export function hasTrustedDeviceCookie(): boolean {
+  const cookieStore = cookies()
+  return getAllTrustedDeviceCookieNames().some((cookieName) => !!cookieStore.get(cookieName)?.value)
 }
