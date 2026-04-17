@@ -219,6 +219,7 @@ export async function POST() {
             created_at
      FROM finance_items
      WHERE type IN ('inkomst','uitgave')
+       AND COALESCE(due_date, created_at::date) <= CURRENT_DATE
      ORDER BY COALESCE(due_date, created_at::date) DESC
      LIMIT 2000`
   )).map(r => ({ ...r, created_at: new Date(r.created_at).toISOString() }))
@@ -246,7 +247,7 @@ export async function POST() {
     subscriptionsCost: Math.round(monthlySubCost),
     topSubscriptions: subscriptions.slice(0, 5).map(s => `${s.name} (${s.frequency}, €${Math.round(s.monthlyEquivalent)}/mnd)`),
     topMerchants: patterns.slice(0, 5).map(p => `${p.merchant}: €${Math.round(p.totalSpent)} (${p.visits}x)`),
-    last3Months: trends.slice(-3).map(t => `${t.month}: +€${t.income} -€${t.expenses} = €${t.net}`),
+    last3Months: trends.filter(t => t.month <= new Date().toISOString().slice(0, 7)).slice(-3).map(t => `${t.month}: +€${t.income} -€${t.expenses} = €${t.net}`),
     anomalyCount: anomalies.length,
   }
 
