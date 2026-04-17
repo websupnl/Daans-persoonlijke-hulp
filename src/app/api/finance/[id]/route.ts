@@ -18,10 +18,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const values: unknown[] = []
   let i = 1
 
+  const smallIntFields = ['fixed_cost_flag', 'essential_flag', 'user_verified', 'needs_review']
   for (const field of fields) {
     if (field in body) {
       updates.push(`${field} = $${i++}`)
-      values.push(body[field] ?? null)
+      let value = body[field] ?? null
+      if (smallIntFields.includes(field) && typeof value === 'boolean') {
+        value = value ? 1 : 0
+      }
+      values.push(value)
     }
   }
 

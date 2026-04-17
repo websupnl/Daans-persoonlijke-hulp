@@ -906,10 +906,10 @@ export async function upsertFinanceRule(input: FinanceRule): Promise<FinanceRule
     input.recurrence_type || null,
     input.subscription_override || null,
     input.personal_business || null,
-    input.fixed_cost_flag ?? null,
-    input.essential_flag ?? null,
+    input.fixed_cost_flag === null ? null : (input.fixed_cost_flag ? 1 : 0),
+    input.essential_flag === null ? null : (input.essential_flag ? 1 : 0),
     input.notes || null,
-    input.user_verified ?? true,
+    input.user_verified ?? true ? 1 : 0,
   ])
 
   const [saved] = await query<FinanceRule>(`

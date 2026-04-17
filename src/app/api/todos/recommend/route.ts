@@ -12,7 +12,7 @@ export async function GET() {
       `SELECT t.*, p.title as project_title 
        FROM todos t 
        LEFT JOIN projects p ON t.project_id = p.id 
-       WHERE t.completed = false 
+       WHERE t.completed = 0 
        ORDER BY t.priority DESC, t.due_date ASC NULLS LAST`
     )
 
