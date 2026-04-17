@@ -46,6 +46,7 @@ export interface FinanceRow {
   id: number
   type: 'inkomst' | 'uitgave'
   title: string
+  description?: string | null
   amount: number
   category: string
   account: string
@@ -103,6 +104,9 @@ export interface FinanceRecurringGroup {
   fixedCost: boolean
   essential: boolean
   reviewReason?: string
+  sampleDescription?: string | null
+  sampleMerchantRaw?: string | null
+  sampleUserNotes?: string | null
 }
 
 export interface FinancePattern {
@@ -112,6 +116,9 @@ export interface FinancePattern {
   avgAmount: number
   category: string
   confidenceLabel: FinanceConfidence
+  merchant_raw?: string | null
+  description?: string | null
+  user_notes?: string | null
 }
 
 export interface FinanceTrend {
@@ -130,6 +137,9 @@ export interface FinanceAnomaly {
   reason: string
   severity: 'low' | 'medium' | 'high'
   merchantKey?: string
+  merchant_raw?: string | null
+  description?: string | null
+  user_notes?: string | null
 }
 
 export interface FinanceReviewQuestion {
@@ -144,6 +154,9 @@ export interface FinanceReviewQuestion {
     label: string
     rulePatch: Partial<FinanceRule>
   }>
+  merchant_raw?: string | null
+  description?: string | null
+  user_notes?: string | null
 }
 
 export interface FinanceAnalysisResult {
@@ -538,6 +551,9 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
             reason: `${item.enrichment.merchantDisplay} ligt ${round2(ratio)}x boven je normale bedrag van circa €${round2(base).toFixed(2)}`,
             severity: ratio >= 2.5 ? 'high' : 'medium',
             merchantKey,
+            merchant_raw: item.row.merchant_raw,
+            description: item.row.description,
+            user_notes: item.row.user_notes,
           })
         }
       }
@@ -560,7 +576,10 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
         date: items[0].row.transaction_date,
         reason: `mogelijke dubbele boeking: ${items.length} keer zelfde merchant, datum en bedrag`,
         severity: 'low',
-        merchantKey,
+        merchantKey: merchantKey.split('_')[0],
+        merchant_raw: items[0].row.merchant_raw,
+        description: items[0].row.description,
+        user_notes: items[0].row.user_notes,
       })
     }
   }
@@ -577,12 +596,17 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
     const priorityBase = group.amountPerCharge >= 250 || (group.monthlyEquivalent || 0) >= 100 ? 90 : 60
 
     if (group.recurrenceType === 'uncertain_recurring_expense' || (group.merchantType === 'fuel_station' && !group.userVerified)) {
+      const displayContext = group.sampleDescription || group.sampleMerchantRaw || group.displayName
+      const displayLabel = displayContext.toLowerCase().includes(group.displayName.toLowerCase()) 
+        ? displayContext 
+        : `${group.displayName} (${displayContext})`
+
       if (group.merchantType === 'fuel_station') {
         questions.push({
           queueKey: `${group.merchantKey}:fuel-review`,
           merchantKey: group.merchantKey,
           merchantLabel: group.displayName,
-          prompt: `Ik zie meerdere betalingen aan ${group.displayName}. Is dit brandstof, een vaste mobiliteitslast of iets anders?`,
+          prompt: `Ik zie meerdere betalingen aan ${displayLabel}. Is dit brandstof, een vaste mobiliteitslast of iets anders?`,
           rationale: 'Deze merchant komt terug, maar brandstof mag niet automatisch als abonnement worden behandeld.',
           priority: priorityBase + 10,
           confidenceLabel: group.confidenceLabel,
@@ -591,13 +615,16 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
             { label: 'Markeer als vaste last', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, merchant_type: 'transport', category: 'mobiliteit', subcategory: 'mobiliteit', subscription_override: 'fixed_bill', fixed_cost_flag: true, user_verified: true } },
             { label: 'Geen abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', user_verified: true } },
           ],
+          merchant_raw: group.sampleMerchantRaw,
+          description: group.sampleDescription,
+          user_notes: group.sampleUserNotes,
         })
       } else {
         questions.push({
           queueKey: `${group.merchantKey}:recurrence-review`,
           merchantKey: group.merchantKey,
           merchantLabel: group.displayName,
-          prompt: `${group.displayName} lijkt terug te komen, maar ik ben nog niet zeker wat voor type uitgave dit is. Hoe wil je dit markeren?`,
+          prompt: `${displayLabel} lijkt terug te komen, maar ik ben nog niet zeker wat voor type uitgave dit is. Hoe wil je dit markeren?`,
           rationale: group.reviewReason || 'De frequentie of semantiek is nog te onzeker voor een harde classificatie.',
           priority: priorityBase,
           confidenceLabel: group.confidenceLabel,
@@ -606,16 +633,24 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
             { label: 'Abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'confirm', user_verified: true } },
             { label: 'Geen abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', user_verified: true } },
           ],
+          merchant_raw: group.sampleMerchantRaw,
+          description: group.sampleDescription,
+          user_notes: group.sampleUserNotes,
         })
       }
     }
 
     if (!group.userVerified && group.recurrenceType === 'fixed_recurring_bill' && group.amountPerCharge >= 250) {
+      const displayContext = group.sampleDescription || group.sampleMerchantRaw || group.displayName
+      const displayLabel = displayContext.toLowerCase().includes(group.displayName.toLowerCase()) 
+        ? displayContext 
+        : `${group.displayName} (${displayContext})`
+
       questions.push({
         queueKey: `${group.merchantKey}:fixed-bill-confirm`,
         merchantKey: group.merchantKey,
         merchantLabel: group.displayName,
-        prompt: `${group.displayName} lijkt een ${group.subcategory} die maandelijks terugkomt. Klopt dat?`,
+        prompt: `${displayLabel} lijkt een ${group.subcategory} die maandelijks terugkomt. Klopt dat?`,
         rationale: `Gebaseerd op ${group.explanation}.`,
         priority: priorityBase + 15,
         confidenceLabel: group.confidenceLabel,
@@ -624,17 +659,25 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
           { label: 'Alleen recurring', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, recurrence_type: 'recurring_transaction', user_verified: true } },
           { label: 'Geen recurring', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', fixed_cost_flag: false, user_verified: true } },
         ],
+        merchant_raw: group.sampleMerchantRaw,
+        description: group.sampleDescription,
+        user_notes: group.sampleUserNotes,
       })
     }
   }
 
   for (const pattern of patterns) {
     if (pattern.confidenceLabel === 'low' && pattern.totalSpent >= 250) {
+      const displayContext = pattern.description || pattern.merchant_raw || pattern.merchant
+      const displayLabel = displayContext.toLowerCase().includes(pattern.merchant.toLowerCase()) 
+        ? displayContext 
+        : `${pattern.merchant} (${displayContext})`
+
       questions.push({
         queueKey: `${slugify(pattern.merchant)}:business-review`,
         merchantKey: slugify(pattern.merchant),
         merchantLabel: pattern.merchant,
-        prompt: `${pattern.merchant} heeft relatief veel impact op je uitgaven. Is dit privé, zakelijk of gedeeld?`,
+        prompt: `${displayLabel} heeft relatief veel impact op je uitgaven. Is dit privé, zakelijk of gedeeld?`,
         rationale: 'Zakelijk vs. privé heeft veel invloed op de analyse, maar is nog niet bevestigd.',
         priority: 70,
         confidenceLabel: 'low',
@@ -643,6 +686,9 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
           { label: 'Privé', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, personal_business: 'privé', user_verified: true } },
           { label: 'Gedeeld', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, personal_business: 'gedeeld', user_verified: true } },
         ],
+        merchant_raw: pattern.merchant_raw,
+        description: pattern.description,
+        user_notes: pattern.user_notes,
       })
     }
   }
@@ -765,6 +811,9 @@ export function analyzeFinance(rows: FinanceRow[], rules: FinanceRule[] = []): F
       avgAmount: round2(averageAmount),
       category: items[0].enrichment.category,
       confidenceLabel: confidenceLabel(Math.max(items[0].enrichment.categoryConfidence, recurrenceConfidence)),
+      merchant_raw: items[0].row.merchant_raw,
+      description: items[0].row.description,
+      user_notes: items[0].row.user_notes,
     })
 
     if (recurrenceType !== 'none') {
@@ -791,6 +840,9 @@ export function analyzeFinance(rows: FinanceRow[], rules: FinanceRule[] = []): F
         fixedCost,
         essential,
         reviewReason,
+        sampleDescription: items[0].row.description,
+        sampleMerchantRaw: items[0].row.merchant_raw,
+        sampleUserNotes: items[0].row.user_notes,
       })
     }
   }

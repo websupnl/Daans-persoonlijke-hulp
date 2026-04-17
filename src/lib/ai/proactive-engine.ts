@@ -228,7 +228,7 @@ REGELS:
 - Wees specifiek — gebruik echte getallen uit de snapshot
 - Niet vaag ("misschien moet je...") maar direct ("je hebt X — doe Y")
 - Telegramformattering: *bold*, _italic_, geen HTML
-- Sluit altijd af met één concrete actievraag
+- Sluit altijd af met één concrete actievraag. Stel specifieke vragen over vage financiële transacties of tegenpartijen als die in de snapshot/financiën naar voren komen.
 - Toon: slim, betrokken, niet opdringerig. Zoals een goede compagnon die iets opmerkt.
 - Schrijf in het Nederlands
 
@@ -335,8 +335,8 @@ export async function runDeepSync(): Promise<string> {
       FROM todos WHERE completed = 0
       ORDER BY CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END LIMIT 10
     `),
-    query<{ type: string; title: string; amount: number; status: string }>(`
-      SELECT type, title, amount, status FROM finance_items
+    query<{ type: string; title: string; description: string | null; merchant_raw: string | null; user_notes: string | null; amount: number; status: string }>(`
+      SELECT type, title, description, merchant_raw, user_notes, amount, status FROM finance_items
       WHERE created_at >= NOW() - INTERVAL '30 days'
       ORDER BY created_at DESC LIMIT 10
     `),
@@ -388,7 +388,7 @@ Schrijf in het Nederlands. Scherp, eerlijk, actionable.`,
       },
       {
         role: 'user',
-        content: `Snapshot:\n${snapshotText}\n\nActieve taken:\n${recentTodos.map(t => `- [${t.priority}] ${t.title}${t.due_date ? ` (deadline: ${t.due_date})` : ''}`).join('\n')}\n\nFinanciën afgelopen 30d:\n${financeItems.map(f => `- ${f.type}: ${f.title} €${f.amount} (${f.status})`).join('\n')}\n\nDagboek:\n${recentJournal.map(j => `[${j.date}] mood:${j.mood} energie:${j.energy} — ${j.content}`).join('\n')}\n\nAI-theorieën:\n${theories.map(t => `[${t.category}] ${t.theory}`).join('\n')}`,
+        content: `Snapshot:\n${snapshotText}\n\nActieve taken:\n${recentTodos.map(t => `- [${t.priority}] ${t.title}${t.due_date ? ` (deadline: ${t.due_date})` : ''}`).join('\n')}\n\nFinanciën afgelopen 30d:\n${financeItems.map(f => `- ${f.type}: ${f.title}${f.description ? ` (${f.description})` : ''}${f.merchant_raw && f.merchant_raw !== f.title ? ` [raw: ${f.merchant_raw}]` : ''}${f.user_notes ? ` note: ${f.user_notes}` : ''} €${f.amount} (${f.status})`).join('\n')}\n\nDagboek:\n${recentJournal.map(j => `[${j.date}] mood:${j.mood} energie:${j.energy} — ${j.content}`).join('\n')}\n\nAI-theorieën:\n${theories.map(t => `[${t.category}] ${t.theory}`).join('\n')}`,
       },
     ],
     temperature: 0.6,

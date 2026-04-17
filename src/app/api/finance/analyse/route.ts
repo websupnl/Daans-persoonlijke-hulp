@@ -7,13 +7,13 @@ import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 export async function POST() {
   const rows = (await query<FinanceRow>(
-    `SELECT id, type, title,
+    `SELECT id, type, title, description,
             amount::float AS amount,
             category, account, status, due_date,
             COALESCE(due_date, created_at::date)::text AS transaction_date,
             created_at,
             NULL AS merchant_normalized,
-            NULL AS merchant_raw,
+            merchant_raw,
             NULL AS subcategory,
             NULL AS recurrence_type,
             NULL AS recurrence_confidence,
@@ -22,7 +22,7 @@ export async function POST() {
             NULL AS essential_flag,
             NULL AS personal_business,
             NULL AS user_verified,
-            NULL AS user_notes,
+            user_notes,
             NULL AS needs_review
      FROM finance_items
      WHERE type IN ('inkomst','uitgave')
@@ -75,11 +75,17 @@ export async function POST() {
         // Merchants die NOG NIET bevestigd zijn — AI mag hier GEEN harde conclusies over trekken
         nogTeBevestigen: aiContext.reviewQuestions.map(q => ({
           merchant: q.merchantLabel,
+          rawMerchant: q.merchant_raw,
+          omschrijving: q.description,
+          notities: q.user_notes,
           vraag: q.prompt,
           reden: q.rationale,
         })),
         anomalieën: aiContext.anomalies.map(a => ({
           titel: a.title,
+          rawMerchant: a.merchant_raw,
+          omschrijving: a.description,
+          notities: a.user_notes,
           bedrag: `€${a.amount}`,
           reden: a.reason,
           ernst: a.severity,
@@ -108,7 +114,7 @@ REGELS:
 4. Als iets onduidelijk is, zeg dan expliciet: "Ik weet dit niet zeker" of "Dit moet je nog bevestigen".
 5. Gebruik confidence-indicatoren: zeker / waarschijnlijk / twijfelachtig.
 6. Formuleer nooit: "X kost je €Y per maand als abonnement" tenzij X in abonnementen staat.
-7. Sluit af met maximaal 1 vraag als je iets nodig hebt van Daan.
+7. Sluit af met maximaal 1 vraag als je iets nodig hebt van Daan. Stel een specifieke vraag over een tegenpartij of vage omschrijving (bijv. "Wie is de tegenpartij bij 'Daan auto'?") als de data onduidelijk is.
 
 FORMAAT: Bullet points (•), max 6 punten, direct en specifiek.`,
           },
