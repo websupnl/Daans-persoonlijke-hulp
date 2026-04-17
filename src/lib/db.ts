@@ -415,6 +415,43 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- Pattern Brain: extend ai_theories with status & impact tracking
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'hypothesis';
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS source_modules TEXT DEFAULT '[]';
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS impact_score NUMERIC(4,2) DEFAULT 0.5;
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS question_asked SMALLINT DEFAULT 0;
+
+    -- Pattern Brain: question queue (cross-module, not just finance)
+    CREATE TABLE IF NOT EXISTS pending_questions (
+      id SERIAL PRIMARY KEY,
+      source_module TEXT NOT NULL DEFAULT 'algemeen',
+      theory_id INTEGER,
+      question TEXT NOT NULL,
+      rationale TEXT,
+      priority INTEGER DEFAULT 50,
+      confidence NUMERIC(4,3) DEFAULT 0.5,
+      impact_score NUMERIC(4,2) DEFAULT 0.5,
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','sent','answered','dismissed')),
+      answer TEXT,
+      answer_processed SMALLINT DEFAULT 0,
+      sent_at TIMESTAMPTZ,
+      answered_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Pattern Brain: daily metric snapshots for trend detection
+    CREATE TABLE IF NOT EXISTS pattern_observations (
+      id SERIAL PRIMARY KEY,
+      obs_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      module TEXT NOT NULL,
+      metric_key TEXT NOT NULL,
+      metric_value NUMERIC,
+      metric_text TEXT,
+      metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(obs_date, module, metric_key)
+    );
   `)
 }
 
