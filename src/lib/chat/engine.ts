@@ -2,6 +2,7 @@ import { execute, query, queryOne } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions, ActionResult } from '@/lib/ai/execute-actions'
+import { parseIntent } from '@/lib/chat-parser'
 import { buildChatContext, getSessionKey } from './context'
 import { normalizeDutch } from './normalize'
 import { planMessage, SMALL_TALK_RESPONSES } from './deterministic'
@@ -65,9 +66,77 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
   // 3. AI Processing
   const aiResult = await parseCommandWithAI(request.message, sessionKey)
   
+  // Rule-based fallback if AI is uncertain
+  if (!aiResult || aiResult.confidence < 0.4) {
+    const fallback = parseIntent(request.message)
+    if (fallback.intent !== 'unknown' && fallback.confidence >= 0.8) {
+      let actions: AIAction[] = []
+      let summary = ""
+
+      if (fallback.intent === 'grocery_add') {
+        actions = [{
+          type: 'grocery_create',
+          payload: { 
+            title: String(fallback.params.title || request.message),
+            category: 'overig'
+          }
+        }]
+        summary = `Ik heb "${fallback.params.title || request.message}" aan je boodschappenlijst toegevoegd.`
+      } else if (fallback.intent === 'todo_add') {
+        actions = [{
+          type: 'todo_create',
+          payload: { 
+            title: String(fallback.params.title || request.message),
+            priority: (fallback.params.priority as any) || 'medium',
+            due_date: fallback.params.due_date as string,
+            category: fallback.params.category as string
+          }
+        }]
+        summary = `Ik heb de taak "${fallback.params.title || request.message}" toegevoegd.`
+      } else if (fallback.intent === 'grocery_list') {
+        actions = [{
+          type: 'grocery_list',
+          payload: {}
+        }]
+        // For list, we need the result of the action to build the summary
+        const actionResults = await executeActions(actions)
+        const items = actionResults[0]?.data as any[] || []
+        if (items.length === 0) {
+          summary = "Je boodschappenlijst is leeg."
+        } else {
+          summary = `Boodschappenlijst:\n${items.map(i => `• ${i.title}${i.quantity ? ` (${i.quantity})` : ''}`).join('\n')}`
+        }
+        
+        const result: ChatResult = {
+          reply: summary,
+          actions: mapAIResultsToStoredActions(actionResults),
+          parserType: 'deterministic',
+          confidence: fallback.confidence,
+          intent: fallback.intent,
+        }
+        await logAndStoreResponse(userContent, result)
+        return result
+      }
+
+      if (actions.length > 0) {
+        const actionResults = await executeActions(actions)
+        const storedActions = mapAIResultsToStoredActions(actionResults, summary)
+        const result: ChatResult = {
+          reply: summary,
+          actions: storedActions,
+          parserType: 'deterministic',
+          confidence: fallback.confidence,
+          intent: fallback.intent,
+        }
+        await logAndStoreResponse(userContent, result)
+        return result
+      }
+    }
+  }
+
   if (!aiResult || aiResult.confidence < 0.4) {
     const result: ChatResult = {
-      reply: 'Ik twijfel wat je precies bedoelt. Zeg erbij of dit voor je todo’s, agenda, werklog, financiën of memory is, dan pak ik het direct goed op.',
+      reply: 'Ik twijfel wat je precies bedoelt. Zeg erbij of dit voor je todo’s, boodschappen, agenda, werklog, financiën of memory is, dan pak ik het direct goed op.',
       actions: [{ type: 'clarification_requested', data: { reason: 'low_confidence' } }],
       parserType: 'clarification',
       confidence: 0.2,
@@ -313,6 +382,12 @@ function mapAIResultsToStoredActions(
         break
       case 'inbox_capture':
         mapped.push({ type: 'inbox_captured', data: { id: data?.id, text: data?.raw_text ?? 'Capture' } })
+        break
+      case 'grocery_create':
+        mapped.push({ type: 'grocery_added', data: { id: data?.id, title: data?.title ?? 'Boodschap' } })
+        break
+      case 'grocery_list':
+        mapped.push({ type: 'grocery_listed', data: { items: data } })
         break
     }
   }

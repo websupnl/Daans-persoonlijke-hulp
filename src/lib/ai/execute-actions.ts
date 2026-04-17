@@ -286,6 +286,24 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: { id: row?.id, title: timer.title, duration_minutes: duration } }
     }
 
+    case 'grocery_create': {
+      const { title, quantity, category } = action.payload
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO groceries (title, quantity, category)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `, [title, quantity ?? null, category ?? 'overig'])
+      if (row?.id) {
+        await logActivity({ entityType: 'grocery', entityId: row.id, action: 'created', title, summary: 'Boodschap toegevoegd via AI' })
+      }
+      return { type: action.type, success: true, data: { id: row?.id, title } }
+    }
+
+    case 'grocery_list': {
+      const items = await query('SELECT title, quantity FROM groceries WHERE completed = 0 ORDER BY category ASC')
+      return { type: action.type, success: true, data: items }
+    }
+
     default:
       // Fallback for actions not explicitly handled yet or handled by original logic
       console.warn(`[executeSingleAction] Unhandled action type: ${action.type}`)

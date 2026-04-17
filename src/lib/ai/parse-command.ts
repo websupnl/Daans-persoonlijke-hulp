@@ -33,6 +33,8 @@ Wees proactief, menselijk en betrouwbaar.
 - inbox_capture: { raw_text, suggested_type }
 - project_create: { title }
 - project_update: { id, title, status: "actief"|"on-hold"|"afgerond" }
+- grocery_create: { title, quantity, category }
+- grocery_list: {}
 
 === CRUCIALE REGELS ===
 - DATUM/TIJD: Daan zegt vaak "vanavond", "morgen om 8:00", "20 april". Gebruik de "Huidige datum" uit de context om dit te berekenen.

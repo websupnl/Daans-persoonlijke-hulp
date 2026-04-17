@@ -116,8 +116,10 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       `• /status — Huidige life snapshot\n\n` +
       `*Of typ gewoon:*\n` +
       `• "Taak toevoegen: X"\n` +
+      `• "Boodschap toevoegen: Melk"\n` +
       `• "Noteer €50 uitgave aan boodschappen"\n` +
       `• "Ik heb 2u gewerkt aan WebsUp"\n` +
+      `• "Wat staat er op mijn boodschappenlijst?"\n` +
       `• "Hoe staat mijn dagboek ervoor?"\n\n` +
       `_Je persoonlijke AI is altijd actief en denkt met je mee._`
     )
@@ -271,6 +273,22 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<void> {
       await execute('UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [id])
       await answerCallbackQuery(cb.id, `✅ Klaar: ${todo.title}`)
       if (chatId) await sendTelegramMessage(chatId, `✅ Taak afgerond: *${todo.title}* \`[ID: ${id}]\``)
+      return
+    }
+
+    // ── Grocery complete ──────────────────────────────────────────────────
+    if (action === 'grocery_complete') {
+      const id = parseInt(rest, 10)
+      if (isNaN(id)) { await answerCallbackQuery(cb.id, 'Ongeldig ID'); return }
+
+      const item = await queryOne<{ id: number; title: string }>(
+        'SELECT id, title FROM groceries WHERE id = $1 AND completed = 0 LIMIT 1', [id]
+      )
+      if (!item) { await answerCallbackQuery(cb.id, '✅ Al afgevinkt of niet gevonden'); return }
+
+      await execute('UPDATE groceries SET completed = 1, updated_at = NOW() WHERE id = $1', [id])
+      await answerCallbackQuery(cb.id, `✅ Afgevinkt: ${item.title}`)
+      if (chatId) await sendTelegramMessage(chatId, `✅ Boodschap afgevinkt: *${item.title}* \`[ID: ${id}]\``)
       return
     }
 

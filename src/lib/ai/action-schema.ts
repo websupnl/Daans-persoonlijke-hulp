@@ -219,6 +219,20 @@ export const WeeklyPlanRequestAction = z.object({
   payload: z.object({}),
 })
 
+export const GroceryCreateAction = z.object({
+  type: z.literal('grocery_create'),
+  payload: z.object({
+    title: z.string(),
+    quantity: z.string().optional(),
+    category: z.string().optional(),
+  }),
+})
+
+export const GroceryListAction = z.object({
+  type: z.literal('grocery_list'),
+  payload: z.object({}),
+})
+
 export const AnyAction = z.discriminatedUnion('type', [
   TodoCreateAction,
   TodoUpdateAction,
@@ -244,6 +258,8 @@ export const AnyAction = z.discriminatedUnion('type', [
   WeeklyPlanRequestAction,
   TimerStartAction,
   TimerStopAction,
+  GroceryCreateAction,
+  GroceryListAction,
 ])
 
 export type AIAction = z.infer<typeof AnyAction>
