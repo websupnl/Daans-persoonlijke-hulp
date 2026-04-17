@@ -16,7 +16,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   for (const field of fields) {
     if (field in body) {
       updates.push(`${field} = $${i++}`)
-      values.push(body[field] ?? null)
+      if (field === 'all_day') {
+        values.push(body[field] ? 1 : 0)
+      } else {
+        values.push(body[field] ?? null)
+      }
     }
   }
 
