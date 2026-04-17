@@ -394,14 +394,23 @@ export function parseIntent(input: string): ParsedIntent {
     }
   }
 
-  if (/\b(heb gesport|heb gelopen|heb gefietst|heb gezwommen|heb geoefend|log gewoonte|gewoonte gedaan|heb geslapen|goed geslapen|ik heb gelezen|water gedronken|gedronken water|genoeg water)\b/i.test(text)) {
-    const habitMatch = normalize(text).match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen|water)\b/i)
-    return {
-      intent: 'habit_log',
-      confidence: 0.85,
-      params: { habit_name: habitMatch?.[1] },
-      raw: text,
+  // Exclude time logging patterns first
+  if (/\b(log de tijd|log tijd|tijd loggen|bijhouden tijd)\b/i.test(text)) {
+    // Skip to next pattern - don't match as habit
+    // Additional check: make sure it's not about time logging
+    if (/\b(log|tijd|bijhouden|registreren)\b/i.test(text) && /\b(gewoonte|habit|chillen|bank|tv|film| Netflix)\b/i.test(text)) {
+      // Skip to next pattern - this is likely time logging, not habit logging
+    } else {
+      const habitMatch = normalize(text).match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen|water)\b/i)
+      return {
+        intent: 'habit_log',
+        confidence: 0.85,
+        params: { habit_name: habitMatch?.[1] },
+        raw: text,
+      }
     }
+  } else {
+    return { intent: 'unknown', confidence: 0, params: {}, raw: text }
   }
 
   if (/\b(onthoud dat|remember that|weet dat|sla op dat|nota bene|nb:|mijn.{1,20}is)\b/i.test(text)) {

@@ -275,17 +275,45 @@ export async function executeChatActions(
         }
 
         case 'habit_log': {
-          const habit = await findOrCreateHabit(action.payload.habit_name, action.payload.auto_create === true)
-          if (!habit) break
-          await execute(
-            `
-              INSERT INTO habit_logs (habit_id, logged_date, note)
-              VALUES ($1, CURRENT_DATE, $2)
-              ON CONFLICT(habit_id, logged_date) DO UPDATE SET note = COALESCE(EXCLUDED.note, habit_logs.note)
-            `,
-            [habit.id, action.payload.note ?? null]
-          )
-          stored.push({ type: 'habit_logged', data: { habit_id: habit.id, habit_name: habit.name } })
+          try {
+            console.log('[Habit Debug] Starting habit logging for:', action.payload.habit_name)
+            
+            const habit = await findOrCreateHabit(action.payload.habit_name, action.payload.auto_create === true)
+            console.log('[Habit Debug] Found/created habit:', habit)
+            
+            if (!habit) {
+              console.log('[Habit Debug] Habit creation failed - no habit returned')
+              break
+            }
+
+            // Execute habit log insertion
+            await execute(
+              `
+                INSERT INTO habit_logs (habit_id, logged_date, note)
+                VALUES ($1, CURRENT_DATE, $2)
+                ON CONFLICT(habit_id, logged_date) DO UPDATE SET note = COALESCE(EXCLUDED.note, habit_logs.note)
+              `,
+              [habit.id, action.payload.note ?? null]
+            )
+            
+            // Verify the log was actually created
+            const verifyLog = await queryOne(`
+              SELECT id, habit_id, logged_date 
+              FROM habit_logs 
+              WHERE habit_id = $1 AND logged_date = CURRENT_DATE
+            `, [habit.id])
+            
+            console.log('[Habit Debug] Verification result:', verifyLog)
+            
+            if (verifyLog) {
+              stored.push({ type: 'habit_logged', data: { habit_id: habit.id, habit_name: habit.name } })
+              console.log('[Habit Debug] Successfully logged habit:', habit.name)
+            } else {
+              console.log('[Habit Debug] Verification failed - log not found')
+            }
+          } catch (err) {
+            console.error('[Habit Debug] Error logging habit:', err)
+          }
           break
         }
 
