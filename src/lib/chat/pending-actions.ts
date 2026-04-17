@@ -104,8 +104,7 @@ class PendingActionManager {
     await this.storePendingAction(pendingAction)
     await correlationTracker.trackAction(correlationId, {
       type: action.type,
-      payload: action.payload,
-      actionId
+      payload: action.payload
     })
 
     await chatLogger.logPlanning(
