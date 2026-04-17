@@ -12,7 +12,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     'title', 'description', 'amount', 'contact_id', 'project_id', 'status', 'due_date', 'paid_date',
     'category', 'subcategory', 'merchant_raw', 'merchant_normalized', 'category_confidence',
     'recurrence_type', 'recurrence_confidence', 'subscription_status', 'fixed_cost_flag',
-    'essential_flag', 'personal_business', 'user_verified', 'user_notes', 'needs_review', 'question_queue_status'
+    'essential_flag', 'personal_business', 'user_verified', 'user_notes', 'needs_review', 'question_queue_status',
+    'account', 'type'
   ]
   const updates: string[] = []
   const values: unknown[] = []

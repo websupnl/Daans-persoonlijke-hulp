@@ -26,6 +26,8 @@ interface Stats {
   month_income: number
   month_expenses: number
   active_month: string | null
+  total_balance_prive: number
+  total_balance_zakelijk: number
 }
 
 interface CategoryStat {
@@ -140,10 +142,27 @@ export default function FinanceView() {
   const [typeFilter, setTypeFilter] = useState('Alles')
   const [accountFilter, setAccountFilter] = useState('Alle rekeningen')
   const [showAdd, setShowAdd] = useState(false)
+  const [showAdjust, setShowAdjust] = useState(false)
+  const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
+  const [editingItem, setEditingItem] = useState<FinanceItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+
+  useEffect(() => {
+    if (editingItem) {
+      setForm({
+        type: editingItem.type,
+        title: editingItem.title,
+        amount: String(editingItem.amount),
+        due_date: editingItem.due_date ? editingItem.due_date.split('T')[0] : '',
+        category: editingItem.category,
+        account: editingItem.account
+      })
+      setShowAdd(true)
+    }
+  }, [editingItem])
 
   const dateRange = useMemo(() => {
     let start, end
@@ -229,13 +248,32 @@ export default function FinanceView() {
 
   async function addItem() {
     if (!form.title.trim()) return
-    await fetch('/api/finance', {
-      method: 'POST',
+    const url = editingItem ? `/api/finance/${editingItem.id}` : '/api/finance'
+    const method = editingItem ? 'PATCH' : 'POST'
+
+    await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
     setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
     setShowAdd(false)
+    setEditingItem(null)
+    fetchData()
+  }
+
+  async function handleAdjust() {
+    if (!adjustForm.actual_balance) return
+    await fetch('/api/finance/adjust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account: adjustForm.account,
+        actual_balance: parseFloat(adjustForm.actual_balance)
+      })
+    })
+    setShowAdjust(false)
+    setAdjustForm({ account: 'privé', actual_balance: '' })
     fetchData()
   }
 
@@ -442,12 +480,19 @@ export default function FinanceView() {
             <span className="hidden sm:inline">Import</span>
           </button>
           <button
-            onClick={() => { setShowAdd(!showAdd); setShowImport(false) }}
+            onClick={() => { setShowAdjust(!showAdjust); setShowAdd(false); setShowImport(false) }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500 hover:border-amber-200 hover:text-gray-700 transition-colors"
+          >
+            <RefreshCw size={14} />
+            <span className="hidden sm:inline">Kasverschil</span>
+          </button>
+          <button
+            onClick={() => { setShowAdd(!showAdd); setShowImport(false); setShowAdjust(false); setEditingItem(null) }}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
             style={{ background: GRAD }}
           >
             <Plus size={14} />
-            <span className="hidden sm:inline">Toevoegen</span>
+            <span className="hidden sm:inline">{editingItem ? 'Bewerken' : 'Toevoegen'}</span>
           </button>
         </div>
       </div>
@@ -682,17 +727,71 @@ export default function FinanceView() {
 
       {/* Stats */}
       {stats && (
-        <div className="px-4 sm:px-6 pt-4 pb-2 grid grid-cols-3 gap-3 flex-shrink-0">
-          <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten (${activePeriod})`} value={formatCurrency(stats.month_income)} positive />
-          <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven (${activePeriod})`} value={formatCurrency(stats.month_expenses)} negative />
-          <MiniStat
-            icon={net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            label={`Netto (${activePeriod})`}
-            value={formatCurrency(Math.abs(net))}
-            positive={net >= 0}
-            negative={net < 0}
-            prefix={net >= 0 ? '+' : '-'}
-          />
+        <>
+          <div className="px-4 sm:px-6 pt-4 pb-2 grid grid-cols-3 gap-3 flex-shrink-0">
+            <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten (${activePeriod})`} value={formatCurrency(stats.month_income)} positive />
+            <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven (${activePeriod})`} value={formatCurrency(stats.month_expenses)} negative />
+            <MiniStat
+              icon={net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              label={`Netto (${activePeriod})`}
+              value={formatCurrency(Math.abs(net))}
+              positive={net >= 0}
+              negative={net < 0}
+              prefix={net >= 0 ? '+' : '-'}
+            />
+          </div>
+          <div className="px-4 sm:px-6 py-1 grid grid-cols-2 gap-3 flex-shrink-0">
+            <div className="bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Totaal Privé</span>
+              <span className={cn('text-xs font-black', stats.total_balance_prive >= 0 ? 'text-gray-600' : 'text-red-500')}>
+                {formatCurrency(stats.total_balance_prive)}
+              </span>
+            </div>
+            <div className="bg-gray-50/50 border border-gray-100 rounded-xl px-3 py-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Totaal Zakelijk</span>
+              <span className={cn('text-xs font-black', stats.total_balance_zakelijk >= 0 ? 'text-gray-600' : 'text-red-500')}>
+                {formatCurrency(stats.total_balance_zakelijk)}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Kasverschil form */}
+      {showAdjust && (
+        <div className="mx-4 sm:mx-6 mt-2 p-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm">
+          <p className="text-sm font-bold text-amber-800 mb-3">Saldo handmatig corrigeren</p>
+          <div className="flex gap-2 mb-3">
+            {ACCOUNTS.map(acc => (
+              <button
+                key={acc}
+                onClick={() => setAdjustForm(p => ({ ...p, account: acc }))}
+                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', adjustForm.account === acc ? 'bg-amber-500 text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
+              >
+                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="number"
+              value={adjustForm.actual_balance}
+              onChange={e => setAdjustForm(p => ({ ...p, actual_balance: e.target.value }))}
+              placeholder="Huidig werkelijk saldo (€)"
+              className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200"
+              style={{ fontSize: '16px' }}
+            />
+            <button
+              onClick={handleAdjust}
+              disabled={!adjustForm.actual_balance}
+              className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-sm hover:bg-amber-600 transition-colors disabled:opacity-50"
+            >
+              Corrigeer
+            </button>
+          </div>
+          <p className="text-[10px] text-amber-600">
+            De bot berekent het verschil met het huidige systeem-saldo ({formatCurrency(adjustForm.account === 'zakelijk' ? stats?.total_balance_zakelijk ?? 0 : stats?.total_balance_prive ?? 0)}) en maakt automatisch een inkomst of uitgave aan.
+          </p>
         </div>
       )}
 
@@ -863,9 +962,14 @@ export default function FinanceView() {
                   <span className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
                     {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
                   </span>
-                  <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => setEditingItem(item)} className="text-gray-300 hover:text-pink-400">
+                      <Eye size={13} />
+                    </button>
+                    <button onClick={() => deleteItem(item.id)} className="text-gray-300 hover:text-red-400">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

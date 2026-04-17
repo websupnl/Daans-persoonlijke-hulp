@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
           ($1::date IS NOT NULL AND $2::date IS NOT NULL AND COALESCE(due_date, created_at::date) BETWEEN $1 AND $2)
           OR ($1::date IS NULL AND TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM'))
         )
-        THEN amount ELSE 0 END)::float as month_expenses
+        THEN amount ELSE 0 END)::float as month_expenses,
+      SUM(CASE WHEN account = 'privé' THEN (CASE WHEN type IN ('inkomst', 'factuur') AND status = 'betaald' THEN amount WHEN type = 'uitgave' THEN -amount ELSE 0 END) ELSE 0 END)::float as total_balance_prive,
+      SUM(CASE WHEN account = 'zakelijk' THEN (CASE WHEN type IN ('inkomst', 'factuur') AND status = 'betaald' THEN amount WHEN type = 'uitgave' THEN -amount ELSE 0 END) ELSE 0 END)::float as total_balance_zakelijk
     FROM finance_items
   `, [from || null, to || null, account || null])
 

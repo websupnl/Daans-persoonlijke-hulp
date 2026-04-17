@@ -7,6 +7,7 @@
  */
 
 import { query, queryOne } from '../db'
+import { analyzeFinance, getFinanceRules, type FinanceAnomaly, type FinanceRow } from '../finance/engine'
 
 export interface LifeSnapshot {
   // Meta
@@ -28,6 +29,7 @@ export interface LifeSnapshot {
   daysSinceLastFinanceEntry: number
   monthIncomeTotal: number
   monthExpenseTotal: number
+  detailedAnomalies: FinanceAnomaly[]
 
   // Journal
   daysSinceLastJournal: number
@@ -91,7 +93,8 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     inboxStats,
     workStats,
     lastInteraction,
-    topTheories,
+    topTheoriesRaw,
+    financeAnalysis,
   ] = await Promise.all([
     // Todo counts
     query<{ open: string; overdue: string; high_priority: string; oldest_overdue_days: string | null }>(`
@@ -192,6 +195,22 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
       ORDER BY last_updated DESC
       LIMIT 3
     `).catch(() => []),
+
+    // Finance analysis for detailed anomalies
+    (async () => {
+      try {
+        const rows = await query<FinanceRow>(`
+          SELECT * FROM finance_items 
+          WHERE created_at >= NOW() - INTERVAL '60 days'
+          ORDER BY created_at DESC
+        `)
+        const rules = await getFinanceRules()
+        return analyzeFinance(rows, rules)
+      } catch (err) {
+        console.error('[buildLifeSnapshot] Finance analysis error:', err)
+        return null
+      }
+    })(),
   ])
 
   // Process todo data
@@ -305,6 +324,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     daysSinceLastFinanceEntry,
     monthIncomeTotal,
     monthExpenseTotal,
+    detailedAnomalies: financeAnalysis?.anomalies ?? [],
     daysSinceLastJournal,
     lastSevenMoods,
     lastSevenEnergies,
@@ -318,7 +338,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     totalWorkMinutesToday,
     workContextsToday,
     avgWorkMinutes7Days: Math.round(avgWorkMinutes7Days),
-    topTheories: topTheories as Array<{ category: string; theory: string; confidence: number }>,
+    topTheories: topTheoriesRaw as Array<{ category: string; theory: string; confidence: number }>,
     anomalies,
   }
 }
@@ -459,6 +479,11 @@ export function formatSnapshotForPrompt(snap: LifeSnapshot): string {
     `Werk vandaag: ${Math.round(snap.totalWorkMinutesToday / 60 * 10) / 10}u (${snap.workContextsToday.join(', ') || 'geen'})`,
     `Laatste interactie: ${Math.round(snap.daysSinceLastInteraction * 24)}u geleden`,
   ]
+
+  if (snap.detailedAnomalies.length > 0) {
+    lines.push(`Financiële uitschieters:`)
+    snap.detailedAnomalies.forEach(a => lines.push(`  - ${a.date}: ${a.title} €${a.amount} (${a.reason})`))
+  }
 
   if (snap.topTheories.length > 0) {
     lines.push(`AI-theorieën:`)

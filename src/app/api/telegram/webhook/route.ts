@@ -24,11 +24,13 @@ export async function POST(request: NextRequest) {
   const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET
   const webhookSecret = request.headers.get('x-telegram-bot-api-secret-token')
 
-  if (process.env.NODE_ENV === 'production' && !configuredSecret) {
-    return NextResponse.json({ error: 'Webhook secret ontbreekt' }, { status: 503 })
+  if (!configuredSecret && process.env.NODE_ENV === 'production') {
+    console.error('[Telegram webhook] TELEGRAM_WEBHOOK_SECRET is not configured in production.')
+    return NextResponse.json({ error: 'Webhook configuration missing' }, { status: 503 })
   }
 
   if (configuredSecret && webhookSecret !== configuredSecret) {
+    console.error('[Telegram webhook] Unauthorized: secret mismatch')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
