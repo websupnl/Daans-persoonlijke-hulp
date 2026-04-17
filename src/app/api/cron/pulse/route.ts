@@ -34,8 +34,12 @@ import { generateMemories } from '@/lib/ai/memory-crawler'
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
+  const urlSecret = request.nextUrl.searchParams.get('secret')
   const cronSecret = process.env.CRON_SECRET
-  const hasValidCronSecret = !!(cronSecret && authHeader === `Bearer ${cronSecret}`)
+  const hasValidCronSecret = !!(cronSecret && (
+    authHeader === `Bearer ${cronSecret}` || 
+    urlSecret === cronSecret
+  ))
   const session = hasValidCronSecret ? null : await getSessionFromRequest(request, { touch: true })
   if (!hasValidCronSecret && !session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
