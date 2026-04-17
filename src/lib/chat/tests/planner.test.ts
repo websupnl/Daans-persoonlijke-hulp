@@ -59,6 +59,17 @@ test('werkuren worden niet als finance gezien', () => {
   assert.equal(plan.actions[0]?.type, 'worklog_create')
 })
 
+test('uren bezig geweest aan app wordt als werklog herkend', () => {
+  const plan = planMessage('2 uren bezig geweest aan Daans persoonlijke hulp app', createContext())
+  assert.equal(plan.primaryIntent, 'worklog_create')
+  assert.equal(plan.actions[0]?.type, 'worklog_create')
+  if (plan.actions[0]?.type === 'worklog_create') {
+    assert.equal(plan.actions[0].payload.duration_minutes, 120)
+    assert.equal(plan.actions[0].payload.context, 'WebsUp')
+    assert.match(plan.actions[0].payload.title, /Daans persoonlijke hulp app/i)
+  }
+})
+
 test('werkmoment zonder duur vraagt verduidelijking in plaats van gokken', () => {
   const plan = planMessage('gister avond met Jeremy gebeld over de website want we gaan vandaag opleveren', createContext())
   assert.equal(plan.primaryIntent, 'worklog_missing_duration')
