@@ -6,6 +6,7 @@ import { parseIntent } from '@/lib/chat-parser'
 import { buildChatContext, getSessionKey } from './context'
 import { normalizeDutch } from './normalize'
 import { planMessage, SMALL_TALK_RESPONSES } from './deterministic'
+import { loadSession, saveSession } from './session-state'
 
 import type {
   ChatAction,
@@ -27,6 +28,101 @@ interface PendingPayload {
   aiActions?: AIAction[]
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers: Grocery fast-path
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Split raw grocery text into individual items.
+ * "koffie, melk en brood" → ["koffie", "melk", "brood"]
+ * "koffie melk halen"     → ["koffie melk"]  (single item, strip verb)
+ */
+function parseGroceryItems(text: string): string[] {
+  const STOP_WORDS = new Set(['halen', 'kopen', 'pakken', 'meenemen', 'haal', 'koop', 'pak', 'nodig', 'graag'])
+
+  // Clean trailing action verbs
+  const cleaned = text.replace(/\b(halen|kopen|pakken|meenemen)\b\.?$/gi, '').trim()
+
+  let parts: string[]
+  if (cleaned.includes(',') || /\s+en\s+/i.test(cleaned) || cleaned.includes(';') || cleaned.includes('\n')) {
+    // Explicit separators → split on them
+    parts = cleaned.split(/,|\s+en\s+|;|\n/).map(s => s.trim())
+  } else {
+    // No separators → treat as single item (may be multi-word: "pindakaas met honing")
+    parts = [cleaned]
+  }
+
+  return parts
+    .map(s => s.trim().replace(/[.,!?]+$/, ''))
+    .filter(s => s.length > 1 && !STOP_WORDS.has(s.toLowerCase()))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers: Follow-up detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+function isFollowUpMessage(message: string): boolean {
+  return /^(meer info|meer informatie|geef details|details|vertel meer|zeg meer|wat precies|welke transactie|transactie(nummer)?|welk nummer|meer|expand|uitleggen|toon meer)\b/i.test(
+    message.trim()
+  )
+}
+
+async function handleFinanceFollowUp(
+  transactionIds: number[],
+  sessionKey: string,
+  userContent: string
+): Promise<ChatResult | null> {
+  if (!transactionIds.length) return null
+
+  const transactions = await query<{
+    id: number; title: string; amount: number; type: string; category: string; created_at: string
+  }>(
+    `SELECT id, title, amount::float, type, category,
+            TO_CHAR(COALESCE(due_date, created_at::date), 'YYYY-MM-DD') as created_at
+     FROM finance_items
+     WHERE id = ANY($1)
+     ORDER BY created_at DESC`,
+    [transactionIds]
+  ).catch(() => [])
+
+  if (transactions.length === 0) return null
+
+  const lines = transactions.map(t =>
+    `• #${t.id} — *${t.title}*: €${Number(t.amount).toFixed(2)} (${t.category})`
+  )
+
+  const result: ChatResult = {
+    reply: `📊 *Transactiedetails:*\n${lines.join('\n')}`,
+    actions: [{ type: 'finance_summary', data: { total: transactions.reduce((s, t) => s + t.amount, 0), period: 'detail', count: transactions.length } }],
+    parserType: 'deterministic',
+    confidence: 0.95,
+    intent: 'finance_detail_followup',
+  }
+  await logAndStoreResponse(userContent, result)
+  return result
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers: Domain + result extraction for session state
+// ─────────────────────────────────────────────────────────────────────────────
+
+function detectDomainFromActions(actions: AIAction[]): string | null {
+  if (!actions.length) return null
+  const type = actions[0].type
+  if (type.startsWith('finance')) return 'finance'
+  if (type.startsWith('todo')) return 'todo'
+  if (type.startsWith('grocery')) return 'grocery'
+  if (type.startsWith('event')) return 'event'
+  if (type.startsWith('worklog') || type.startsWith('timer')) return 'worklog'
+  if (type.startsWith('note')) return 'note'
+  if (type.startsWith('journal')) return 'journal'
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main processor
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function processChatMessage(request: ChatRequest): Promise<ChatResult> {
   const sessionKey = request.sessionKey ?? getSessionKey(request.source, request.senderPhone)
   const context = await buildChatContext(request.source, sessionKey)
@@ -34,10 +130,10 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
 
   // 1. Store user message
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', ['user', userContent, '[]'])
-  
+
   // 2. Deterministic fast-path (Confirmation & Small Talk)
   const plan = planMessage(request.message, context)
-  
+
   if (plan.primaryIntent === 'confirmation_yes') {
     const result = await executePendingAction(context)
     await logAndStoreResponse(userContent, result)
@@ -63,52 +159,105 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     return result
   }
 
+  // 2.5. Grocery fast-path — deterministic BEFORE AI (highest priority domain)
+  const groceryParse = parseIntent(request.message)
+
+  if (groceryParse.intent === 'grocery_add' && groceryParse.confidence >= 0.85) {
+    const rawTitle = String(groceryParse.params.title || request.message)
+    const items = parseGroceryItems(rawTitle)
+
+    if (items.length > 0) {
+      const groceryActions: AIAction[] = items.map(title => ({
+        type: 'grocery_create' as const,
+        payload: { title, category: 'overig' },
+      }))
+      const actionResults = await executeActions(groceryActions)
+      const successItems = actionResults.filter(r => r.success).map(r => (r.data as any)?.title ?? '?')
+
+      const reply = successItems.length === 0
+        ? 'Er ging iets mis bij het toevoegen aan de boodschappenlijst.'
+        : successItems.length === 1
+        ? `✅ Toegevoegd: *${successItems[0]}*`
+        : `✅ Toegevoegd aan boodschappenlijst:\n${successItems.map(i => `• ${i}`).join('\n')}`
+
+      const result: ChatResult = {
+        reply,
+        actions: mapAIResultsToStoredActions(actionResults),
+        parserType: 'deterministic',
+        confidence: groceryParse.confidence,
+        intent: 'grocery_add',
+      }
+      await logAndStoreResponse(userContent, result)
+      await saveSession(sessionKey, { lastDomain: 'grocery', lastResult: null })
+      return result
+    }
+  }
+
+  if (groceryParse.intent === 'grocery_list' && groceryParse.confidence >= 0.85) {
+    const actionResults = await executeActions([{ type: 'grocery_list' as const, payload: {} }])
+    const items = (actionResults[0]?.data as any[]) || []
+
+    const reply = items.length === 0
+      ? '🛒 Je boodschappenlijst is leeg.'
+      : `🛒 *Boodschappenlijst* (${items.length} items):\n${items.map((i: any) => `• ${i.title}${i.quantity ? ` (${i.quantity})` : ''}`).join('\n')}`
+
+    const result: ChatResult = {
+      reply,
+      actions: mapAIResultsToStoredActions(actionResults),
+      parserType: 'deterministic',
+      confidence: groceryParse.confidence,
+      intent: 'grocery_list',
+    }
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
+  // 2.7. Follow-up resolver — "meer info", "details", "transactienummer"
+  if (isFollowUpMessage(request.message)) {
+    const session = await loadSession(sessionKey)
+    if (session?.lastDomain === 'finance' && session.lastResult?.transactionIds?.length) {
+      const followUp = await handleFinanceFollowUp(session.lastResult.transactionIds, sessionKey, userContent)
+      if (followUp) return followUp
+    }
+  }
+
   // 3. AI Processing
   const aiResult = await parseCommandWithAI(request.message, sessionKey)
-  
+
   // Rule-based fallback if AI is uncertain
   if (!aiResult || aiResult.confidence < 0.4) {
     const fallback = parseIntent(request.message)
     if (fallback.intent !== 'unknown' && fallback.confidence >= 0.8) {
       let actions: AIAction[] = []
-      let summary = ""
+      let summary = ''
 
       if (fallback.intent === 'grocery_add') {
-        actions = [{
-          type: 'grocery_create',
-          payload: { 
-            title: String(fallback.params.title || request.message),
-            category: 'overig'
-          }
-        }]
-        summary = `Ik heb "${fallback.params.title || request.message}" aan je boodschappenlijst toegevoegd.`
+        const rawTitle = String(fallback.params.title || request.message)
+        const items = parseGroceryItems(rawTitle)
+        actions = items.map(title => ({ type: 'grocery_create' as const, payload: { title, category: 'overig' } }))
+        summary = items.length === 1
+          ? `✅ Toegevoegd: *${items[0]}*`
+          : `✅ Toegevoegd:\n${items.map(i => `• ${i}`).join('\n')}`
       } else if (fallback.intent === 'todo_add') {
         actions = [{
           type: 'todo_create',
-          payload: { 
+          payload: {
             title: String(fallback.params.title || request.message),
             priority: (fallback.params.priority as any) || 'medium',
             due_date: fallback.params.due_date as string,
-            category: fallback.params.category as string
-          }
+            category: fallback.params.category as string,
+          },
         }]
-        summary = `Ik heb de taak "${fallback.params.title || request.message}" toegevoegd.`
+        summary = `📝 Taak toegevoegd: *${fallback.params.title || request.message}*`
       } else if (fallback.intent === 'grocery_list') {
-        actions = [{
-          type: 'grocery_list',
-          payload: {}
-        }]
-        // For list, we need the result of the action to build the summary
-        const actionResults = await executeActions(actions)
+        const actionResults = await executeActions([{ type: 'grocery_list' as const, payload: {} }])
         const items = actionResults[0]?.data as any[] || []
-        if (items.length === 0) {
-          summary = "Je boodschappenlijst is leeg."
-        } else {
-          summary = `Boodschappenlijst:\n${items.map(i => `• ${i.title}${i.quantity ? ` (${i.quantity})` : ''}`).join('\n')}`
-        }
-        
+        const reply = items.length === 0
+          ? '🛒 Je boodschappenlijst is leeg.'
+          : `🛒 *Boodschappenlijst:*\n${items.map((i: any) => `• ${i.title}${i.quantity ? ` (${i.quantity})` : ''}`).join('\n')}`
+
         const result: ChatResult = {
-          reply: summary,
+          reply,
           actions: mapAIResultsToStoredActions(actionResults),
           parserType: 'deterministic',
           confidence: fallback.confidence,
@@ -120,10 +269,9 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
 
       if (actions.length > 0) {
         const actionResults = await executeActions(actions)
-        const storedActions = mapAIResultsToStoredActions(actionResults, summary)
         const result: ChatResult = {
           reply: summary,
-          actions: storedActions,
+          actions: mapAIResultsToStoredActions(actionResults, summary),
           parserType: 'deterministic',
           confidence: fallback.confidence,
           intent: fallback.intent,
@@ -136,7 +284,7 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
 
   if (!aiResult || aiResult.confidence < 0.4) {
     const result: ChatResult = {
-      reply: 'Ik twijfel wat je precies bedoelt. Zeg erbij of dit voor je todo’s, boodschappen, agenda, werklog, financiën of memory is, dan pak ik het direct goed op.',
+      reply: 'Ik twijfel wat je precies bedoelt. Zeg erbij of dit voor je todo\'s, boodschappen, agenda, werklog, financiën of memory is, dan pak ik het direct goed op.',
       actions: [{ type: 'clarification_requested', data: { reason: 'low_confidence' } }],
       parserType: 'clarification',
       confidence: 0.2,
@@ -146,7 +294,15 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     return result
   }
 
-  // 4. Handle Memory Candidates (Grounding facts)
+  // 3.5. Auto-fix confirmation contract:
+  // Als summary een voorstel/vraag is maar requires_confirmation niet is gezet,
+  // en er zijn actions aanwezig → force confirmation.
+  const summaryIsProposal = /\b(wil je|zal ik|moet ik|zullen we|kan ik|wil je dat ik)\b/i.test(aiResult.summary)
+  if (summaryIsProposal && !aiResult.requires_confirmation && aiResult.actions.length > 0) {
+    (aiResult as any).requires_confirmation = true
+  }
+
+  // 4. Handle Memory Candidates
   if (aiResult.memory_candidates?.length) {
     for (const candidate of aiResult.memory_candidates) {
       if (candidate.confidence < 0.7) continue
@@ -160,7 +316,7 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
           last_reinforced_at = NOW(),
           updated_at = NOW()
       `, [candidate.key, candidate.value, candidate.category, candidate.confidence])
-      
+
       await logActivity({
         entityType: 'memory',
         action: 'candidate_detected',
@@ -182,7 +338,7 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     })
 
     const result: ChatResult = {
-      reply: `${aiResult.summary}\n\nAntwoord met "ja" om te bevestigen of "nee" om te annuleren.`,
+      reply: `${aiResult.summary}\n\nAntwoord met *ja* om te bevestigen of *nee* om te annuleren.`,
       actions: [{ type: 'confirmation_requested', data: { preview } }],
       parserType: 'ai',
       confidence: aiResult.confidence,
@@ -192,14 +348,68 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     return result
   }
 
+  // 5.5. Als AI een voorstel doet maar actions leeg zijn → alleen text-reply, geen pending action
+  // (Edge case: AI vraagt iets maar kan het niet automatisch uitvoeren)
+  if (aiResult.requires_confirmation && aiResult.actions.length === 0) {
+    const result: ChatResult = {
+      reply: aiResult.summary,
+      actions: [{ type: 'clarification_requested', data: { reason: 'proposal_no_actions' } }],
+      parserType: 'ai',
+      confidence: aiResult.confidence,
+      intent: 'ai_proposal',
+    }
+    await logAndStoreResponse(userContent, result)
+    return result
+  }
+
   // 6. Execute Actions
   let storedActions: StoredAction[] = []
+  let actionResults: ActionResult[] = []
+
   if (aiResult.actions.length > 0) {
-    const actionResults = await executeActions(aiResult.actions as any[])
+    actionResults = await executeActions(aiResult.actions as any[])
     storedActions = mapAIResultsToStoredActions(actionResults, aiResult.summary)
   }
 
-  // 7. Final Result
+  // 7. Save session state for follow-up support
+  const detectedDomain = detectDomainFromActions(aiResult.actions as AIAction[])
+  if (detectedDomain) {
+    // For finance actions: extract transaction IDs from results
+    const transactionIds = actionResults
+      .filter(r => r.success && r.type?.startsWith('finance'))
+      .map(r => (r.data as any)?.id)
+      .filter(Boolean)
+
+    await saveSession(sessionKey, {
+      lastDomain: detectedDomain,
+      lastResult: transactionIds.length
+        ? { domain: detectedDomain, transactionIds, total: transactionIds.length }
+        : { domain: detectedDomain },
+    })
+  } else {
+    // Finance query (no actions, but summary mentions finance) → store for follow-up
+    const isTalkingAboutFinance = /\b(uitgegeven|inkomsten|uitgaven|euro|€|factuur|transacti|betaald|saldo)\b/i.test(aiResult.summary)
+    if (isTalkingAboutFinance) {
+      // Fetch recent transaction IDs from today's context so follow-up can find them
+      const recentIds = await query<{ id: number }>(
+        `SELECT id FROM finance_items
+         WHERE created_at >= CURRENT_DATE - INTERVAL '1 day'
+         ORDER BY created_at DESC LIMIT 10`
+      ).catch(() => [] as { id: number }[])
+
+      if (recentIds.length > 0) {
+        await saveSession(sessionKey, {
+          lastDomain: 'finance',
+          lastResult: {
+            domain: 'finance',
+            transactionIds: recentIds.map(r => r.id),
+          },
+        })
+      }
+    }
+  }
+
+  // 8. Final Result
   const result: ChatResult = {
     reply: aiResult.summary,
     actions: storedActions.length > 0 ? storedActions : [],
@@ -211,6 +421,10 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
   await logAndStoreResponse(userContent, result)
   return result
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function logAndStoreResponse(userMessage: string, result: ChatResult) {
   await execute('INSERT INTO chat_messages (role, content, actions) VALUES ($1, $2, $3)', [
@@ -236,7 +450,7 @@ async function logAndStoreResponse(userMessage: string, result: ChatResult) {
 async function executePendingAction(context: ChatRuntimeContext): Promise<ChatResult> {
   if (!context.pendingAction) {
     return {
-      reply: 'Er staat niets open om te bevestigen.',
+      reply: 'Er staat niets open om te bevestigen. Typ je vraag of opdracht opnieuw.',
       actions: [],
       parserType: 'confirmation',
       confidence: 0.5,
@@ -251,7 +465,7 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
     const actionResults = await executeActions(payload.aiActions)
     const stored = mapAIResultsToStoredActions(actionResults, payload.aiSummary)
     return {
-      reply: payload.aiSummary ?? 'Uitgevoerd.',
+      reply: payload.aiSummary ?? '✅ Uitgevoerd.',
       actions: [{ type: 'confirmation_executed', data: { preview: payload.preview } }, ...stored],
       parserType: 'confirmation',
       confidence: 0.99,
@@ -260,7 +474,7 @@ async function executePendingAction(context: ChatRuntimeContext): Promise<ChatRe
   }
 
   return {
-    reply: 'Bevestiging mislukt of actie was niet meer geldig.',
+    reply: 'Bevestiging mislukt — de actie was niet meer geldig.',
     actions: [],
     parserType: 'confirmation',
     confidence: 0.3,
@@ -283,7 +497,7 @@ async function cancelPendingAction(context: ChatRuntimeContext): Promise<ChatRes
   await clearPendingAction(context.sessionKey)
 
   return {
-    reply: 'Ik heb het geannuleerd.',
+    reply: '❌ Geannuleerd.',
     actions: [{ type: 'confirmation_cancelled', data: { preview: payload.preview } }],
     parserType: 'confirmation',
     confidence: 0.99,

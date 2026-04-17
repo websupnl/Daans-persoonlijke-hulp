@@ -15,6 +15,7 @@ export interface AIContext {
   habits: Array<{ name: string; icon: string; completedToday: boolean; streak: number }>
   recentActivity: Array<{ entity_type: string; action: string; title: string; summary?: string }>
   historicalResonance: Array<{ type: string; date: string; excerpt: string }>
+  recentFinanceTransactions: Array<{ id: number; title: string; amount: number; type: string; category: string; date: string }>
   pendingAction?: { preview: string; actions: any[]; created_at: string }
   activeTimer?: { id: number; title: string; project_title?: string; context: string; started_at: string; elapsed_minutes: number }
   irritationLevel: number
@@ -40,6 +41,7 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     historicalJournal,
     nostalgiaProject,
     todayJournal,
+    recentFinanceTransactions,
     pendingAction,
     activeTimerRaw,
   ] = await Promise.all([
@@ -104,6 +106,13 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     query<{ mood: number; energy: number }>(`
       SELECT mood, energy FROM journal_entries WHERE date = CURRENT_DATE LIMIT 1
     `).catch(() => []),
+    query<{ id: number; title: string; amount: number; type: string; category: string; date: string }>(`
+      SELECT id, title, amount, type, category, TO_CHAR(date, 'YYYY-MM-DD') as date
+      FROM finance_items
+      WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY date DESC, id DESC
+      LIMIT 15
+    `).catch(() => [] as AIContext['recentFinanceTransactions']),
     sessionKey ? query<{ preview: string; payload: string; created_at: string }>(`
       SELECT preview, payload, created_at FROM pending_actions WHERE session_key = $1 AND expires_at > NOW() LIMIT 1
     `, [sessionKey]).then(rows => rows[0]).catch(() => undefined) : Promise.resolve(undefined),
@@ -206,6 +215,7 @@ export async function buildContext(lastN: number = 5, sessionKey?: string): Prom
     habits,
     recentActivity,
     historicalResonance,
+    recentFinanceTransactions: recentFinanceTransactions as AIContext['recentFinanceTransactions'],
     irritationLevel,
     todayMood: todayMoodValue,
     pendingAction: parsedPendingAction,
@@ -310,6 +320,14 @@ export function formatContextForPrompt(ctx: AIContext): string {
   if (ctx.recentActivity.length > 0) {
     parts.push('\nRecente activiteit:')
     ctx.recentActivity.forEach((item) => parts.push(`- ${item.entity_type}/${item.action}: ${item.title}${item.summary ? ` - ${item.summary}` : ''}`))
+  }
+
+  if (ctx.recentFinanceTransactions.length > 0) {
+    parts.push('\nRecente financiële transacties (7 dagen):')
+    ctx.recentFinanceTransactions.forEach(t => {
+      const sign = t.type === 'expense' ? '-' : '+'
+      parts.push(`- [#${t.id}] ${t.date} ${sign}€${t.amount} — ${t.title} (${t.category})`)
+    })
   }
 
   if (ctx.historicalResonance.length > 0) {

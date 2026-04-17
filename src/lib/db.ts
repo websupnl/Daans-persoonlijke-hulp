@@ -545,6 +545,14 @@ export async function initSchema(): Promise<void> {
       last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       blocked_until TIMESTAMPTZ
     );
+
+    -- Conversation session state for follow-up context tracking
+    CREATE TABLE IF NOT EXISTS conversation_session (
+      session_key TEXT PRIMARY KEY,
+      last_domain TEXT,
+      last_result JSONB DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 }
 
