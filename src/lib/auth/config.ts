@@ -19,6 +19,36 @@ export function getAdminPasswordHash(): string {
   return value
 }
 
+export function getTenantId(): string {
+  return process.env.TENANT_ID || 'daan'
+}
+
+export function getTenantConfig() {
+  const tenantId = getTenantId()
+  
+  const tenantConfigs: Record<string, { 
+  name: string; 
+  adminPasswordHash: string | undefined; 
+  devicePinHash: string | undefined; 
+  cookiePrefix: string; 
+}> = {
+    daan: {
+      name: 'Daan',
+      adminPasswordHash: process.env.AUTH_ADMIN_PASSWORD_HASH_DAAN || process.env.AUTH_ADMIN_PASSWORD_HASH,
+      devicePinHash: process.env.AUTH_DEVICE_PIN_HASH_DAAN || process.env.AUTH_DEVICE_PIN_HASH,
+      cookiePrefix: 'daan'
+    },
+    broer: {
+      name: 'Broer',
+      adminPasswordHash: process.env.AUTH_ADMIN_PASSWORD_HASH_BROER,
+      devicePinHash: process.env.AUTH_DEVICE_PIN_HASH_BROER,
+      cookiePrefix: 'broer'
+    }
+  }
+  
+  return tenantConfigs[tenantId] || tenantConfigs.daan
+}
+
 export function getDevicePinHash(): string | null {
   const value = process.env.AUTH_DEVICE_PIN_HASH?.trim()
   return value || null

@@ -1,6 +1,24 @@
 import { Pool } from '@neondatabase/serverless'
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+// Multi-tenant database configuratie
+const getDatabaseConfig = () => {
+  const tenantId = process.env.TENANT_ID || 'daan'
+  
+  const configs: Record<string, { connectionString: string | undefined; schema: string }> = {
+    daan: {
+      connectionString: process.env.DATABASE_URL_DAAN || process.env.DATABASE_URL,
+      schema: 'public'
+    },
+    broer: {
+      connectionString: process.env.DATABASE_URL_BROER || process.env.DATABASE_URL,
+      schema: 'public'
+    }
+  }
+  
+  return configs[tenantId] || configs.daan
+}
+
+const pool = new Pool(getDatabaseConfig())
 
 // Auto-initialize schema on first request per process instance
 let _schemaReady = false
