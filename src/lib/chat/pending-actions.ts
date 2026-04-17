@@ -362,7 +362,7 @@ class PendingActionManager {
         WHERE status = 'pending' AND expires_at <= NOW()
       `)
       
-      return result.rowCount || 0
+      return result || 0
     } catch (err) {
       console.error('[PendingActionManager] Failed to cancel expired actions:', err)
       return 0
@@ -376,7 +376,7 @@ class PendingActionManager {
         WHERE updated_at < NOW() - INTERVAL '${daysOld} days'
       `)
       
-      return result.rowCount || 0
+      return result || 0
     } catch (err) {
       console.error('[PendingActionManager] Failed to cleanup old actions:', err)
       return 0
