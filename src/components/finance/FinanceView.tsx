@@ -170,7 +170,7 @@ export default function FinanceView() {
   const [aiLoading, setAiLoading] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
-  const [showAnalyse, setShowAnalyse] = useState(false)
+  const [showAnalyse, setShowAnalyse] = useState(true)
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
   const [analyseLoading, setAnalyseLoading] = useState(false)
   const [analyseError, setAnalyseError] = useState<string | null>(null)
@@ -222,6 +222,8 @@ export default function FinanceView() {
       .then(d => setAiSummary(d.summary ?? null))
       .catch(() => {})
       .finally(() => setAiLoading(false))
+
+    runAnalyse()
   }, [])
 
   async function addItem() {
