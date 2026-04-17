@@ -516,7 +516,11 @@ function detectFinanceAnomalies(rows: Array<{ row: FinanceRow; enrichment: Finan
   const anomalies: FinanceAnomaly[] = []
   const byMerchant = new Map<string, Array<typeof rows[number]>>()
 
+<<<<<<< HEAD
+  for (const item of rows.filter(item => item.row.type === 'uitgave' && !item.row.user_verified)) {
+=======
   for (const item of rows.filter(item => item.row.type === 'uitgave')) {
+>>>>>>> origin/main
     const current = byMerchant.get(item.enrichment.merchantKey) || []
     current.push(item)
     byMerchant.set(item.enrichment.merchantKey, current)
@@ -576,7 +580,11 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
   for (const group of groups) {
     const priorityBase = group.amountPerCharge >= 250 || (group.monthlyEquivalent || 0) >= 100 ? 90 : 60
 
+<<<<<<< HEAD
+    if ((group.recurrenceType === 'uncertain_recurring_expense' && !group.userVerified) || (group.merchantType === 'fuel_station' && !group.userVerified)) {
+=======
     if (group.recurrenceType === 'uncertain_recurring_expense' || (group.merchantType === 'fuel_station' && !group.userVerified)) {
+>>>>>>> origin/main
       if (group.merchantType === 'fuel_station') {
         questions.push({
           queueKey: `${group.merchantKey}:fuel-review`,
@@ -590,6 +598,10 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
             { label: 'Markeer als brandstof', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, merchant_type: 'fuel_station', category: 'mobiliteit', subcategory: 'brandstof', subscription_override: 'exclude', user_verified: true } },
             { label: 'Markeer als vaste last', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, merchant_type: 'transport', category: 'mobiliteit', subcategory: 'mobiliteit', subscription_override: 'fixed_bill', fixed_cost_flag: true, user_verified: true } },
             { label: 'Geen abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', user_verified: true } },
+<<<<<<< HEAD
+            { label: 'Verder onderzoeken', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, user_verified: true, notes: 'Ik weet even niet wat dit nu is voor transactie, dit moet ik verder onderzoeken' } },
+=======
+>>>>>>> origin/main
           ],
         })
       } else {
@@ -605,6 +617,10 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
             { label: 'Vaste last', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'fixed_bill', fixed_cost_flag: true, user_verified: true } },
             { label: 'Abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'confirm', user_verified: true } },
             { label: 'Geen abonnement', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', user_verified: true } },
+<<<<<<< HEAD
+            { label: 'Verder onderzoeken', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, user_verified: true, notes: 'Ik weet even niet wat dit nu is voor transactie, dit moet ik verder onderzoeken' } },
+=======
+>>>>>>> origin/main
           ],
         })
       }
@@ -623,6 +639,10 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
           { label: 'Ja, vaste last', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'fixed_bill', fixed_cost_flag: true, essential_flag: true, user_verified: true } },
           { label: 'Alleen recurring', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, recurrence_type: 'recurring_transaction', user_verified: true } },
           { label: 'Geen recurring', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, subscription_override: 'exclude', fixed_cost_flag: false, user_verified: true } },
+<<<<<<< HEAD
+          { label: 'Verder onderzoeken', rulePatch: { merchant_key: group.merchantKey, merchant_label: group.displayName, user_verified: true, notes: 'Ik weet even niet wat dit nu is voor transactie, dit moet ik verder onderzoeken' } },
+=======
+>>>>>>> origin/main
         ],
       })
     }
@@ -642,6 +662,10 @@ function buildReviewQuestions(groups: FinanceRecurringGroup[], patterns: Finance
           { label: 'Zakelijk', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, personal_business: 'zakelijk', user_verified: true } },
           { label: 'Privé', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, personal_business: 'privé', user_verified: true } },
           { label: 'Gedeeld', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, personal_business: 'gedeeld', user_verified: true } },
+<<<<<<< HEAD
+          { label: 'Verder onderzoeken', rulePatch: { merchant_key: slugify(pattern.merchant), merchant_label: pattern.merchant, user_verified: true, notes: 'Ik weet even niet wat dit nu is voor transactie, dit moet ik verder onderzoeken' } },
+=======
+>>>>>>> origin/main
         ],
       })
     }
@@ -906,10 +930,17 @@ export async function upsertFinanceRule(input: FinanceRule): Promise<FinanceRule
     input.recurrence_type || null,
     input.subscription_override || null,
     input.personal_business || null,
+<<<<<<< HEAD
+    input.fixed_cost_flag ? 1 : 0,
+    input.essential_flag ? 1 : 0,
+    input.notes || null,
+    input.user_verified ? 1 : 0,
+=======
     input.fixed_cost_flag ?? null,
     input.essential_flag ?? null,
     input.notes || null,
     input.user_verified ?? true,
+>>>>>>> origin/main
   ])
 
   const [saved] = await query<FinanceRule>(`

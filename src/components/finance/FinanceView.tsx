@@ -170,7 +170,11 @@ export default function FinanceView() {
   const [aiLoading, setAiLoading] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
+<<<<<<< HEAD
+  const [showAnalyse, setShowAnalyse] = useState(true)
+=======
   const [showAnalyse, setShowAnalyse] = useState(false)
+>>>>>>> origin/main
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
   const [analyseLoading, setAnalyseLoading] = useState(false)
   const [analyseError, setAnalyseError] = useState<string | null>(null)
@@ -222,6 +226,11 @@ export default function FinanceView() {
       .then(d => setAiSummary(d.summary ?? null))
       .catch(() => {})
       .finally(() => setAiLoading(false))
+<<<<<<< HEAD
+
+    runAnalyse()
+=======
+>>>>>>> origin/main
   }, [])
 
   async function addItem() {
@@ -892,7 +901,14 @@ function FinanceAnalysisPanel({
                       {question.suggestedActions.map(action => (
                         <button
                           key={action.label}
+<<<<<<< HEAD
+                          onClick={() => {
+                            const mergedNotes = notes[question.queueKey] || (action.rulePatch.notes as string)
+                            onApplyRule(question.queueKey, { ...action.rulePatch, notes: mergedNotes })
+                          }}
+=======
                           onClick={() => onApplyRule(question.queueKey, { ...action.rulePatch, notes: notes[question.queueKey] })}
+>>>>>>> origin/main
                           disabled={applyingRuleKey === question.queueKey}
                           className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 hover:text-gray-800 disabled:opacity-60"
                         >

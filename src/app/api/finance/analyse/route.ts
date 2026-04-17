@@ -12,6 +12,20 @@ export async function POST() {
             category, account, status, due_date,
             COALESCE(due_date, created_at::date)::text AS transaction_date,
             created_at,
+<<<<<<< HEAD
+            merchant_normalized,
+            merchant_raw,
+            subcategory,
+            recurrence_type,
+            recurrence_confidence,
+            subscription_status,
+            fixed_cost_flag,
+            essential_flag,
+            personal_business,
+            user_verified,
+            user_notes,
+            needs_review
+=======
             NULL AS merchant_normalized,
             NULL AS merchant_raw,
             NULL AS subcategory,
@@ -24,6 +38,7 @@ export async function POST() {
             NULL AS user_verified,
             NULL AS user_notes,
             NULL AS needs_review
+>>>>>>> origin/main
      FROM finance_items
      WHERE type IN ('inkomst','uitgave')
      ORDER BY COALESCE(due_date, created_at::date) DESC
