@@ -77,6 +77,7 @@ export type AnomalyType =
   | 'workload_overload'
   | 'stale_todo'
   | 'open_invoices_aging'
+  | 'finance_anomaly'
 
 export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
   const now = new Date()
@@ -307,6 +308,7 @@ export async function buildLifeSnapshot(): Promise<LifeSnapshot> {
     pendingInboxCount,
     oldestPendingInboxHours,
     totalWorkMinutesToday,
+    detailedAnomalies: financeAnalysis?.anomalies ?? [],
   })
 
   return {
@@ -361,6 +363,7 @@ interface AnomalyInput {
   pendingInboxCount: number
   oldestPendingInboxHours: number | null
   totalWorkMinutesToday: number
+  detailedAnomalies: FinanceAnomaly[]
 }
 
 function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
@@ -368,6 +371,23 @@ function detectAnomalies(s: AnomalyInput): AnomalyFlag[] {
 
   // No nudges between 23:00 and 08:00
   if (s.hourOfDay >= 23 || s.hourOfDay < 8) return []
+
+  // Finance detailed anomalies
+  if (s.detailedAnomalies.length > 0) {
+    // Only nudge for high severity or multiple medium anomalies
+    const high = s.detailedAnomalies.filter(a => a.severity === 'high')
+    const medium = s.detailedAnomalies.filter(a => a.severity === 'medium')
+    
+    if (high.length > 0 || medium.length >= 2) {
+      const primary = high[0] || medium[0]
+      flags.push({
+        type: 'finance_anomaly',
+        severity: high.length > 0 ? 'high' : 'medium',
+        detail: `Opvallende uitgave: ${primary.title} (€${primary.amount}) - ${primary.reason}`,
+        nudgeTopic: 'finance_anomaly',
+      })
+    }
+  }
 
   if (s.daysSinceLastFinanceEntry > 7) {
     flags.push({

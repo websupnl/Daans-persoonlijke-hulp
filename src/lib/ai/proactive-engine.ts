@@ -25,6 +25,7 @@ export interface ProactiveResult {
 
 const NUDGE_COOLDOWN_HOURS: Record<string, number> = {
   finance_silence: 48,
+  finance_anomaly: 24,
   open_invoices: 72,
   journal_silence: 36,
   overdue_todos: 24,
@@ -176,7 +177,7 @@ function buildProactiveKeyboard(anomaly: AnomalyFlag) {
     buttons.push({ text: '📔 Schrijf nu', callback_data: 'journal_start' })
   } else if (anomaly.type === 'overdue_spike') {
     buttons.push({ text: '📋 Taken overzicht', callback_data: 'todos_overview' })
-  } else if (anomaly.type === 'finance_silence') {
+  } else if (anomaly.type === 'finance_silence' || anomaly.type === 'finance_anomaly') {
     buttons.push({ text: '💰 Financiën checken', callback_data: 'finance_overview' })
   }
 
@@ -186,6 +187,7 @@ function buildProactiveKeyboard(anomaly: AnomalyFlag) {
 function buildPlainNudge(anomaly: AnomalyFlag, _snap: LifeSnapshot): string {
   const labels: Record<string, string> = {
     finance_silence: '💰 Financiën',
+    finance_anomaly: '💰 Financiële Uitschieter',
     journal_silence: '📔 Dagboek',
     overdue_spike: '📋 Achterstallige taken',
     habit_streak_break: '⭐ Gewoontes',
