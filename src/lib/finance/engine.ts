@@ -727,7 +727,7 @@ export function analyzeFinance(rows: FinanceRow[], rules: FinanceRule[] = []): F
     const amountMedian = median(amounts) || averageAmount
     const amountDeviation = maxRelativeDeviation(amounts, amountMedian || 1)
     const dates = sorted.map(item => item.row.transaction_date ? new Date(item.row.transaction_date) : null).filter(Boolean)
-    const intervals = dates.slice(1).map((date, index) => (date.getTime() - dates[index].getTime()) / 86400000)
+    const intervals = dates.length > 1 ? dates.slice(1).map((date, index) => (date.getTime() - dates[index]!.getTime()) / 86400000) : []
     const intervalMedian = median(intervals)
     const intervalDeviation = intervalMedian ? maxRelativeDeviation(intervals, intervalMedian) : 1
     const frequency = detectFrequency(intervalMedian)

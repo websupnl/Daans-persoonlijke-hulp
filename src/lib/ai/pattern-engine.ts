@@ -428,10 +428,12 @@ export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
   let questionsCreated = 0
 
   if (!process.env.OPENAI_API_KEY) {
+    console.error('[PatternEngine] No OpenAI API key configured')
     return { hypothesesUpdated: 0, questionsCreated: 0, absenceSignals }
   }
 
   try {
+    console.log('[PatternEngine] Starting daily analysis with context length:', context.length)
     const openai = getOpenAIClient()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -445,10 +447,16 @@ export async function runDailyPatternAnalysis(): Promise<DailyAnalysisResult> {
     })
 
     const raw = completion.choices[0]?.message?.content ?? '{}'
+    console.log('[PatternEngine] OpenAI response received, length:', raw.length)
     const parsed = JSON.parse(raw) as {
       hypotheses?: PatternHypothesis[]
       questions?: GeneratedQuestion[]
     }
+    
+    console.log('[PatternEngine] Parsed response:', {
+      hypotheses: parsed.hypotheses?.length || 0,
+      questions: parsed.questions?.length || 0
+    })
 
     // Sla hypotheses op
     for (const h of (parsed.hypotheses ?? []).slice(0, 4)) {
