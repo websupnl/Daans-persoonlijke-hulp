@@ -14,6 +14,7 @@ const PUBLIC_API_PATHS = new Set([
   '/api/auth/logout',
   '/api/auth/unlock',
   '/api/telegram/webhook',
+  '/api/test/architecture',
 ])
 const ALT_AUTH_API_PATHS = new Set([
   '/api/cron/pulse',
