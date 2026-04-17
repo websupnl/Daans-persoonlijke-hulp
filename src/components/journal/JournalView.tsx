@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, subDays } from 'date-fns'
 import { nl } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles, Send } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles, Send, LineChart, Lightbulb, BarChart3, TrendingUp, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface JournalEntry {
@@ -33,11 +33,41 @@ export default function JournalView() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiAnswer, setAiAnswer] = useState('')
 
+  // AI Insights state
+  const [insights, setInsights] = useState<{
+    summary: string;
+    themes: string[];
+    energyGivers: string[];
+    energyDrainers: string[];
+    patterns: string[];
+    development: string;
+  } | null>(null)
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [insightPeriod, setInsightPeriod] = useState('30')
+  const [showInsights, setShowInsights] = useState(false)
+
   const fetchEntry = useCallback(async (currentDate: string) => {
     const res = await fetch(`/api/journal?date=${currentDate}`)
     const data = await res.json()
     setEntry(data.data || { date: currentDate, content: '', mood: undefined, energy: undefined, gratitude: [], highlights: '' })
   }, [])
+
+  async function fetchInsights(period: string) {
+    setInsightsLoading(true)
+    setInsightPeriod(period)
+    try {
+      const res = await fetch('/api/journal/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period }),
+      })
+      const data = await res.json()
+      setInsights(data)
+      setShowInsights(true)
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
 
   useEffect(() => { fetchEntry(date) }, [date, fetchEntry])
 
@@ -124,7 +154,7 @@ export default function JournalView() {
           <p className="mt-1 text-xs font-medium text-gray-400">Snelle reflectie met vaste structuur</p>
         </div>
 
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 space-y-3">
           <button
             onClick={askAI}
             disabled={aiLoading}
@@ -134,7 +164,17 @@ export default function JournalView() {
             <Sparkles size={14} />
             {aiLoading ? 'AI denkt na...' : 'Stel me een vraag'}
           </button>
-          <p className="mt-2 text-center text-[10px] text-gray-400">AI stelt een persoonlijke vervolgvraag op basis van wat je hebt geschreven</p>
+
+          <button
+            onClick={() => fetchInsights('30')}
+            disabled={insightsLoading}
+            className="w-full flex items-center justify-center gap-2 rounded-3xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:opacity-60"
+          >
+            <LineChart size={14} className="text-pink-500" />
+            {insightsLoading ? 'Inzichten laden...' : 'Dagboekinzichten'}
+          </button>
+          
+          <p className="px-2 text-center text-[10px] text-gray-400 leading-tight">AI stelt een vraag over je dag, of analyseert patronen over de langere termijn.</p>
         </div>
 
         <div className="flex-1 overflow-x-auto px-4 pb-4 lg:overflow-y-auto lg:overflow-x-hidden">
@@ -174,6 +214,127 @@ export default function JournalView() {
               <ChevronRight size={16} />
             </button>
           </div>
+
+          {insightsLoading && (
+            <div className="mb-8 rounded-3xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-pink-50 text-pink-500">
+                 <Sparkles className="animate-pulse" size={24} />
+               </div>
+               <p className="text-sm font-medium text-gray-500">AI analyseert je dagboekentries...</p>
+            </div>
+          )}
+
+          {showInsights && insights && !insightsLoading && (
+            <div className="mb-8 overflow-hidden rounded-3xl border border-pink-100 bg-white shadow-md transition-all">
+              <div className="flex items-center justify-between border-b border-gray-50 bg-gray-50/50 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <LineChart size={18} className="text-pink-500" />
+                  <h3 className="font-bold text-gray-800">Dagboekinzichten</h3>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 rounded-2xl bg-white border border-gray-100 p-1">
+                    {['7', '30', '90', 'all'].map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => fetchInsights(p)}
+                        className={cn(
+                          "rounded-xl px-3 py-1 text-[10px] font-bold transition-all",
+                          insightPeriod === p ? "bg-gray-800 text-white" : "text-gray-400 hover:text-gray-600"
+                        )}
+                      >
+                        {p === 'all' ? 'Alles' : `${p}d`}
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => setShowInsights(false)}
+                    className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-6 rounded-2xl bg-pink-50/30 p-5 border border-pink-50">
+                  <p className="text-sm italic leading-relaxed text-gray-700">
+                    &quot;{insights.summary}&quot;
+                  </p>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Lightbulb size={14} className="text-amber-500" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Thema&apos;s &amp; Focus</h4>
+                    </div>
+                    <ul className="space-y-2">
+                      {insights.themes.map((t, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-pink-400" />
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <TrendingUp size={14} className="text-blue-500" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Ontwikkeling</h4>
+                    </div>
+                    <p className="text-sm leading-relaxed text-gray-600">
+                      {insights.development}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-green-50/30 p-4 border border-green-50">
+                    <div className="mb-3 flex items-center gap-2 text-green-600">
+                      <Zap size={14} />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-green-500">Geeft Energie</h4>
+                    </div>
+                    <ul className="space-y-1">
+                      {insights.energyGivers.map((item, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                          <Plus size={10} className="text-green-400" /> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl bg-orange-50/30 p-4 border border-orange-50">
+                    <div className="mb-3 flex items-center gap-2 text-orange-600">
+                      <Zap size={14} />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-orange-500">Kost Energie</h4>
+                    </div>
+                    <ul className="space-y-1">
+                      {insights.energyDrainers.map((item, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                          <span className="text-orange-400">-</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {insights.patterns && insights.patterns.length > 0 && (
+                  <div className="mt-6 border-t border-gray-50 pt-6">
+                    <div className="mb-3 flex items-center gap-2">
+                      <BarChart3 size={14} className="text-violet-500" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Opvallende Patronen</h4>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {insights.patterns.map((p, i) => (
+                        <div key={i} className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 border border-gray-100">
+                          {p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {entry && (
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
