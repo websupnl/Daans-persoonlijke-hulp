@@ -9,16 +9,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const [project, todos, notes, worklogs, finance] = await Promise.all([
     queryOne(`
       SELECT p.*,
-        COUNT(DISTINCT CASE WHEN t.completed = 0 THEN t.id END) as open_todos,
-        COUNT(DISTINCT t.id) as total_todos,
-        COUNT(DISTINCT n.id) as note_count,
-        COALESCE(SUM(COALESCE(wl.actual_duration_minutes, wl.duration_minutes)), 0) as total_minutes
+        (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id AND t.completed = 0)::int as open_todos,
+        (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id)::int as total_todos,
+        (SELECT COUNT(*) FROM notes n WHERE n.project_id = p.id)::int as note_count,
+        (SELECT COALESCE(SUM(COALESCE(wl.actual_duration_minutes, wl.duration_minutes)), 0) FROM work_logs wl WHERE wl.project_id = p.id)::int as total_minutes
       FROM projects p
-      LEFT JOIN todos t ON t.project_id = p.id
-      LEFT JOIN notes n ON n.project_id = p.id
-      LEFT JOIN work_logs wl ON wl.project_id = p.id
       WHERE p.id = $1
-      GROUP BY p.id
     `, [id]),
     query(`SELECT * FROM todos WHERE project_id = $1 ORDER BY completed ASC, CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`, [id]),
     query(`SELECT id, title, content_text, tags, pinned, created_at FROM notes WHERE project_id = $1 ORDER BY pinned DESC, created_at DESC`, [id]),
