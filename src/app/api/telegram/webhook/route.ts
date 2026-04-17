@@ -21,6 +21,17 @@ import { buildLifeSnapshot, formatSnapshotForPrompt } from '@/lib/ai/life-snapsh
 import type { TelegramUpdate } from '@/lib/telegram/send-message'
 
 export async function POST(request: NextRequest) {
+  const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  const webhookSecret = request.headers.get('x-telegram-bot-api-secret-token')
+
+  if (process.env.NODE_ENV === 'production' && !configuredSecret) {
+    return NextResponse.json({ error: 'Webhook secret ontbreekt' }, { status: 503 })
+  }
+
+  if (configuredSecret && webhookSecret !== configuredSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let update: TelegramUpdate
   try {
     update = await request.json() as TelegramUpdate
@@ -149,13 +160,19 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     const analysis = await analyzeDiaryEntry(text, null, null)
     const telegramResponse = formatDiaryAnalysisForTelegram(analysis)
 
+    // Store text in inbox to avoid Telegram's 64-byte callback_data limit
+    const inboxRow = await queryOne<{ id: number }>(`
+      INSERT INTO inbox_items (raw_text, source, suggested_type, parsed_status)
+      VALUES ($1, 'telegram_journal', 'journal', 'pending') RETURNING id
+    `, [text])
+
     await sendTelegramMessage(
       chatId,
       `✍️ _Ik heb je antwoord gelezen._\n\n${telegramResponse}`,
       {
         reply_markup: {
           inline_keyboard: [[
-            { text: '📔 In dagboek opslaan', callback_data: `save_journal_note:${encodeURIComponent(text.slice(0, 100))}` },
+            { text: '📔 In dagboek opslaan', callback_data: `save_journal_note:${inboxRow?.id ?? 0}` },
             { text: '💬 Vraag meer', callback_data: 'generate_question' },
           ]],
         },
@@ -184,7 +201,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   // ── Standard message through ingest pipeline ──────────────────────────────
-  console.log(`[Telegram webhook] Message from ${senderName} (${chatId}): "${text}"`)
+  console.log(`[Telegram webhook] Message ontvangen van ${senderName || 'onbekend'} (${chatId})`)
 
   try {
     const result = await ingestMessage({
@@ -471,6 +488,28 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<void> {
       await execute(`UPDATE pending_questions SET status = 'dismissed' WHERE id = $1`, [qId])
       await answerCallbackQuery(cb.id, 'Vraag overgeslagen')
       if (chatId) await sendTelegramMessage(chatId, '👍 Prima, we slaan deze even over.')
+      return
+    }
+
+    // ── Save journal note (from diary follow-up) ──────────────────────────
+    if (action === 'save_journal_note') {
+      const inboxId = parseInt(rest, 10)
+      const inbox = await queryOne<{ id: number; raw_text: string }>(
+        `SELECT id, raw_text FROM inbox_items WHERE id = $1 LIMIT 1`, [inboxId]
+      )
+      if (!inbox) { await answerCallbackQuery(cb.id, '❌ Tekst niet meer beschikbaar'); return }
+
+      const date = new Date().toISOString().split('T')[0]
+      await execute(`
+        INSERT INTO journal_entries (date, content)
+        VALUES ($1, $2)
+        ON CONFLICT(date) DO UPDATE SET
+          content = journal_entries.content || E'\n\n' || EXCLUDED.content,
+          updated_at = NOW()
+      `, [date, inbox.raw_text])
+      await execute(`UPDATE inbox_items SET parsed_status = 'processed', processed_at = NOW() WHERE id = $1`, [inboxId])
+      await answerCallbackQuery(cb.id, '📔 Opgeslagen in dagboek!')
+      if (chatId) await sendTelegramMessage(chatId, `📔 Toegevoegd aan je dagboek van vandaag.`)
       return
     }
 

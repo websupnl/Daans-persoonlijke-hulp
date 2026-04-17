@@ -369,6 +369,26 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
     );
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id SERIAL PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      idle_expires_at TIMESTAMPTZ NOT NULL,
+      absolute_expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      ip_address TEXT,
+      user_agent TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_login_attempts (
+      key TEXT PRIMARY KEY,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_until TIMESTAMPTZ
+    );
   `)
 
   // Migrations for existing databases
@@ -496,6 +516,26 @@ export async function initSchema(): Promise<void> {
       started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       source TEXT DEFAULT 'chat',
       created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id SERIAL PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      idle_expires_at TIMESTAMPTZ NOT NULL,
+      absolute_expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      ip_address TEXT,
+      user_agent TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_login_attempts (
+      key TEXT PRIMARY KEY,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_until TIMESTAMPTZ
     );
   `)
 }

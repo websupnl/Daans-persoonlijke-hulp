@@ -8,23 +8,29 @@ export const dynamic = 'force-dynamic'
  * and sends a strategic report to Telegram.
  *
  * POST /api/telegram/deep-sync
- * Requires: INTERNAL_API_KEY header (or comes from Telegram webhook)
+ * Toegankelijk met een geldige sessie, INTERNAL_API_KEY of CRON_SECRET.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { runDeepSync } from '@/lib/ai/proactive-engine'
+import { getSessionFromRequest } from '@/lib/auth/request-session'
+import { hasAllowedOrigin } from '@/lib/auth/session-store'
 import { sendTelegramMessage } from '@/lib/telegram/send-message'
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('x-api-key')
   const internalKey = process.env.INTERNAL_API_KEY
   const cronSecret = request.headers.get('authorization')
+  const session = await getSessionFromRequest(request, { touch: true })
+
+  if (session && !hasAllowedOrigin(request)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const isAuthorized =
-    !authHeader && !cronSecret || // browser/dashboard request (no auth headers)
+    !!session ||
     (internalKey && authHeader === internalKey) ||
-    (process.env.CRON_SECRET && cronSecret === `Bearer ${process.env.CRON_SECRET}`) ||
-    !internalKey // If no key configured, allow all (dev mode)
+    !!(process.env.CRON_SECRET && cronSecret === `Bearer ${process.env.CRON_SECRET}`)
 
   if (!isAuthorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -1,12 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
   Users, Euro, Activity, BookOpen, FolderOpen, Clock,
   Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles,
-  HelpCircle, ShoppingCart
+  HelpCircle, ShoppingCart, LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +66,20 @@ export default function Sidebar({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      router.replace('/login')
+      router.refresh()
+      setLoggingOut(false)
+    }
+  }
 
   return (
     <aside
@@ -141,6 +156,15 @@ export default function Sidebar({
 
       {/* Bottom */}
       <div className="border-t border-gray-100 px-5 py-3">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-pink-200 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <LogOut size={14} />
+          {loggingOut ? 'Uitloggen...' : 'Uitloggen'}
+        </button>
         <p className="text-[10px] text-gradient font-semibold capitalize">
           {new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>

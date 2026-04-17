@@ -374,6 +374,19 @@ function mapAIResultsToStoredActions(
       case 'timer_stop':
         mapped.push({ type: 'timer_stopped', data: { id: data?.id, title: data?.title ?? 'Timer', duration_minutes: data?.duration_minutes ?? 0 } })
         break
+      case 'note_create':
+        mapped.push({ type: 'note_created', data: { id: data?.id, title: data?.title ?? 'Note' } })
+        break
+      case 'note_update':
+        mapped.push({ type: 'note_updated', data: { id: data?.id, title: data?.title } })
+        break
+      case 'journal_create':
+        mapped.push({ type: 'journal_created', data: { date: data?.date ?? '', content: data?.content ?? '' } })
+        break
+      case 'daily_plan_request':
+      case 'weekly_plan_request':
+        mapped.push({ type: 'plan_requested', data: { period: data?.period === 'week' ? 'week' : 'day' } })
+        break
       case 'contact_create':
         mapped.push({ type: 'contact_created', data: { id: data?.id, name: data?.name ?? 'Contact' } })
         break

@@ -207,10 +207,61 @@ async function executeSingleAction(
     case 'finance_create_income': {
       const { title, amount, category } = action.payload
       const row = await queryOne<{ id: number }>(`
-        INSERT INTO finance_items (type, title, amount, category, status) 
+        INSERT INTO finance_items (type, title, amount, category, status)
         VALUES ('inkomst', $1, $2, $3, 'betaald') RETURNING id
       `, [title, amount, category ?? 'overig'])
       return { type: action.type, success: true, data: { id: row?.id, title, amount } }
+    }
+
+    case 'note_create': {
+      const { title, content, tags, project_id } = action.payload
+      const tagsJson = JSON.stringify(tags ?? [])
+      const contentText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      const row = await queryOne<{ id: number }>(`
+        INSERT INTO notes (title, content, content_text, tags, project_id)
+        VALUES ($1, $2, $3, $4, $5) RETURNING id
+      `, [title, content, contentText, tagsJson, project_id ?? null])
+      await logActivity({ entityType: 'note', entityId: row?.id, action: 'created', title, summary: 'Note aangemaakt via AI' })
+      return { type: action.type, success: true, data: { id: row?.id, title } }
+    }
+
+    case 'note_update': {
+      const { id, title, content } = action.payload
+      const updates: string[] = ['updated_at = NOW()']
+      const values: unknown[] = []
+      let i = 1
+      if (title !== undefined) { updates.push(`title = $${i++}`); values.push(title) }
+      if (content !== undefined) {
+        const contentText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        updates.push(`content = $${i++}`, `content_text = $${i++}`)
+        values.push(content, contentText)
+      }
+      if (values.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
+      values.push(id)
+      await execute(`UPDATE notes SET ${updates.join(', ')} WHERE id = $${i}`, values)
+      return { type: action.type, success: true, data: { id, title } }
+    }
+
+    case 'journal_create': {
+      const { content, mood, energy } = action.payload
+      const date = new Date().toISOString().split('T')[0]
+      await execute(`
+        INSERT INTO journal_entries (date, content, mood, energy)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT(date) DO UPDATE SET
+          content = EXCLUDED.content,
+          mood = COALESCE(EXCLUDED.mood, journal_entries.mood),
+          energy = COALESCE(EXCLUDED.energy, journal_entries.energy),
+          updated_at = NOW()
+      `, [date, content, mood ?? null, energy ?? null])
+      await logActivity({ entityType: 'journal', action: 'created', title: `Dagboek ${date}`, summary: 'Journal aangemaakt via AI' })
+      return { type: action.type, success: true, data: { date, content: content.slice(0, 80) } }
+    }
+
+    case 'daily_plan_request':
+    case 'weekly_plan_request': {
+      const period = action.type === 'daily_plan_request' ? 'day' : 'week'
+      return { type: action.type, success: true, data: { period, note: 'Plan wordt gegenereerd via /api/planning' } }
     }
 
     case 'memory_store': {
@@ -304,9 +355,10 @@ async function executeSingleAction(
       return { type: action.type, success: true, data: items }
     }
 
-    default:
-      // Fallback for actions not explicitly handled yet or handled by original logic
-      console.warn(`[executeSingleAction] Unhandled action type: ${action.type}`)
-      return { type: action.type, success: false, error: 'Nog niet ondersteund in nieuwe engine' }
+    default: {
+      const a = action as any
+      console.warn(`[executeSingleAction] Unhandled action type: ${a.type}`)
+      return { type: a.type, success: false, error: 'Nog niet ondersteund in nieuwe engine' }
+    }
   }
 }

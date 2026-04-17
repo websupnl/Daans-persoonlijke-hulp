@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { runProactiveEngine, generateDeepQuestion } from '@/lib/ai/proactive-engine'
 import { updateAITheories } from '@/lib/ai/diary-personas'
+import { getSessionFromRequest } from '@/lib/auth/request-session'
 import { queryOne, query, execute } from '@/lib/db'
 import {
   collectDailyObservations,
@@ -25,12 +26,13 @@ import {
 import { sendTelegramMessage } from '@/lib/telegram/send-message'
 
 export async function GET(request: NextRequest) {
-  // Verify Vercel cron secret
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
+  const hasValidCronSecret = !!(cronSecret && authHeader === `Bearer ${cronSecret}`)
+  const session = hasValidCronSecret ? null : await getSessionFromRequest(request, { touch: true })
   // Block only if auth header is present but wrong (wrong cron secret)
   // Browser/dashboard requests have no auth header → allowed
-  if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
+  if (!hasValidCronSecret && !session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -184,7 +186,7 @@ export async function GET(request: NextRequest) {
   }
 
   const duration = Date.now() - startedAt
-  console.log(`[Pulse] Completed in ${duration}ms:`, JSON.stringify(results))
+  console.log(`[Pulse] Completed in ${duration}ms`)
 
   return NextResponse.json({
     ok: true,

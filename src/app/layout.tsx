@@ -4,6 +4,14 @@ import './globals.css'
 export const metadata: Metadata = {
   title: "Daan's Persoonlijke Hulp",
   description: 'Jouw persoonlijke levens-OS',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 }
 
 export const viewport: Viewport = {

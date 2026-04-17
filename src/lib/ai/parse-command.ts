@@ -17,17 +17,35 @@ Wees proactief, menselijk en betrouwbaar.
 5. Formuleer summary: Vertel Daan wat je hebt gedaan of wat het antwoord is. Wees kort maar natuurlijk.
 
 === ACTION TYPES ===
+Taken:
 - todo_create: { title, priority: "hoog"|"medium"|"laag", due_date, category, project_id, project_name }
 - todo_update: { id, title, priority, due_date }
 - todo_complete: { title_search }
+- todo_delete: { id } → ALTIJD requires_confirmation: true
+
+Werklogs & Timer:
 - worklog_create: { title, duration_minutes, context: "Bouma"|"WebsUp"|"privé"|"studie"|"overig", date, project_id, project_name }
 - worklog_update_last: { duration_minutes, expected_previous_minutes }
 - timer_start: { title, context: "Bouma"|"WebsUp"|"privé"|"studie"|"overig", project_id, project_name }
 - timer_stop: {}
+
+Agenda:
 - event_create: { title, date, time, type: "vergadering"|"deadline"|"afspraak"|"herinnering"|"algemeen", duration }
 - event_update: { id, title, date, time, type }
-- habit_log: { name_search, note }
+
+Notities:
+- note_create: { title, content, tags, project_id }
+- note_update: { id, title, content }
+
+Dagboek:
+- journal_create: { content, mood: 1-5, energy: 1-5 } → gebruik voor "schrijf in dagboek", "dagboek:", gevoelens opschrijven
+
+Financiën:
 - finance_create_expense: { title, amount, category, description }
+- finance_create_income: { title, amount, category } → gebruik voor ontvangen betalingen, facturen betaald, salaris, omzet
+
+Overig:
+- habit_log: { name_search, note }
 - memory_store: { key, value, category, confidence }
 - contact_create: { name, company, email, phone }
 - inbox_capture: { raw_text, suggested_type }
@@ -35,6 +53,8 @@ Wees proactief, menselijk en betrouwbaar.
 - project_update: { id, title, status: "actief"|"on-hold"|"afgerond" }
 - grocery_create: { title, quantity, category }
 - grocery_list: {}
+- daily_plan_request: {} → bij "wat moet ik vandaag doen?", "maak dagplanning"
+- weekly_plan_request: {} → bij "weekplanning", "wat staat er deze week?"
 
 === CRUCIALE REGELS ===
 - DATUM/TIJD: Daan zegt vaak "vanavond", "morgen om 8:00", "20 april". Gebruik de "Huidige datum" uit de context om dit te berekenen.
@@ -106,7 +126,27 @@ Huidig irritatieniveau: ${ctx.irritationLevel}/10`
     if (!raw) return null
 
     const parsed = JSON.parse(raw)
-    const validated = AICommandResultSchema.safeParse(parsed)
+    let validated = AICommandResultSchema.safeParse(parsed)
+
+    // Resilient fallback: strip unknown action types instead of crashing everything
+    if (!validated.success && Array.isArray(parsed.actions)) {
+      const KNOWN_TYPES = new Set([
+        'todo_create','todo_update','todo_delete','todo_delete_many','todo_complete',
+        'note_create','note_update','project_create','project_update','contact_create',
+        'finance_create_expense','finance_create_income','worklog_create','worklog_update_last',
+        'journal_create','habit_log','memory_store','inbox_capture','event_create','event_update',
+        'daily_plan_request','weekly_plan_request','timer_start','timer_stop',
+        'grocery_create','grocery_list',
+      ])
+      const stripped = parsed.actions.filter((a: any) => KNOWN_TYPES.has(a?.type))
+      if (stripped.length !== parsed.actions.length) {
+        const unknown = parsed.actions.filter((a: any) => !KNOWN_TYPES.has(a?.type)).map((a: any) => a?.type)
+        console.warn('[parseCommandWithAI] Stripped unknown action types:', unknown)
+        parsed.actions = stripped
+        validated = AICommandResultSchema.safeParse(parsed)
+      }
+    }
+
     if (!validated.success) {
       console.error('AI output validation failed:', validated.error)
       return null

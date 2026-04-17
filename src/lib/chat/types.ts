@@ -112,6 +112,10 @@ export type StoredAction =
   | { type: 'fallback_answer'; data: { mode: 'ai' | 'rule' } }
   | { type: 'timer_started'; data: { id?: number; title: string; project_id?: number | null } }
   | { type: 'timer_stopped'; data: { id?: number; title: string; duration_minutes: number } }
+  | { type: 'note_created'; data: { id?: number; title: string } }
+  | { type: 'note_updated'; data: { id: number; title?: string } }
+  | { type: 'journal_created'; data: { date: string; content: string } }
+  | { type: 'plan_requested'; data: { period: 'day' | 'week' } }
 
 export type ChatAction =
   | {
