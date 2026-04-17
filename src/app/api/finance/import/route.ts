@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { execute } from '@/lib/db'
+import { execute, query } from '@/lib/db'
 import { enrichTransaction } from '@/lib/finance/engine'
 
 interface ParsedRow {
@@ -309,8 +309,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (!doImport) {
-    // Return preview only
-    return NextResponse.json({ preview: rows, count: rows.length })
+    // Return preview only — check for duplicates
+    const preview = await Promise.all(rows.map(async (row) => {
+      const existing = await query(`
+        SELECT id FROM finance_items
+        WHERE type = $1
+          AND title = $2
+          AND ROUND(amount::numeric, 2) = ROUND($3::numeric, 2)
+          AND (due_date = $4::date OR (due_date IS NULL AND created_at::date = $4::date))
+          AND account = $5
+        LIMIT 1
+      `, [row.type, row.description, row.amount, row.date, account])
+      return { ...row, is_duplicate: existing.length > 0 }
+    }))
+    return NextResponse.json({ preview, count: rows.length })
   }
 
   // Bulk import — skip exact duplicates (same type + title + amount + date + account)
