@@ -894,7 +894,10 @@ function FinanceAnalysisPanel({
                       {question.suggestedActions.map(action => (
                         <button
                           key={action.label}
-                          onClick={() => onApplyRule(question.queueKey, { ...action.rulePatch, notes: notes[question.queueKey] })}
+                          onClick={() => {
+                            const mergedNotes = notes[question.queueKey] || (action.rulePatch.notes as string)
+                            onApplyRule(question.queueKey, { ...action.rulePatch, notes: mergedNotes })
+                          }}
                           disabled={applyingRuleKey === question.queueKey}
                           className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 hover:text-gray-800 disabled:opacity-60"
                         >
