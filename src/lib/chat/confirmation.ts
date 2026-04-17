@@ -27,7 +27,7 @@ export interface ConfirmationResponse {
 }
 
 export interface ExpectedInput {
-  type: 'confirmation' | 'text' | 'number' | 'date' | 'choice' | 'yes_no_cancel'
+  type: 'confirmation' | 'text' | 'number' | 'date' | 'choice' | 'yes_no_cancel' | 'email' | 'string'
   prompt?: string
   options?: string[]
   validation?: ValidationRule[]
@@ -374,11 +374,18 @@ class ConfirmationManager {
           errors.push('Ongeldig getal')
         } else {
           parsedValue = num
-          if (expectedInput.validation?.min !== undefined && num < expectedInput.validation.min) {
-            errors.push(`Getal moet minimaal ${expectedInput.validation.min} zijn`)
-          }
-          if (expectedInput.validation?.max !== undefined && num > expectedInput.validation.max) {
-            errors.push(`Getal mag maximaal ${expectedInput.validation.max} zijn`)
+          // Check validation rules for number
+          if (expectedInput.validation) {
+            for (const rule of expectedInput.validation) {
+              if (rule.type === 'number') {
+                if (rule.min !== undefined && num < rule.min) {
+                  errors.push(`Getal moet minimaal ${rule.min} zijn`)
+                }
+                if (rule.max !== undefined && num > rule.max) {
+                  errors.push(`Getal mag maximaal ${rule.max} zijn`)
+                }
+              }
+            }
           }
         }
         break
@@ -400,14 +407,21 @@ class ConfirmationManager {
         break
 
       case 'string':
-        if (expectedInput.validation?.minLength && input.length < expectedInput.validation.minLength) {
-          errors.push(`Moet minimaal ${expectedInput.validation.minLength} karakters bevatten`)
-        }
-        if (expectedInput.validation?.maxLength && input.length > expectedInput.validation.maxLength) {
-          errors.push(`Mag maximaal ${expectedInput.validation.maxLength} karakters bevatten`)
-        }
-        if (expectedInput.validation?.pattern && !new RegExp(expectedInput.validation.pattern).test(input)) {
-          errors.push('Ongeldig formaat')
+        // Check validation rules for string
+        if (expectedInput.validation) {
+          for (const rule of expectedInput.validation) {
+            if (rule.type === 'string') {
+              if (rule.min !== undefined && input.length < rule.min) {
+                errors.push(`Moet minimaal ${rule.min} karakters bevatten`)
+              }
+              if (rule.max !== undefined && input.length > rule.max) {
+                errors.push(`Mag maximaal ${rule.max} karakters bevatten`)
+              }
+              if (rule.pattern && !new RegExp(rule.pattern).test(input)) {
+                errors.push('Ongeldig formaat')
+              }
+            }
+          }
         }
         break
     }
