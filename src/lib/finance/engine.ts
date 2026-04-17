@@ -504,6 +504,7 @@ function buildMonthlyTrends(rows: FinanceRow[]): FinanceTrend[] {
   const byMonth = new Map<string, { income: number; expenses: number; categories: Record<string, number> }>()
 
   for (const row of rows) {
+    if (!row.transaction_date) continue
     const month = row.transaction_date.slice(0, 7)
     const current = byMonth.get(month) || { income: 0, expenses: 0, categories: {} }
     if (row.type === 'inkomst') current.income += Number(row.amount)
@@ -725,14 +726,14 @@ export function analyzeFinance(rows: FinanceRow[], rules: FinanceRule[] = []): F
     const averageAmount = amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length
     const amountMedian = median(amounts) || averageAmount
     const amountDeviation = maxRelativeDeviation(amounts, amountMedian || 1)
-    const dates = sorted.map(item => new Date(item.row.transaction_date))
+    const dates = sorted.map(item => item.row.transaction_date ? new Date(item.row.transaction_date) : null).filter(Boolean)
     const intervals = dates.slice(1).map((date, index) => (date.getTime() - dates[index].getTime()) / 86400000)
     const intervalMedian = median(intervals)
     const intervalDeviation = intervalMedian ? maxRelativeDeviation(intervals, intervalMedian) : 1
     const frequency = detectFrequency(intervalMedian)
-    const monthCoverage = new Set(sorted.map(item => item.row.transaction_date.slice(0, 7))).size
-    const daySpread = frequency === 'monthly'
-      ? Math.max(...dates.map(date => date.getDate())) - Math.min(...dates.map(date => date.getDate()))
+    const monthCoverage = new Set(sorted.map(item => item.row.transaction_date ? item.row.transaction_date.slice(0, 7) : '').filter(Boolean)).size
+    const daySpread = frequency === 'monthly' && dates.length > 0
+      ? Math.max(...dates.map(date => date?.getDate() || 0)) - Math.min(...dates.map(date => date?.getDate() || 0))
       : 0
     const calendarAligned = frequency === 'monthly' ? daySpread <= 5 : true
     const rule = items[0].enrichment.rule

@@ -285,10 +285,15 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       `✍️ _Ik heb je antwoord gelezen._\n\n${telegramResponse}`,
       {
         reply_markup: {
-          inline_keyboard: [[
-            { text: '📔 In dagboek opslaan', callback_data: `save_journal_note:${inboxRow?.id ?? 0}` },
-            { text: '💬 Vraag meer', callback_data: 'generate_question' },
-          ]],
+          inline_keyboard: [
+            [
+              { text: '📔 In dagboek opslaan', callback_data: `save_journal_note:${inboxRow?.id ?? 0}` },
+              { text: '💬 Vraag meer', callback_data: 'generate_question' },
+            ],
+            [
+              { text: '💾 Alleen opslaan', callback_data: `save_journal_only:${inboxRow?.id ?? 0}` }
+            ]
+          ],
         },
       }
     )
