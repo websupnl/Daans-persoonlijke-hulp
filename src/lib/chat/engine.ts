@@ -212,6 +212,55 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     return result
   }
 
+  // 2.6. Finance summary fast-path — always query DB, never rely on chat history
+  const financeQueryRe = /\b(hoeveel|wat|totaal|overzicht)\b.{0,30}\b(uitgegeven|uitgaven|gespendeerd|betaald|inkomsten|verdiend|ontvangen)\b|\b(uitgaven|inkomsten|kosten|saldo)\b.{0,20}\b(vandaag|gisteren|week|maand|dit jaar)\b/i
+  const periodRe = /\b(gisteren|yesterday)\b/i.test(request.message) ? 'yesterday'
+    : /\b(week|afgelopen week|deze week)\b/i.test(request.message) ? 'week'
+    : /\b(maand|deze maand|afgelopen maand)\b/i.test(request.message) ? 'month'
+    : /\b(jaar|dit jaar|afgelopen jaar)\b/i.test(request.message) ? 'year'
+    : /\bvandaag\b/i.test(request.message) ? 'today'
+    : null
+
+  if (financeQueryRe.test(request.message) && periodRe) {
+    const periodSql: Record<string, string> = {
+      today: `date = CURRENT_DATE`,
+      yesterday: `date = CURRENT_DATE - 1`,
+      week: `date >= CURRENT_DATE - INTERVAL '7 days'`,
+      month: `date >= DATE_TRUNC('month', CURRENT_DATE)`,
+      year: `date >= DATE_TRUNC('year', CURRENT_DATE)`,
+    }
+    const periodLabel: Record<string, string> = {
+      today: 'vandaag', yesterday: 'gisteren', week: 'deze week', month: 'deze maand', year: 'dit jaar',
+    }
+    const rows = await query<{ type: string; total: number; count: number; ids: string }>(
+      `SELECT type, SUM(amount)::float as total, COUNT(*)::int as count,
+              STRING_AGG(id::text, ',') as ids
+       FROM finance_items WHERE ${periodSql[periodRe]} GROUP BY type`
+    ).catch(() => [])
+
+    if (rows.length > 0) {
+      const uitgaven = rows.find(r => r.type === 'expense' || r.type === 'uitgave')
+      const inkomsten = rows.find(r => r.type === 'inkomst' || r.type === 'income')
+      const parts: string[] = []
+      if (uitgaven) parts.push(`💸 Uitgaven: €${Number(uitgaven.total).toFixed(2)} (${uitgaven.count}x)`)
+      if (inkomsten) parts.push(`💰 Inkomsten: €${Number(inkomsten.total).toFixed(2)} (${inkomsten.count}x)`)
+
+      const allIds = rows.flatMap(r => r.ids?.split(',').map(Number) ?? []).filter(Boolean)
+      const transactionIds = allIds.slice(0, 20)
+
+      const result: ChatResult = {
+        reply: `📊 *Financiën ${periodLabel[periodRe]}:*\n${parts.join('\n')}\n\n_Typ "details" voor transactienummers._`,
+        actions: [{ type: 'finance_summary', data: { total: (uitgaven?.total ?? 0) + (inkomsten?.total ?? 0), period: periodRe, count: rows.reduce((s, r) => s + r.count, 0) } }],
+        parserType: 'deterministic',
+        confidence: 0.95,
+        intent: 'finance_summary',
+      }
+      await logAndStoreResponse(userContent, result)
+      await saveSession(sessionKey, { lastDomain: 'finance', lastResult: { domain: 'finance', period: periodRe, transactionIds } })
+      return result
+    }
+  }
+
   // 2.7. Follow-up resolver — "meer info", "details", "transactienummer"
   if (isFollowUpMessage(request.message)) {
     const session = await loadSession(sessionKey)

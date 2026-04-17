@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { runProactiveEngine, generateDeepQuestion, runMorningBriefing } from '@/lib/ai/proactive-engine'
+import { runProactiveEngine, generateDeepQuestion, runMorningBriefing, runWeeklyReport } from '@/lib/ai/proactive-engine'
 import { updateAITheories } from '@/lib/ai/diary-personas'
 import { getSessionFromRequest } from '@/lib/auth/request-session'
 import { queryOne, query, execute } from '@/lib/db'
@@ -53,8 +53,9 @@ export async function GET(request: NextRequest) {
     10
   )
 
-  // ── 0. Nightly memory crawl at 03:00 ─────────────────────────────────────
-  if (amsterdamHour === 3) {
+  // ── 0. Memory crawl: nightly at 03:00 + every 4 hours daytime ───────────
+  const shouldCrawlMemory = amsterdamHour === 3 || (amsterdamHour >= 7 && amsterdamHour % 4 === 0)
+  if (shouldCrawlMemory) {
     try {
       const memResult = await generateMemories()
       results.memoryCrawl = memResult
@@ -125,6 +126,22 @@ export async function GET(request: NextRequest) {
     console.error('[Pulse] Daily analysis error:', err)
   }
 
+  // ── 2b. Weekly Report (Sunday 18:00) ─────────────────────────────────────
+  const isSundayEvening = new Date().getDay() === 0 && amsterdamHour === 18
+  if (isSundayEvening) {
+    try {
+      const sent = await runWeeklyReport()
+      results.weeklyReport = { sent }
+      if (sent) {
+        const duration = Date.now() - startedAt
+        return NextResponse.json({ ok: true, status: 'weekly_report_sent', duration, timestamp: new Date().toISOString(), results })
+      }
+    } catch (err) {
+      console.error('[Pulse] Weekly report error:', err)
+      results.weeklyReport = { error: err instanceof Error ? err.message : 'unknown' }
+    }
+  }
+
   // ── 5. Weekly Pattern Analysis (once a week, Sunday) ─────────────────────
   try {
     const isSunday = new Date().getDay() === 0
@@ -182,8 +199,8 @@ export async function GET(request: NextRequest) {
       try {
         if (rotationMode === 0) {
           // Mode C: Share a theory/insight from ai_theories
-          const theory = await queryOne<{ category: string; theory: string; confidence: number; action_potential: string | null }>(`
-            SELECT category, theory, confidence::float, action_potential
+          const theory = await queryOne<{ id: number; category: string; theory: string; confidence: number; action_potential: string | null }>(`
+            SELECT id, category, theory, confidence::float, action_potential
             FROM ai_theories
             WHERE status IN ('hypothesis','confirmed')
               AND category != 'wekelijks_inzicht'
@@ -195,8 +212,8 @@ export async function GET(request: NextRequest) {
             await sendTelegramMessage(chatId, `🔬 *Brain Inzicht*\n\n${theory.theory}${extra}\n\n_Vertrouwen: ${conf}% · categorie: ${theory.category}_`, {
               reply_markup: {
                 inline_keyboard: [[
-                  { text: '✅ Klopt dit?', callback_data: 'theory_confirm' },
-                  { text: '❌ Niet van toepassing', callback_data: 'theory_reject' },
+                  { text: '✅ Klopt dit', callback_data: `theory_confirm:${theory.id}` },
+                  { text: '❌ Niet van toepassing', callback_data: `theory_reject:${theory.id}` },
                 ]],
               },
             })

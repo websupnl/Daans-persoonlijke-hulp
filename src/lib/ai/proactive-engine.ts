@@ -553,6 +553,153 @@ Schrijf nu de Morning Briefing.`,
   }
 }
 
+/**
+ * Weekly Report — zondagavond 18:00 overzicht van de hele week via Telegram.
+ */
+export async function runWeeklyReport(): Promise<boolean> {
+  const chatId = process.env.TELEGRAM_CHAT_ID
+  if (!chatId || !process.env.OPENAI_API_KEY) return false
+
+  const alreadySent = await queryOne<{ id: number }>(`
+    SELECT id FROM proactive_log
+    WHERE trigger_type = 'weekly_report' AND created_at > NOW() - INTERVAL '6 days'
+    LIMIT 1
+  `).catch(() => null)
+  if (alreadySent) return false
+
+  const snap = await buildLifeSnapshot()
+
+  const [completedTodos, weekFinance, weekWork, weekHabits, weekJournal, confirmedTheories] = await Promise.all([
+    query<{ title: string }>(`
+      SELECT title FROM todos
+      WHERE completed = 1 AND completed_at >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY completed_at DESC LIMIT 10
+    `).catch(() => []),
+    query<{ type: string; total: number; count: number }>(`
+      SELECT type, SUM(amount)::float as total, COUNT(*)::int as count
+      FROM finance_items WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY type
+    `).catch(() => []),
+    query<{ context: string; total_minutes: number }>(`
+      SELECT context, SUM(COALESCE(actual_duration_minutes, duration_minutes))::int as total_minutes
+      FROM work_logs WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY context ORDER BY total_minutes DESC
+    `).catch(() => []),
+    query<{ name: string; count: number }>(`
+      SELECT h.name, COUNT(hl.id)::int as count
+      FROM habits h
+      LEFT JOIN habit_logs hl ON hl.habit_id = h.id AND hl.logged_date >= CURRENT_DATE - INTERVAL '7 days'
+      WHERE h.active = 1 GROUP BY h.name ORDER BY count DESC
+    `).catch(() => []),
+    query<{ date: string; mood: number; energy: number }>(`
+      SELECT TO_CHAR(date, 'YYYY-MM-DD') as date, mood, energy
+      FROM journal_entries WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY date DESC
+    `).catch(() => []),
+    query<{ category: string; theory: string; confidence: number }>(`
+      SELECT category, theory, confidence::float FROM ai_theories
+      WHERE status = 'confirmed' ORDER BY confidence DESC LIMIT 3
+    `).catch(() => []),
+  ])
+
+  const weekFinanceMap = Object.fromEntries(weekFinance.map(f => [f.type, f]))
+  const inkomsten = weekFinanceMap['inkomst']?.total ?? 0
+  const uitgaven = weekFinanceMap['expense']?.total ?? weekFinanceMap['uitgave']?.total ?? 0
+  const weekWorkTotal = weekWork.reduce((s, w) => s + w.total_minutes, 0)
+  const avgMood = weekJournal.length > 0
+    ? (weekJournal.reduce((s, j) => s + (j.mood || 0), 0) / weekJournal.length).toFixed(1)
+    : null
+
+  const openai = getOpenAIClient()
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `Je schrijft een wekelijks rapport voor Daan — zijn persoonlijk leven-OS overzicht.
+Daan is ondernemer (WebsUp.nl) en elektricien (Bouma). Hij heeft weinig tijd.
+
+Structuur (gebruik exact deze emoji headers):
+📊 *Weekrapport* _[weeknummer]_
+
+☀️ *Week samenvatting* — 2 feitelijke zinnen
+✅ *Gedaan* — bullet list van afgeronde taken
+💰 *Financiën* — inkomsten vs uitgaven, opvallende items
+⚡ *Energie & Focus* — werkuren, gewoontecompletie, stemming-trend in 2 zinnen
+🎯 *Volgende week* — top 3 concrete focuspunten op basis van data
+🧠 *Patroon inzicht* — één scherp cross-module inzicht dat Daan waarschijnlijk zelf nog niet heeft opgemerkt
+
+Telegram: *bold*, _italic_. Max 350 woorden. Schrijf in het Nederlands.`,
+      },
+      {
+        role: 'user',
+        content: `WEEK DATA:
+Afgeronde taken (${completedTodos.length}): ${completedTodos.map(t => t.title).join(', ') || 'geen'}
+Open taken: ${snap.openTodosCount}, achterstallig: ${snap.overdueTodosCount}
+
+Financiën: inkomsten €${inkomsten.toFixed(2)}, uitgaven €${uitgaven.toFixed(2)} (${weekFinance.reduce((s, f) => s + f.count, 0)} transacties)
+Maandsaldo: €${snap.monthIncomeTotal.toFixed(0)} in / €${snap.monthExpenseTotal.toFixed(0)} uit
+
+Werkuren: ${Math.round(weekWorkTotal / 60 * 10) / 10}u totaal | ${weekWork.map(w => `${w.context}: ${Math.round(w.total_minutes / 60 * 10) / 10}u`).join(', ')}
+Dagboek: ${weekJournal.length}/7 dagen | gem. mood: ${avgMood ?? '?'}/5
+Gewoontes: ${weekHabits.map(h => `${h.name}: ${h.count}x`).join(', ') || 'geen gelogd'}
+
+Bevestigde patronen: ${confirmedTheories.map(t => `[${t.category}] ${t.theory.slice(0, 80)}`).join(' | ') || 'geen'}
+
+Schrijf nu het weekrapport.`,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 700,
+  })
+
+  const message = response.choices[0]?.message?.content?.trim()
+  if (!message) return false
+
+  await sendTelegramMessage(parseInt(chatId, 10), message, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '📋 Taken', callback_data: 'todos_overview' },
+        { text: '💰 Financiën', callback_data: 'finance_overview' },
+        { text: '🧠 Deep Sync', callback_data: 'deep_sync_ack' },
+      ]],
+    },
+  })
+
+  await execute(`
+    INSERT INTO proactive_log (trigger_type, trigger_details, message_sent, telegram_sent)
+    VALUES ('weekly_report', '{}', $1, 1)
+  `, [message])
+
+  return true
+}
+
+/**
+ * Promote a confirmed AI theory to memory_log so the chat engine can use it.
+ */
+export async function promoteTheoryToMemory(theoryId: number, confirmed: boolean): Promise<void> {
+  const theory = await queryOne<{ id: number; category: string; theory: string; confidence: number; status: string }>(
+    `SELECT id, category, theory, confidence::float, status FROM ai_theories WHERE id = $1`, [theoryId]
+  ).catch(() => null)
+  if (!theory) return
+
+  const newStatus = confirmed ? 'confirmed' : 'rejected'
+  await execute(`UPDATE ai_theories SET status = $1, last_updated = NOW() WHERE id = $2`, [newStatus, theoryId])
+
+  if (!confirmed) return
+
+  // Push to memory_log as a long-term insight
+  const memKey = `patroon:${theory.category}:${theoryId}`
+  await execute(`
+    INSERT INTO memory_log (key, value, category, confidence, last_reinforced_at)
+    VALUES ($1, $2, $3, $4, NOW())
+    ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value,
+          confidence = GREATEST(memory_log.confidence, EXCLUDED.confidence),
+          last_reinforced_at = NOW()
+  `, [memKey, theory.theory, `patroon_${theory.category}`, Math.min(theory.confidence + 0.1, 1.0)])
+}
+
 function buildPlainDeepSync(snap: LifeSnapshot): string {
   return `🧠 *Persoonlijk Brein Rapport*
 

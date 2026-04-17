@@ -20,6 +20,7 @@ import { generateDeepQuestion, runDeepSync } from '@/lib/ai/proactive-engine'
 import { analyzeDiaryEntry, formatDiaryAnalysisForTelegram } from '@/lib/ai/diary-personas'
 import { buildLifeSnapshot, formatSnapshotForPrompt } from '@/lib/ai/life-snapshot'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { promoteTheoryToMemory } from '@/lib/ai/proactive-engine'
 import type { TelegramUpdate } from '@/lib/telegram/send-message'
 
 export async function POST(request: NextRequest) {
@@ -630,6 +631,24 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<void> {
       await execute(`UPDATE pending_questions SET status = 'dismissed' WHERE id = $1`, [qId])
       await answerCallbackQuery(cb.id, 'Vraag overgeslagen')
       if (chatId) await sendTelegramMessage(chatId, '👍 Prima, we slaan deze even over.')
+      return
+    }
+
+    // ── Theory: Confirm ──────────────────────────────────────────────────
+    if (action === 'theory_confirm') {
+      const theoryId = parseInt(rest, 10)
+      if (!isNaN(theoryId)) await promoteTheoryToMemory(theoryId, true)
+      await answerCallbackQuery(cb.id, '✅ Patroon bevestigd — opgeslagen in geheugen!')
+      if (chatId) await sendTelegramMessage(chatId, '🧠 Goed om te weten. Dit patroon is nu opgeslagen in mijn langetermijngeheugen en beïnvloedt toekomstige analyses.')
+      return
+    }
+
+    // ── Theory: Reject ───────────────────────────────────────────────────
+    if (action === 'theory_reject') {
+      const theoryId = parseInt(rest, 10)
+      if (!isNaN(theoryId)) await promoteTheoryToMemory(theoryId, false)
+      await answerCallbackQuery(cb.id, '❌ Patroon verworpen')
+      if (chatId) await sendTelegramMessage(chatId, '👍 Begrepen. Ik pas mijn model aan en houd hier rekening mee.')
       return
     }
 
