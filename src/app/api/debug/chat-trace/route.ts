@@ -70,13 +70,13 @@ export async function GET(request: NextRequest) {
       // Get performance stats
       const performanceStats = await chatLogger.getPerformanceStats(
         phase || undefined,
-        parseInt(hours) || 24
+        parseInt(hours || '24') || 24
       )
       
       return NextResponse.json({
         stats: performanceStats,
         phase: phase || 'all',
-        hours: parseInt(hours) || 24
+        hours: parseInt(hours || '24') || 24
       })
     }
 
