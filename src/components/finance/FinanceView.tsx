@@ -288,6 +288,19 @@ export default function FinanceView() {
     fetchData()
   }
 
+  async function copyItem(item: FinanceItem) {
+    setForm({
+      type: item.type,
+      title: `${item.title} (kopie)`,
+      amount: String(item.amount),
+      due_date: new Date().toISOString().split('T')[0],
+      category: item.category,
+      account: item.account
+    })
+    setShowAdd(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   async function deleteItem(id: number) {
     await fetch(`/api/finance/${id}`, { method: 'DELETE' })
     setItems(prev => prev.filter(i => i.id !== id))
@@ -983,56 +996,63 @@ export default function FinanceView() {
             {items.map(item => (
               <div 
                 key={item.id} 
-                className="flex items-center gap-2.5 p-2 sm:p-2.5 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all group relative cursor-pointer"
+                className="flex items-center gap-2 p-1.5 sm:p-2 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all group relative cursor-pointer"
                 onClick={() => setSelectedTransaction(item)}
               >
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm"
                   style={{ background: GRAD }}
                 >
-                  {item.type === 'inkomst' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  {item.type === 'inkomst' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-gray-700 font-bold truncate">{item.title}</p>
-                    <span className={cn('text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500')}>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[11px] text-gray-700 font-bold truncate">{item.title}</p>
+                    <span className={cn('text-[8px] font-black px-1 py-0.5 rounded-md uppercase tracking-tighter', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500')}>
                       {item.account === 'zakelijk' ? 'zakelijk' : 'privé'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] text-gray-400 font-medium capitalize">{item.category}</span>
-                    <span className="text-[10px] text-gray-300">•</span>
-                    <span className="text-[10px] text-gray-400">{formatDate(item.due_date || item.created_at)}</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[9px] text-gray-400 font-medium capitalize">{item.category}</span>
+                    <span className="text-[9px] text-gray-300">•</span>
+                    <span className="text-[9px] text-gray-400">{formatDate(item.due_date || item.created_at)}</span>
                     {item.user_notes && (
                       <>
-                        <span className="text-[10px] text-gray-300">•</span>
-                        <p className="text-[10px] text-pink-400 font-bold truncate flex items-center gap-1">
-                          <Sparkles size={8} /> {item.user_notes}
+                        <span className="text-[9px] text-gray-300">•</span>
+                        <p className="text-[9px] text-pink-400 font-bold truncate flex items-center gap-0.5">
+                          <Sparkles size={7} /> {item.user_notes}
                         </p>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0 mr-1">
+                <div className="flex items-center gap-2 flex-shrink-0 mr-1">
                   <span className={cn('text-xs font-black tabular-nums', item.type === 'inkomst' ? 'text-emerald-600' : 'text-gray-800')}>
                     {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
                   </span>
                   
                   {/* Hover Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
                     <button 
                       onClick={(e) => { e.stopPropagation(); setSelectedTransaction(item) }}
-                      className="p-1.5 bg-gray-50 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
+                      className="p-1 bg-gray-50 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
                       title="Snel aanpassen"
                     >
-                      <Pencil size={12} />
+                      <Pencil size={11} />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); copyItem(item) }}
+                      className="p-1 bg-gray-50 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                      title="Dupliceren"
+                    >
+                      <Copy size={11} />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); deleteItem(item.id) }}
-                      className="p-1.5 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                       title="Verwijderen"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={11} />
                     </button>
                   </div>
                 </div>
