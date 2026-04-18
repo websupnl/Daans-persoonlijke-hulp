@@ -2,6 +2,40 @@ import { queryOne, execute, query } from '../db'
 import { logActivity, syncEntityLinks } from '../activity'
 import { AIAction } from './action-schema'
 
+// Converts Dutch relative date words to YYYY-MM-DD if needed
+function resolveDutchDate(date: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return null // already ISO, no change needed
+  const today = new Date()
+  const dayNames: Record<string, number> = {
+    maandag: 1, dinsdag: 2, woensdag: 3, donderdag: 4,
+    vrijdag: 5, zaterdag: 6, zondag: 0,
+  }
+  const d = date.toLowerCase().trim()
+  if (d === 'vandaag') {
+    return today.toISOString().split('T')[0]
+  }
+  if (d === 'morgen') {
+    const t = new Date(today); t.setDate(t.getDate() + 1)
+    return t.toISOString().split('T')[0]
+  }
+  if (d === 'overmorgen') {
+    const t = new Date(today); t.setDate(t.getDate() + 2)
+    return t.toISOString().split('T')[0]
+  }
+  if (d === 'gisteren') {
+    const t = new Date(today); t.setDate(t.getDate() - 1)
+    return t.toISOString().split('T')[0]
+  }
+  const targetDay = dayNames[d]
+  if (targetDay !== undefined) {
+    const current = today.getDay()
+    const diff = (targetDay - current + 7) % 7 || 7
+    const t = new Date(today); t.setDate(t.getDate() + diff)
+    return t.toISOString().split('T')[0]
+  }
+  return date // return as-is, DB will error if truly invalid
+}
+
 function normalizeProjectName(name: string): string {
   return name.toLowerCase().replace(/[\s\-_\.]+/g, '').replace(/[^a-z0-9]/g, '')
 }
@@ -175,13 +209,14 @@ async function executeSingleAction(
     }
 
     case 'event_create': {
-      const { title, date, time, type, description, duration } = action.payload
+      const { title, type, description, duration } = action.payload
+      let { date, time } = action.payload
       if (!title || !date) {
         return { type: action.type, success: false, error: 'Titel en datum zijn verplicht' }
       }
-      if (/^(morgen|vandaag|gisteren|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)/i.test(String(date))) {
-        return { type: action.type, success: false, error: `Ongeldige datum "${date}" — verwacht YYYY-MM-DD` }
-      }
+      // Resolve Dutch relative dates the AI may have passed instead of YYYY-MM-DD
+      const relativeDate = resolveDutchDate(String(date))
+      if (relativeDate) date = relativeDate
       const row = await queryOne<{ id: number }>(`
         INSERT INTO events (title, date, time, type, description, duration)
         VALUES ($1, $2, $3, $4, $5, $6)

@@ -116,8 +116,8 @@ interface AnalyseResult {
 }
 
 const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
-const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk']
-const ACCOUNTS = ['privé', 'zakelijk']
+const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk', 'Spaar Privé', 'Spaar Zakelijk']
+const ACCOUNTS = ['privé', 'zakelijk', 'spaar-privé', 'spaar-zakelijk']
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -229,6 +229,8 @@ export default function FinanceView() {
     else if (typeFilter === 'Uitgaven') params.set('type', 'uitgave')
     if (accountFilter === 'Privé') params.set('account', 'privé')
     else if (accountFilter === 'Zakelijk') params.set('account', 'zakelijk')
+    else if (accountFilter === 'Spaar Privé') params.set('account', 'spaar-privé')
+    else if (accountFilter === 'Spaar Zakelijk') params.set('account', 'spaar-zakelijk')
 
     params.set('from', format(dateRange.start, 'yyyy-MM-dd'))
     params.set('to', format(dateRange.end, 'yyyy-MM-dd'))
@@ -808,7 +810,7 @@ export default function FinanceView() {
               </p>
               <div className="flex items-center justify-between mt-1 relative z-10">
                 <p className="text-[9px] text-gray-400 font-medium">Systeem: {formatCurrency(stats.total_balance_zakelijk)}</p>
-                <button 
+                <button
                   onClick={() => { setAdjustForm({ account: 'zakelijk', actual_balance: '' }); setShowAdjust(true) }}
                   className="p-1 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors"
                 >
@@ -816,6 +818,48 @@ export default function FinanceView() {
                 </button>
               </div>
               <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+            </div>
+
+            {/* Balance Card Spaar Privé */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
+              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                <span className="text-teal-500">🏦</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Spaar Privé</span>
+              </div>
+              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'spaar-privé')?.balance ?? 0) >= 0 ? 'text-gray-800' : 'text-red-500')}>
+                {formatCurrency(actualBalances.find(b => b.account === 'spaar-privé')?.balance ?? 0)}
+              </p>
+              <div className="flex items-center justify-between mt-1 relative z-10">
+                <p className="text-[9px] text-gray-400 font-medium">Handmatig bijhouden</p>
+                <button
+                  onClick={() => { setAdjustForm({ account: 'spaar-privé', actual_balance: '' }); setShowAdjust(true) }}
+                  className="p-1 hover:bg-teal-50 rounded-lg text-teal-400 transition-colors"
+                >
+                  <RefreshCw size={10} />
+                </button>
+              </div>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-teal-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+            </div>
+
+            {/* Balance Card Spaar Zakelijk */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
+              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                <span className="text-indigo-500">🏦</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Spaar Zakelijk</span>
+              </div>
+              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'spaar-zakelijk')?.balance ?? 0) >= 0 ? 'text-gray-800' : 'text-red-500')}>
+                {formatCurrency(actualBalances.find(b => b.account === 'spaar-zakelijk')?.balance ?? 0)}
+              </p>
+              <div className="flex items-center justify-between mt-1 relative z-10">
+                <p className="text-[9px] text-gray-400 font-medium">Handmatig bijhouden</p>
+                <button
+                  onClick={() => { setAdjustForm({ account: 'spaar-zakelijk', actual_balance: '' }); setShowAdjust(true) }}
+                  className="p-1 hover:bg-indigo-50 rounded-lg text-indigo-400 transition-colors"
+                >
+                  <RefreshCw size={10} />
+                </button>
+              </div>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
             </div>
           </div>
         </div>
@@ -832,7 +876,7 @@ export default function FinanceView() {
                 onClick={() => setAdjustForm(p => ({ ...p, account: acc }))}
                 className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', adjustForm.account === acc ? 'bg-amber-500 text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
               >
-                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
+                {acc === 'privé' ? '🏠 Privé' : acc === 'zakelijk' ? '💼 Zakelijk' : acc === 'spaar-privé' ? '🏦 Spaar Privé' : '🏦 Spaar Zakelijk'}
               </button>
             ))}
           </div>
@@ -854,7 +898,10 @@ export default function FinanceView() {
             </button>
           </div>
           <p className="text-[10px] text-amber-600">
-            De bot berekent het verschil met het huidige systeem-saldo ({formatCurrency(adjustForm.account === 'zakelijk' ? stats?.total_balance_zakelijk ?? 0 : stats?.total_balance_prive ?? 0)}) en maakt automatisch een inkomst of uitgave aan.
+            {adjustForm.account === 'spaar-privé' || adjustForm.account === 'spaar-zakelijk'
+              ? 'Vul het huidige saldo van je spaarrekening in. Dit wordt direct opgeslagen als werkelijk saldo.'
+              : `De bot berekent het verschil met het huidige systeem-saldo (${formatCurrency(adjustForm.account === 'zakelijk' ? stats?.total_balance_zakelijk ?? 0 : stats?.total_balance_prive ?? 0)}) en maakt automatisch een inkomst of uitgave aan.`
+            }
           </p>
         </div>
       )}
@@ -890,7 +937,7 @@ export default function FinanceView() {
                 className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', form.account === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
                 style={form.account === acc ? { background: GRAD } : {}}
               >
-                {acc === 'privé' ? '🏠' : '💼'} {acc}
+                {acc === 'privé' ? '🏠 Privé' : acc === 'zakelijk' ? '💼 Zakelijk' : acc === 'spaar-privé' ? '🏦 Spaar P' : '🏦 Spaar Z'}
               </button>
             ))}
           </div>
@@ -1087,8 +1134,12 @@ export default function FinanceView() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[11px] text-gray-700 font-bold truncate">{item.title}</p>
-                    <span className={cn('text-[8px] font-black px-1 py-0.5 rounded-md uppercase tracking-tighter', item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' : 'bg-pink-50 text-pink-500')}>
-                      {item.account === 'zakelijk' ? 'zakelijk' : 'privé'}
+                    <span className={cn('text-[8px] font-black px-1 py-0.5 rounded-md uppercase tracking-tighter',
+                      item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' :
+                      item.account === 'spaar-privé' ? 'bg-teal-50 text-teal-600' :
+                      item.account === 'spaar-zakelijk' ? 'bg-indigo-50 text-indigo-600' :
+                      'bg-pink-50 text-pink-500')}>
+                      {item.account === 'zakelijk' ? 'zakelijk' : item.account === 'spaar-privé' ? 'spaar p' : item.account === 'spaar-zakelijk' ? 'spaar z' : 'privé'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 mt-0.5">
