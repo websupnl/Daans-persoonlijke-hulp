@@ -7,7 +7,7 @@ import {
   LayoutDashboard, MessageSquare, CheckSquare, FileText,
   Users, Euro, Activity, BookOpen, FolderOpen, Clock,
   Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles,
-  HelpCircle, ShoppingCart, LogOut
+  HelpCircle, ShoppingCart, LogOut, Upload
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +52,7 @@ const NAV_GROUPS = [
       { href: '/patterns', label: 'Patronen', icon: Brain },
       { href: '/memory', label: 'Memory', icon: Sparkles },
       { href: '/inbox', label: 'Inbox', icon: Inbox },
+      { href: '/import', label: 'Importeren', icon: Upload },
       { href: '/timeline', label: 'Timeline', icon: History },
       { href: '/uitleg', label: 'Hoe werkt het?', icon: HelpCircle },
     ],

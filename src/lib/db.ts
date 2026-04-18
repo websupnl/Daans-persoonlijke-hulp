@@ -583,6 +583,74 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- Import Engine: bulk import runs
+    CREATE TABLE IF NOT EXISTS import_runs (
+      id SERIAL PRIMARY KEY,
+      source_type TEXT NOT NULL DEFAULT 'paste',
+      source_label TEXT,
+      raw_input TEXT NOT NULL,
+      normalized_input TEXT,
+      status TEXT NOT NULL DEFAULT 'processing'
+        CHECK(status IN ('processing','segmenting','review','executing','completed','cancelled','error')),
+      total_candidates INT DEFAULT 0,
+      accepted_count INT DEFAULT 0,
+      skipped_count INT DEFAULT 0,
+      error_message TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    );
+
+    -- Import Engine: per-item candidates (nothing live until accepted)
+    CREATE TABLE IF NOT EXISTS import_candidates (
+      id SERIAL PRIMARY KEY,
+      import_run_id INT NOT NULL REFERENCES import_runs(id) ON DELETE CASCADE,
+      source_excerpt TEXT NOT NULL,
+      source_position INT DEFAULT 0,
+      candidate_type TEXT NOT NULL,
+      target_module TEXT NOT NULL,
+      confidence FLOAT NOT NULL DEFAULT 0.5,
+      temporal_context TEXT NOT NULL DEFAULT 'current'
+        CHECK(temporal_context IN ('current','historical','future_plan','uncertain')),
+      normalized_text TEXT NOT NULL,
+      suggested_title TEXT,
+      ai_reasoning TEXT,
+      suggested_action TEXT NOT NULL DEFAULT 'create'
+        CHECK(suggested_action IN ('create','merge','update','ignore')),
+      matched_entity_type TEXT,
+      matched_entity_id INT,
+      match_confidence FLOAT,
+      match_reasoning TEXT,
+      review_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(review_status IN ('pending','accepted','merged','skipped','modified')),
+      reviewer_notes TEXT,
+      reviewed_at TIMESTAMPTZ,
+      created_entity_type TEXT,
+      created_entity_id INT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Import Engine: follow-up questions generated after import
+    CREATE TABLE IF NOT EXISTS import_followups (
+      id SERIAL PRIMARY KEY,
+      import_run_id INT NOT NULL REFERENCES import_runs(id) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      context_candidates TEXT DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending','sent','answered','dismissed')),
+      answer TEXT,
+      sent_at TIMESTAMPTZ,
+      answered_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Source tracking on existing tables
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_run_id INT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_candidate_id INT;
+    ALTER TABLE memory_log ADD COLUMN IF NOT EXISTS import_run_id INT;
+    ALTER TABLE ideas ADD COLUMN IF NOT EXISTS import_run_id INT;
+    ALTER TABLE todos ADD COLUMN IF NOT EXISTS import_run_id INT;
+    ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS import_run_id INT;
   `)
 }
 
