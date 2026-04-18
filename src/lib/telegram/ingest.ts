@@ -30,3 +30,6 @@ export async function ingestTelegramMessage(req: IngestRequest): Promise<IngestR
     confidence: 0,
   }
 }
+
+// Export alias for telegram webhook compatibility
+export const ingestMessage = ingestTelegramMessage
