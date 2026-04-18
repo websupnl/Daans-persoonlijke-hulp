@@ -7,7 +7,7 @@ import type {
   ProjectStatus,
   StoredAction,
   WorkContext,
-} from './types'
+} from '../types'
 
 export async function executeChatActions(
   actions: ChatAction[],
