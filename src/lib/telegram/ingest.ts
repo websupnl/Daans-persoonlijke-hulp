@@ -20,6 +20,7 @@ export interface IngestResponse {
   parserType?: string
   confidence?: number
   keyboard?: InlineKeyboardMarkup
+  replyMarkup?: InlineKeyboardMarkup
 }
 
 export async function ingestTelegramMessage(req: IngestRequest): Promise<IngestResponse> {
