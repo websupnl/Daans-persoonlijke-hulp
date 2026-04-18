@@ -5,7 +5,7 @@
  */
 
 import { query, queryOne, execute } from '@/lib/db'
-import { chatLogger } from '@/lib/chat/logger'
+import { chatLogger } from '@/lib/chat/legacy/logger'
 import { correlationTracker } from '@/lib/chat/correlation'
 
 export interface FinanceQuery {
