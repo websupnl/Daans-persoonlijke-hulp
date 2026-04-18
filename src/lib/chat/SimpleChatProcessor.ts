@@ -399,12 +399,12 @@ async function executeEventCreate(params: { title: string; time: string; date: s
   eventDate.setHours(hours, minutes, 0, 0)
   
   // Execute insert
-  const result = await execute(`
+  const result = await queryOne<{ id: number; title: string; date: string; time: string }>(`
     INSERT INTO events (title, date, time, type, created_at)
     VALUES ($1, $2, $3, 'algemeen', CURRENT_TIMESTAMP)
     RETURNING id, title, date, time
   `, [params.title, eventDate.toISOString().split('T')[0], `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`])
-  
+
   if (!result?.id) {
     return {
       success: false,
@@ -412,11 +412,11 @@ async function executeEventCreate(params: { title: string; time: string; date: s
       verified: false
     }
   }
-  
+
   // Verify it was actually created
   const verification = await queryOne(`
-    SELECT id, title, date, time 
-    FROM events 
+    SELECT id, title, date, time
+    FROM events
     WHERE id = $1 AND title = $2
   `, [result.id, params.title])
   
