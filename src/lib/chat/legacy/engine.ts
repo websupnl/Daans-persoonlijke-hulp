@@ -47,6 +47,65 @@ interface PendingPayload {
   aiActions?: AIAction[]
 }
 
+function buildFallbackActionsFromIntent(intent: ReturnType<typeof parseIntent>, rawMessage: string): AIAction[] {
+  if (intent.intent === 'grocery_add') {
+    const rawTitle = String(intent.params.title || rawMessage)
+    return parseGroceryItems(rawTitle).map(title => ({
+      type: 'grocery_create' as const,
+      payload: { title, category: 'overig' },
+    }))
+  }
+
+  if (intent.intent === 'todo_add') {
+    return [{
+      type: 'todo_create' as const,
+      payload: {
+        title: String(intent.params.title || rawMessage),
+        priority: (intent.params.priority as 'hoog' | 'medium' | 'laag' | undefined) || 'medium',
+        due_date: intent.params.due_date as string | undefined,
+        category: intent.params.category as string | undefined,
+      },
+    }]
+  }
+
+  if (intent.intent === 'event_add') {
+    return [{
+      type: 'event_create' as const,
+      payload: {
+        title: String(intent.params.title || rawMessage),
+        date: String(intent.params.date || new Date().toISOString().split('T')[0]),
+        time: intent.params.time as string | undefined,
+        type: (intent.params.type as 'vergadering' | 'deadline' | 'afspraak' | 'herinnering' | 'algemeen' | undefined) || 'algemeen',
+      },
+    }]
+  }
+
+  return []
+}
+
+function buildFallbackSummary(intent: ReturnType<typeof parseIntent>, actionResults: ActionResult[], rawMessage: string): string {
+  const firstSuccess = actionResults.find(result => result.success)?.data as Record<string, unknown> | undefined
+
+  if (intent.intent === 'grocery_add') {
+    const titles = actionResults.filter(r => r.success).map(r => String((r.data as Record<string, unknown> | undefined)?.title || ''))
+    if (titles.length > 1) return `Toegevoegd aan boodschappenlijst:\n${titles.map(title => `• ${title}`).join('\n')}`
+    return `Toegevoegd aan boodschappenlijst: ${titles[0] || String(intent.params.title || rawMessage)}`
+  }
+
+  if (intent.intent === 'todo_add') {
+    return `Todo toegevoegd: ${String(firstSuccess?.title || intent.params.title || rawMessage)}`
+  }
+
+  if (intent.intent === 'event_add') {
+    const title = String(firstSuccess?.title || intent.params.title || rawMessage)
+    const date = String(firstSuccess?.date || intent.params.date || '')
+    const time = firstSuccess?.time ? ` om ${String(firstSuccess.time)}` : ''
+    return `Agenda-item toegevoegd: ${title}${date ? ` op ${date}${time}` : ''}`
+  }
+
+  return String(intent.params.title || rawMessage)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: Grocery fast-path
 // ─────────────────────────────────────────────────────────────────────────────
@@ -299,10 +358,11 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
 
   // 3. AI Processing
   const aiResult = await parseCommandWithAI(request.message, sessionKey)
+  const deterministicIntent = parseIntent(request.message)
 
   // Rule-based fallback if AI is uncertain
   if (!aiResult || aiResult.confidence < 0.4) {
-    const fallback = parseIntent(request.message)
+    const fallback = deterministicIntent
     if (fallback.intent !== 'unknown' && fallback.confidence >= 0.8) {
       let actions: AIAction[] = []
       let summary = ''
@@ -368,6 +428,33 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     }
     await logAndStoreResponse(userContent, result)
     return result
+  }
+
+  // Truthfulness fallback: if the AI claims certainty but produced no action for a clear create command,
+  // execute the deterministic parser instead of returning a ghost success message.
+  if (
+    aiResult.actions.length === 0 &&
+    ['todo_add', 'grocery_add', 'event_add'].includes(deterministicIntent.intent) &&
+    deterministicIntent.confidence >= 0.85
+  ) {
+    const fallbackActions = buildFallbackActionsFromIntent(deterministicIntent, request.message)
+    if (fallbackActions.length > 0) {
+      const actionResults = await executeActions(fallbackActions)
+      const storedActions = mapAIResultsToStoredActions(actionResults)
+      const failedActions = actionResults.filter(result => !result.success)
+
+      const result: ChatResult = {
+        reply: failedActions.length === 0
+          ? buildFallbackSummary(deterministicIntent, actionResults, request.message)
+          : `❌ De actie kon niet worden uitgevoerd (${failedActions.map(result => result.error ?? 'onbekende fout').join('; ')}).`,
+        actions: storedActions,
+        parserType: 'deterministic',
+        confidence: deterministicIntent.confidence,
+        intent: deterministicIntent.intent,
+      }
+      await logAndStoreResponse(userContent, result)
+      return result
+    }
   }
 
   // 3.5. Auto-fix confirmation contract:

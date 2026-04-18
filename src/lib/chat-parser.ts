@@ -157,6 +157,15 @@ function extractProjectTitle(text: string): string {
   ])
 }
 
+function cleanEventTitle(text: string): string {
+  return stripLeadingCommand(text, [
+    /\b(zet in agenda|agenda|event|plan in|gepland|vergadering|meeting|afspraak|deadline|herinnering)\b/gi,
+    /\b(vandaag|morgen|overmorgen|deze week|volgende week|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\b/gi,
+    /\b\d{1,2}:\d{2}\b/g,
+    /^[:\-\s]+/g,
+  ]).replace(/^[:\-\s]+/, '').trim()
+}
+
 export function parseIntent(input: string): ParsedIntent {
   const text = input.trim()
   const lower = normalize(text)
@@ -398,9 +407,7 @@ export function parseIntent(input: string): ParsedIntent {
   if (/\b(log de tijd|log tijd|tijd loggen|bijhouden tijd)\b/i.test(text)) {
     // Skip to next pattern - don't match as habit
     // Additional check: make sure it's not about time logging
-    if (/\b(log|tijd|bijhouden|registreren)\b/i.test(text) && /\b(gewoonte|habit|chillen|bank|tv|film| Netflix)\b/i.test(text)) {
-      // Skip to next pattern - this is likely time logging, not habit logging
-    } else {
+    if (!(/\b(log|tijd|bijhouden|registreren)\b/i.test(text) && /\b(gewoonte|habit|chillen|bank|tv|film| Netflix)\b/i.test(text))) {
       const habitMatch = normalize(text).match(/\b(gesport|gelopen|gefietst|gezwommen|geoefend|geslapen|gemediteerd|gelezen|water)\b/i)
       return {
         intent: 'habit_log',
@@ -409,8 +416,6 @@ export function parseIntent(input: string): ParsedIntent {
         raw: text,
       }
     }
-  } else {
-    return { intent: 'unknown', confidence: 0, params: {}, raw: text }
   }
 
   if (/\b(onthoud dat|remember that|weet dat|sla op dat|nota bene|nb:|mijn.{1,20}is)\b/i.test(text)) {
@@ -469,7 +474,7 @@ export function parseIntent(input: string): ParsedIntent {
       intent: 'event_add',
       confidence: 0.85,
       params: {
-        title: stripLeadingCommand(text, [/\b(agenda|event|zet in agenda|plan in|gepland|vergadering|meeting|afspraak|deadline|herinnering)\b/gi]).slice(0, 80) || text.slice(0, 80),
+        title: cleanEventTitle(text).slice(0, 80) || text.slice(0, 80),
         date: extractDate(text) || new Date().toISOString().split('T')[0],
         time: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : undefined,
         type: typeMatch ? typeMap[typeMatch[1]] || 'algemeen' : 'algemeen',
