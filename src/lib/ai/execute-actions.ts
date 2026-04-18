@@ -122,11 +122,11 @@ async function executeSingleAction(
       const { title_search } = action.payload
       const todo = await queryOne<{ id: number; title: string }>(`
         SELECT id, title FROM todos 
-        WHERE (title ILIKE $1 OR $1 ILIKE '%' || title || '%') AND completed = 0 
+        WHERE (title ILIKE $1 OR $1 ILIKE '%' || title || '%') AND completed = 0::smallint 
         LIMIT 1
       `, [`%${title_search}%`])
       if (!todo) return { type: action.type, success: false, error: `Geen open taak gevonden voor "${title_search}"` }
-      await execute(`UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1`, [todo.id])
+      await execute(`UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1`, [todo.id])
       return { type: action.type, success: true, data: { id: todo.id, title: todo.title } }
     }
 
@@ -145,11 +145,11 @@ async function executeSingleAction(
       // Smart side-effect: auto-complete related todo
       const relatedTodo = await queryOne<{ id: number; title: string }>(`
         SELECT id, title FROM todos 
-        WHERE completed = 0 AND (title ILIKE $1 OR $1 ILIKE '%' || title || '%')
+        WHERE completed = 0::smallint AND (title ILIKE $1 OR $1 ILIKE '%' || title || '%')
         LIMIT 1
       `, [title])
       if (relatedTodo) {
-        await execute('UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
+        await execute('UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
         await logActivity({
           entityType: 'todo',
           entityId: relatedTodo.id,
