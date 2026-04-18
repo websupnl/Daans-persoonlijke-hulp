@@ -1,17 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckSquare, FileText, TrendingUp, Activity, Clock, Inbox, Zap, Sparkles, TrendingDown, ShoppingCart } from 'lucide-react'
+import {
+  CheckSquare, Activity, Clock, Inbox, Zap, Sparkles,
+  ArrowRight, Euro, FolderOpen, BookOpen, TrendingUp, TrendingDown
+} from 'lucide-react'
 import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
 import Link from 'next/link'
-import IntelligenceModule from './IntelligenceModule'
-import { StatsCard, LightCard, CompactListItem, ProgressIndicator } from '@/components/ui/DesignSystem'
-
-interface PlanningData {
-  type: string
-  recommendation: string
-  overdueCount: number
-}
+import { Card, CardLow, StatChip, Tag, PriorityDot } from '@/components/ui/Card'
+import { Sparkline, DonutRing, MiniBarChart, TrendBadge } from '@/components/ui/MiniChart'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface DashboardData {
   stats: {
@@ -22,7 +20,7 @@ interface DashboardData {
     habits: { total: number; completedToday: number }
     groceries: { total: number }
   }
-  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_color?: string; project_title?: string }>
+  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_title?: string }>
   recentNotes: Array<{ id: number; title: string; updated_at: string }>
   openInvoices: Array<{ id: number; title: string; amount: number; due_date?: string; status: string; contact_name?: string }>
   recentFinance: Array<{ id: number; title: string; amount: number; type: string; category: string; due_date?: string; created_at: string }>
@@ -30,34 +28,26 @@ interface DashboardData {
   inboxCount: number
 }
 
-const PRIORITY_DOT: Record<string, string> = {
-  hoog: 'bg-red-400',
-  medium: 'bg-amber-400',
-  laag: 'bg-emerald-400',
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Goedemorgen'
+  if (h < 17) return 'Goedemiddag'
+  return 'Goedenavond'
 }
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [todayMinutes, setTodayMinutes] = useState(0)
-  const [inboxCount, setInboxCount] = useState(0)
-  const [planning, setPlanning] = useState<PlanningData | null>(null)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [deepSyncLoading, setDeepSyncLoading] = useState(false)
   const [deepSyncDone, setDeepSyncDone] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/dashboard').then(r => r.json()),
-      fetch('/api/planning?type=day').then(r => r.json()).catch(() => null),
-    ]).then(([dash, plan]) => {
-      setData(dash)
-      setTodayMinutes(dash.todayWorkMinutes ?? 0)
-      setInboxCount(dash.inboxCount ?? 0)
-      setPlanning(plan)
-    }).finally(() => setLoading(false))
+    fetch('/api/dashboard')
+      .then(r => r.json())
+      .then(d => { setData(d) })
+      .finally(() => setLoading(false))
 
-    // AI briefing
     fetch('/api/ai/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,259 +58,302 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
-  const greeting = () => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Goedemorgen'
-    if (h < 17) return 'Goedemiddag'
-    return 'Goedenavond'
-  }
-
   const today = new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })
+  const stats   = data?.stats
+  const net     = (stats?.finance.monthIncome ?? 0) - (stats?.finance.monthExpenses ?? 0)
+  const habitPct = stats?.habits.total ? Math.round((stats.habits.completedToday / stats.habits.total) * 100) : 0
+
+  // Fake sparkline data for finance (real data would come from API)
+  const financeSparkData = data?.recentFinance
+    ? data.recentFinance.slice(-7).map(f => f.type === 'inkomst' ? f.amount : -f.amount)
+    : [0, 0, 0, 0, 0]
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+      <div className="flex items-center justify-center min-h-[60dvh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
+          <p className="text-xs text-on-surface-variant">Laden...</p>
+        </div>
       </div>
     )
   }
 
-  const stats = data?.stats
-  const net = (data?.stats.finance.monthIncome ?? 0) - (data?.stats.finance.monthExpenses ?? 0)
-
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-gradient leading-tight">
-          {greeting()}, Daan
-        </h1>
-        <p className="text-gray-400 text-sm mt-1 capitalize font-medium">{today}</p>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="font-headline text-2xl font-extrabold text-on-surface tracking-tight leading-tight">
+            {greeting()}, Daan
+          </h1>
+          <p className="text-sm text-on-surface-variant mt-0.5 capitalize">{today}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={async () => {
+              setDeepSyncLoading(true)
+              try { await fetch('/api/telegram/deep-sync', { method: 'POST' }); setDeepSyncDone(true); setTimeout(() => setDeepSyncDone(false), 4000) }
+              finally { setDeepSyncLoading(false) }
+            }}
+            disabled={deepSyncLoading}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl btn-gradient text-xs font-semibold disabled:opacity-50"
+          >
+            <Zap size={11} />
+            {deepSyncLoading ? 'Bezig...' : deepSyncDone ? '✓ Klaar' : 'Sync'}
+          </button>
+        </div>
       </div>
 
-      {/* Daily AI Briefing */}
+      {/* ── AI Insight card ── */}
       {aiSummary && (
-        <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 via-pink-50 to-white border border-pink-100 rounded-3xl shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Sparkles size={120} className="text-pink-400" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center text-pink-500">
-                <Sparkles size={18} />
-              </div>
-              <h2 className="text-sm font-bold text-pink-500 uppercase tracking-wider">Dagelijkse Briefing</h2>
+        <Card className="relative overflow-hidden p-5">
+          {/* Gradient blob */}
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full blur-3xl bg-pink-200/40 pointer-events-none" />
+          <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full blur-2xl bg-orange-200/30 pointer-events-none" />
+          <div className="relative z-10 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-brand-subtle flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles size={15} className="icon-gradient" />
             </div>
-            <p className="text-lg sm:text-xl font-medium text-gray-700 leading-relaxed max-w-4xl">
-              {aiSummary}
-            </p>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Dagelijkse briefing</p>
+              <p className="text-sm font-medium text-on-surface leading-relaxed">{aiSummary}</p>
+            </div>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Proactive Brain Controls */}
-      <div className="mb-8 flex flex-wrap gap-2">
-        <button
-          onClick={async () => {
-            setDeepSyncLoading(true)
-            try {
-              await fetch('/api/telegram/deep-sync', { method: 'POST' })
-              setDeepSyncDone(true)
-              setTimeout(() => setDeepSyncDone(false), 5000)
-            } finally {
-              setDeepSyncLoading(false)
-            }
-          }}
-          disabled={deepSyncLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-xs font-semibold rounded-xl shadow hover:opacity-90 disabled:opacity-50 transition-all"
-        >
-          <Zap size={12} />
-          {deepSyncLoading ? 'Bezig...' : deepSyncDone ? '✓ Rapport verstuurd' : 'Deep Sync'}
-        </button>
-        <button
-          onClick={async () => {
-            const res = await fetch('/api/cron/pulse')
-            if (res.ok) alert('Pulse uitgevoerd — check Telegram')
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-xl hover:bg-gray-200 transition-all"
-        >
-          <Activity size={12} />
-          Test Pulse
-        </button>
+      {/* ── Bento grid row 1: Key stats ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Link href="/todos" className="block">
+          <Card compact glow className="h-full hover:scale-[1.01] transition-transform">
+            <div className="flex items-start justify-between mb-2">
+              <CheckSquare size={16} className="text-orange-400" />
+              {(stats?.todos.overdue ?? 0) > 0 && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">
+                  {stats!.todos.overdue} te laat
+                </span>
+              )}
+            </div>
+            <p className="font-headline text-2xl font-extrabold text-on-surface">{stats?.todos.open ?? 0}</p>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">open todos</p>
+            {(stats?.todos.dueToday ?? 0) > 0 && (
+              <p className="text-[10px] text-orange-500 mt-1">{stats!.todos.dueToday} vandaag</p>
+            )}
+          </Card>
+        </Link>
+
+        <Link href="/finance" className="block">
+          <Card compact glow className="h-full hover:scale-[1.01] transition-transform">
+            <div className="flex items-start justify-between mb-2">
+              <Euro size={16} className={net >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+              <TrendBadge delta={net >= 0 ? Math.round((net / Math.max(stats?.finance.monthIncome ?? 1, 1)) * 100) : -100} />
+            </div>
+            <p className={cn('font-headline text-xl font-extrabold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+              {formatCurrency(Math.abs(net))}
+            </p>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">netto deze maand</p>
+            <Sparkline data={financeSparkData.map(v => Math.abs(v))} width={70} height={20} color={net >= 0 ? '#10b981' : '#ef4444'} className="mt-2" />
+          </Card>
+        </Link>
+
+        <Link href="/habits" className="block">
+          <Card compact glow className="h-full hover:scale-[1.01] transition-transform">
+            <div className="flex items-start justify-between mb-1">
+              <Activity size={16} className="text-violet-400" />
+              <DonutRing
+                value={stats?.habits.completedToday ?? 0}
+                max={stats?.habits.total ?? 1}
+                size={32}
+                strokeWidth={4}
+                color="#a78bfa"
+                label={`${habitPct}%`}
+              />
+            </div>
+            <p className="font-headline text-2xl font-extrabold text-on-surface">
+              {stats?.habits.completedToday ?? 0}<span className="text-sm font-medium text-on-surface-variant">/{stats?.habits.total ?? 0}</span>
+            </p>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">gewoontes vandaag</p>
+          </Card>
+        </Link>
+
+        <Link href="/worklogs" className="block">
+          <Card compact glow className="h-full hover:scale-[1.01] transition-transform">
+            <div className="flex items-start justify-between mb-2">
+              <Clock size={16} className="text-teal-400" />
+            </div>
+            <p className="font-headline text-2xl font-extrabold text-on-surface">
+              {data?.todayWorkMinutes && data.todayWorkMinutes >= 60
+                ? `${Math.floor(data.todayWorkMinutes / 60)}u`
+                : `${data?.todayWorkMinutes ?? 0}m`}
+            </p>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">gelogd vandaag</p>
+            {(data?.inboxCount ?? 0) > 0 && (
+              <div className="flex items-center gap-1 mt-1">
+                <Inbox size={10} className="text-amber-400" />
+                <span className="text-[10px] text-amber-500">{data!.inboxCount} inbox</span>
+              </div>
+            )}
+          </Card>
+        </Link>
       </div>
 
-      {/* Stat cards - nieuw lightweight design */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard
-          title="Open Todos"
-          value={stats?.todos.open ?? 0}
-          subtitle={stats?.todos.overdue ? `${stats.todos.overdue} te laat` : stats?.todos.dueToday ? `${stats.todos.dueToday} vandaag` : 'Alles op schema'}
-          icon={<CheckSquare size={18} />}
-          trend={stats?.todos.overdue ? 'down' : 'neutral'}
-        />
-        <StatsCard
-          title="Netto Maand"
-          value={formatCurrency(Math.abs(net))}
-          subtitle={net >= 0 ? 'positief saldo' : 'negatief saldo'}
-          icon={<TrendingUp size={18} />}
-          trend={net >= 0 ? 'up' : 'down'}
-        />
-        <StatsCard
-          title="Notes"
-          value={stats?.notes.total ?? 0}
-          subtitle="in kennisbank"
-          icon={<FileText size={18} />}
-        />
-        <StatsCard
-          title="Gewoontes"
-          value={`${stats?.habits.completedToday ?? 0}/${stats?.habits.total ?? 0}`}
-          subtitle="vandaag gedaan"
-          icon={<Activity size={18} />}
-          trend={(stats?.habits.completedToday ?? 0) < (stats?.habits.total ?? 0) && new Date().getHours() >= 20 ? 'down' : 'neutral'}
-        />
-      </div>
+      {/* ── Bento grid row 2: Todos + Finance ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
-      {/* Second row stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-        <StatsCard
-          title="Werklog Vandaag"
-          value={todayMinutes >= 60 ? `${Math.floor(todayMinutes / 60)}u ${todayMinutes % 60}m` : `${todayMinutes}m`}
-          subtitle="gelogd vandaag"
-          icon={<Clock size={18} />}
-        />
-        <StatsCard
-          title="Inbox"
-          value={inboxCount}
-          subtitle={inboxCount > 0 ? 'onverwerkt' : 'leeg'}
-          icon={<Inbox size={18} />}
-          trend={inboxCount > 0 ? 'down' : 'neutral'}
-        />
-        <StatsCard
-          title="Boodschappen"
-          value={stats?.groceries.total ?? 0}
-          subtitle="items op lijst"
-          icon={<ShoppingCart size={18} />}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Urgent todos - lightweight design */}
-        <LightCard className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <Clock size={16} className="text-pink-500" />
-              Urgent & Vandaag
-            </h2>
-            <Link href="/todos" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-              Alle todos →
+        {/* Urgent todos */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-headline text-sm font-bold text-on-surface">Actieve taken</h2>
+            <Link href="/todos" className="text-[11px] text-on-surface-variant hover:text-on-surface flex items-center gap-0.5">
+              Alles <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="space-y-1">
-            {!data?.urgentTodos?.length ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-sm font-medium">Niets urgent — lekker bezig! 🎉</p>
-              </div>
-            ) : (
-              data.urgentTodos.map(todo => (
-                <CompactListItem 
-                  key={todo.id} 
-                  hover={true}
-                  onClick={() => window.location.href = `/todos`}
-                >
-                  <span className={cn('w-2 h-2 rounded-full flex-shrink-0', PRIORITY_DOT[todo.priority] || 'bg-gray-300')} />
+          {(data?.urgentTodos ?? []).length === 0 ? (
+            <p className="text-xs text-on-surface-variant py-3 text-center">Geen urgente taken</p>
+          ) : (
+            <div className="space-y-1">
+              {(data?.urgentTodos ?? []).slice(0, 5).map(todo => (
+                <div key={todo.id} className="group flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-surface-container transition-colors">
+                  <div className="w-5 h-5 rounded-full border-2 border-outline-variant/30 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 font-medium truncate">{todo.title}</p>
-                    {todo.due_date && (
-                      <p className={cn('text-xs mt-0.5', isOverdue(todo.due_date) ? 'text-red-500 font-medium' : 'text-gray-500')}>
-                        {isOverdue(todo.due_date) ? '⚠ Te laat · ' : ''}{formatDate(todo.due_date)}
-                      </p>
+                    <p className="text-sm text-on-surface truncate">{todo.title}</p>
+                    {todo.project_title && (
+                      <p className="text-[10px] text-on-surface-variant">{todo.project_title}</p>
                     )}
                   </div>
-                  {todo.project_title && (
-                    <span className="text-[10px] px-2 py-1 rounded-md font-medium" style={{ background: (todo.project_color ?? '#888') + '15', color: todo.project_color ?? '#888' }}>
-                      {todo.project_title}
-                    </span>
-                  )}
-                </CompactListItem>
-              ))
-            )}
-          </div>
-        </LightCard>
-
-        {/* Right column */}
-        <div className="space-y-6">
-          <IntelligenceModule />
-          {/* Finance summary - lightweight */}
-          {data && (
-            <LightCard>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <TrendingUp size={16} className="text-emerald-500" />
-                  Financiën
-                </h2>
-                <Link href="/finance" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">Overzicht →</Link>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Inkomsten</span>
-                  <span className="text-sm font-bold text-emerald-600">+{formatCurrency(data.stats.finance.monthIncome)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Uitgaven</span>
-                  <span className="text-sm font-bold text-red-500">-{formatCurrency(data.stats.finance.monthExpenses)}</span>
-                </div>
-                <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-700">Netto</span>
-                  <span className={cn('text-sm font-bold', net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
-                    {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
-                  </span>
-                </div>
-              </div>
-            </LightCard>
-          )}
-
-          {/* Planning widget - lightweight */}
-          {planning && (
-            <LightCard>
-              <div className="flex items-center gap-2 mb-4">
-                <Zap size={16} className="text-violet-500" />
-                <h2 className="text-base font-bold text-gray-800">Dagplanning</h2>
-              </div>
-              <p className="text-sm text-gray-600 leading-relaxed">{planning.recommendation.replace(/\*\*/g, '')}</p>
-            </LightCard>
-          )}
-
-          {/* Recente notes - lightweight */}
-          <LightCard>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                <FileText size={16} className="text-blue-500" />
-                Recente Notes
-              </h2>
-              <Link href="/notes" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">Alle →</Link>
-            </div>
-            {!data?.recentNotes?.length ? (
-              <p className="text-gray-500 text-sm text-center py-4">Nog geen notes</p>
-            ) : (
-              <div className="space-y-1">
-                {data.recentNotes.map(note => (
-                  <CompactListItem 
-                    key={note.id} 
-                    hover={true}
-                    onClick={() => window.location.href = `/notes/${note.id}`}
-                  >
-                    <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-600">
-                      <FileText size={12} />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {todo.due_date && isOverdue(todo.due_date) && (
+                      <Tag color="red">te laat</Tag>
+                    )}
+                    <PriorityDot priority={todo.priority} />
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <AIContextButton type="todo" title={todo.title} id={todo.id} />
                     </div>
-                    <span className="text-sm text-gray-700 font-medium truncate">{note.title}</span>
-                  </CompactListItem>
-                ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Finance summary */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-headline text-sm font-bold text-on-surface">Financiën</h2>
+            <Link href="/finance" className="text-[11px] text-on-surface-variant hover:text-on-surface flex items-center gap-0.5">
+              Alles <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <CardLow compact className="rounded-xl">
+              <p className="text-[10px] text-on-surface-variant">Inkomsten</p>
+              <p className="font-headline text-base font-bold text-emerald-600 mt-0.5">{formatCurrency(stats?.finance.monthIncome ?? 0)}</p>
+            </CardLow>
+            <CardLow compact className="rounded-xl">
+              <p className="text-[10px] text-on-surface-variant">Uitgaven</p>
+              <p className="font-headline text-base font-bold text-red-500 mt-0.5">{formatCurrency(stats?.finance.monthExpenses ?? 0)}</p>
+            </CardLow>
+          </div>
+          {(stats?.finance.openInvoices ?? 0) > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-xl">
+              <p className="text-xs text-amber-700">{stats!.finance.openInvoices} open factuur/facturen</p>
+              <p className="text-xs font-bold text-amber-700">{formatCurrency(stats?.finance.openAmount ?? 0)}</p>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Row 3: Projects + Journal quick-links ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+
+        {/* Recent finance transactions */}
+        <Card className="lg:col-span-2 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-headline text-sm font-bold text-on-surface">Recente transacties</h2>
+            <Link href="/finance" className="text-[11px] text-on-surface-variant hover:text-on-surface flex items-center gap-0.5">
+              Meer <ArrowRight size={11} />
+            </Link>
+          </div>
+          {(data?.recentFinance ?? []).length === 0 ? (
+            <p className="text-xs text-on-surface-variant py-2 text-center">Geen transacties</p>
+          ) : (
+            <div className="space-y-1">
+              {data!.recentFinance.slice(0, 4).map(f => (
+                <div key={f.id} className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-surface-container transition-colors">
+                  <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center shrink-0', f.type === 'inkomst' ? 'bg-emerald-100' : 'bg-red-100')}>
+                    {f.type === 'inkomst'
+                      ? <TrendingUp size={12} className="text-emerald-600" />
+                      : <TrendingDown size={12} className="text-red-500" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-on-surface truncate">{f.title}</p>
+                    <p className="text-[10px] text-on-surface-variant">{f.category}</p>
+                  </div>
+                  <p className={cn('text-sm font-semibold shrink-0', f.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
+                    {f.type === 'inkomst' ? '+' : '-'}{formatCurrency(f.amount)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Quick links */}
+        <div className="space-y-3">
+          <Link href="/projects">
+            <CardLow className="p-3 hover:bg-surface-container transition-colors cursor-pointer rounded-2xl">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <FolderOpen size={15} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-on-surface">Projecten</p>
+                  <p className="text-[10px] text-on-surface-variant">Actieve projecten</p>
+                </div>
+                <ArrowRight size={14} className="text-on-surface-variant ml-auto" />
               </div>
-            )}
-          </LightCard>
+            </CardLow>
+          </Link>
+          <Link href="/journal">
+            <CardLow className="p-3 hover:bg-surface-container transition-colors cursor-pointer rounded-2xl">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center">
+                  <BookOpen size={15} className="text-pink-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-on-surface">Dagboek</p>
+                  <p className="text-[10px] text-on-surface-variant">Schrijf vandaag</p>
+                </div>
+                <ArrowRight size={14} className="text-on-surface-variant ml-auto" />
+              </div>
+            </CardLow>
+          </Link>
+          <Link href="/inbox">
+            <CardLow className={cn('p-3 transition-colors cursor-pointer rounded-2xl', (data?.inboxCount ?? 0) > 0 ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-surface-container')}>
+              <div className="flex items-center gap-2.5">
+                <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center', (data?.inboxCount ?? 0) > 0 ? 'bg-amber-200' : 'bg-surface-container-high')}>
+                  <Inbox size={15} className={(data?.inboxCount ?? 0) > 0 ? 'text-amber-700' : 'text-on-surface-variant'} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-on-surface">Inbox</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {(data?.inboxCount ?? 0) > 0 ? `${data!.inboxCount} onverwerkt` : 'Leeg'}
+                  </p>
+                </div>
+                {(data?.inboxCount ?? 0) > 0 && (
+                  <span className="ml-auto text-xs font-bold text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded-full">
+                    {data!.inboxCount}
+                  </span>
+                )}
+              </div>
+            </CardLow>
+          </Link>
         </div>
       </div>
+
     </div>
   )
 }
-
