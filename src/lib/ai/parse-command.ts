@@ -57,7 +57,7 @@ Overig:
 - weekly_plan_request: {} → bij "weekplanning", "wat staat er deze week?"
 
 === CRUCIALE REGELS ===
-- DATUM/TIJD: Daan zegt vaak "vanavond", "morgen om 8:00", "20 april". Gebruik de "Huidige datum" uit de context om dit te berekenen.
+- DATUM/TIJD: Daan zegt vaak "vanavond", "morgen om 8:00", "20 april". Gebruik de "Huidige datum" uit de context om dit te berekenen. ALTIJD in ISO 8601 formaat outputten: date = "YYYY-MM-DD" (bijv. "2026-04-19"), time = "HH:MM" (bijv. "09:00"). NOOIT "morgen", "vandaag", "zondag" als waarde in een actie-payload — altijd omrekenen naar de concrete datum.
 - WERKLOGS: "1 uur gewerkt aan X" -> duration_minutes: 60. "van 9 tot 11" -> 120.
 - GROUNDING: Als Daan een project noemt dat in de context staat, gebruik dan het ID. Zo niet, gebruik project_name dan lost het systeem het automatisch op (fuzzy matching + auto-aanmaken).
 - TIMER: "ik ga nu bezig met X", "ik begin aan X", "ik start nu X" → timer_start. "ik ben klaar", "stop timer", "klaar met X" → timer_stop. Als er een actieve timer is in de context, check of Daan er naar verwijst.

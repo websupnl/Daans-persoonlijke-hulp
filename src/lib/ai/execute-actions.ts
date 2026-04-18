@@ -176,12 +176,27 @@ async function executeSingleAction(
 
     case 'event_create': {
       const { title, date, time, type, description, duration } = action.payload
+      if (!title || !date) {
+        return { type: action.type, success: false, error: 'Titel en datum zijn verplicht' }
+      }
+      if (/^(morgen|vandaag|gisteren|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)/i.test(String(date))) {
+        return { type: action.type, success: false, error: `Ongeldige datum "${date}" — verwacht YYYY-MM-DD` }
+      }
       const row = await queryOne<{ id: number }>(`
         INSERT INTO events (title, date, time, type, description, duration)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
       `, [title, date, time ?? null, type ?? 'algemeen', description ?? null, duration ?? 60])
-      return { type: action.type, success: true, data: { id: row?.id, title, date, time } }
+      if (!row?.id) {
+        return { type: action.type, success: false, error: 'Agenda-item niet opgeslagen (geen ID)' }
+      }
+      const verify = await queryOne<{ id: number }>(
+        'SELECT id FROM events WHERE id = $1', [row.id]
+      )
+      if (!verify) {
+        return { type: action.type, success: false, error: 'Verificatie mislukt na opslaan' }
+      }
+      return { type: action.type, success: true, data: { id: row.id, title, date, time } }
     }
 
     case 'event_update': {

@@ -447,6 +447,21 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
     storedActions = mapAIResultsToStoredActions(actionResults, aiResult.summary)
   }
 
+  // 6.5. Truthfulness guard: als acties faalden, overschrijf de AI-summary
+  const failedActions = actionResults.filter(r => !r.success)
+  if (failedActions.length > 0 && actionResults.length > 0) {
+    const failedTypes = failedActions.map(r => r.type ?? 'onbekend').join(', ')
+    const failReasons = failedActions.map(r => r.error ?? 'onbekende fout').join('; ')
+    const successCount = actionResults.length - failedActions.length
+    if (successCount === 0) {
+      // All actions failed — do not claim success
+      aiResult.summary = `❌ De actie kon niet worden uitgevoerd (${failReasons}). Controleer de invoer en probeer opnieuw.`
+    } else {
+      // Partial failure — be honest about what did and didn't work
+      aiResult.summary = `${aiResult.summary}\n\n⚠️ Let op: ${failedActions.length} actie(s) mislukt (${failedTypes}): ${failReasons}`
+    }
+  }
+
   // 7. Save session state for follow-up support
   const detectedDomain = detectDomainFromActions(aiResult.actions as AIAction[])
   if (detectedDomain) {
