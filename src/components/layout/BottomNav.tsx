@@ -20,7 +20,7 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="bottom-nav-glass md:hidden fixed bottom-0 inset-x-0 z-50 flex items-end justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-2 rounded-t-3xl">
+      <nav className="bottom-nav-glass fixed inset-x-3 bottom-3 z-50 flex items-end justify-around rounded-[28px] border border-black/5 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 md:hidden">
         {PRIMARY_NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
@@ -28,28 +28,16 @@ export default function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-2xl transition-all duration-200 min-w-[56px]',
+                'flex min-w-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-3 py-2 transition-all duration-200',
                 active
-                  ? 'bg-brand-subtle text-transparent [&_svg]:stroke-[url(#grad)]'
+                  ? 'bg-[#202625] text-white shadow-[0_18px_40px_-26px_rgba(18,22,21,0.45)]'
                   : 'text-on-surface-variant'
               )}
             >
-              {/* Gradient def for active icons */}
-              <svg width="0" height="0" className="absolute">
-                <defs>
-                  <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%"   stopColor="#f97316" />
-                    <stop offset="50%"  stopColor="#ec4899" />
-                    <stop offset="100%" stopColor="#a78bfa" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <span className={cn(active && 'icon-gradient')}>
-                <Icon size={20} strokeWidth={active ? 2.2 : 1.6} />
-              </span>
+              <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               <span className={cn(
-                'text-[9px] font-semibold uppercase tracking-widest',
-                active ? 'text-gradient' : 'text-on-surface-variant'
+                'text-[9px] font-semibold uppercase tracking-[0.16em]',
+                active ? 'text-white' : 'text-on-surface-variant'
               )}>
                 {label}
               </span>
@@ -61,12 +49,12 @@ export default function BottomNav() {
         <button
           onClick={() => setDrawerOpen(true)}
           className={cn(
-            'flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-2xl transition-all duration-200 min-w-[56px]',
-            drawerOpen ? 'bg-brand-subtle' : 'text-on-surface-variant'
+            'flex min-w-[58px] flex-col items-center justify-center gap-1 rounded-[22px] px-3 py-2 transition-all duration-200',
+            drawerOpen ? 'bg-surface-container text-on-surface' : 'text-on-surface-variant'
           )}
         >
-          <MoreHorizontal size={20} strokeWidth={1.6} />
-          <span className="text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant">Meer</span>
+          <MoreHorizontal size={20} strokeWidth={1.8} />
+          <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant">Meer</span>
         </button>
       </nav>
 

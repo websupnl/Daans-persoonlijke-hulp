@@ -72,9 +72,9 @@ export function LightCard({
   return (
     <div 
       className={cn(
-        'bg-white border border-gray-200 rounded-lg',
+        'rounded-[24px] border border-black/5 bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]',
         paddingMap[padding],
-        hover && 'hover:border-gray-300 hover:shadow-sm transition-all',
+        hover && 'transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_26px_64px_-40px_rgba(31,37,35,0.32)]',
         className
       )}
     >
@@ -98,8 +98,8 @@ export function CompactListItem({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 py-3 px-4 border-b border-gray-100 last:border-b-0',
-        hover && 'hover:bg-gray-50 cursor-pointer transition-colors',
+        'flex items-center gap-3 rounded-[22px] border-b border-black/5 py-3 px-4 last:border-b-0',
+        hover && 'cursor-pointer transition-colors hover:bg-surface-container-low',
         className
       )}
       onClick={onClick}
@@ -132,17 +132,17 @@ export function StatsCard({
   }
 
   return (
-    <div className={cn('bg-white border border-gray-200 rounded-lg p-4', className)}>
+    <div className={cn('rounded-[24px] border border-black/5 bg-surface-container-lowest p-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">{title}</p>
+          <p className="mt-2 text-2xl font-headline font-extrabold tracking-tight text-on-surface">{value}</p>
           {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>
           )}
         </div>
         {icon && (
-          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-container-low text-on-surface">
             {icon}
           </div>
         )}
@@ -175,9 +175,9 @@ export function ModernButton({
   const baseClasses = 'font-medium rounded-lg transition-all inline-flex items-center gap-2'
   
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-50',
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:bg-gray-50'
+    primary: 'bg-[#202625] text-white hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant',
+    secondary: 'bg-surface-container-low text-on-surface hover:bg-surface-container disabled:bg-surface-container-low disabled:text-on-surface-variant',
+    outline: 'border border-black/[0.08] text-on-surface hover:bg-surface-container-low disabled:bg-surface-container-low disabled:text-on-surface-variant'
   }
   
   const sizes = {
@@ -208,26 +208,26 @@ export function ModernTable({
   className?: string
 }) {
   return (
-    <div className={cn('bg-white border border-gray-200 rounded-lg overflow-hidden', className)}>
+    <div className={cn('overflow-hidden rounded-[24px] border border-black/5 bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="border-b border-black/5 bg-surface-container-low">
             <tr>
               {headers.map((header) => (
                 <th
                   key={header.key}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                  className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75"
                 >
                   {header.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-black/5">
             {rows.map((row, index) => (
-              <tr key={index} className="hover:bg-gray-50">
+              <tr key={index} className="hover:bg-surface-container-low/60">
                 {headers.map((header) => (
-                  <td key={header.key} className="px-4 py-3 text-sm text-gray-700">
+                  <td key={header.key} className="px-4 py-3 text-sm text-on-surface">
                     {row[header.key]}
                   </td>
                 ))}
@@ -267,7 +267,7 @@ export function ProgressIndicator({
   }
 
   return (
-    <div className={cn('w-full bg-gray-200 rounded-full', sizeClasses[size])}>
+    <div className={cn('w-full rounded-full bg-surface-container', sizeClasses[size])}>
       <div
         className={cn('rounded-full transition-all', colorClasses[color])}
         style={{ width: `${percentage}%` }}

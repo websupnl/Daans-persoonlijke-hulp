@@ -25,11 +25,11 @@ export function Card({ children, className, onClick, glow, compact }: CardProps)
     <div
       onClick={onClick}
       className={cn(
-        'bg-surface-container-lowest rounded-2xl overflow-hidden',
+        'overflow-hidden rounded-[28px] border border-black/5 bg-surface-container-lowest',
         compact ? 'p-3' : 'p-4',
-        'shadow-ambient-xs',
-        onClick && 'cursor-pointer transition-all duration-150 hover:shadow-ambient-sm',
-        glow && onClick && 'hover:shadow-[0_8px_32px_-4px_rgba(236,72,153,0.10)]',
+        'shadow-[0_24px_60px_-36px_rgba(31,37,35,0.28)]',
+        onClick && 'cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_30px_70px_-38px_rgba(31,37,35,0.32)]',
+        glow && onClick && 'hover:shadow-[0_28px_72px_-40px_rgba(90,103,123,0.34)]',
         className
       )}
     >
@@ -44,9 +44,9 @@ export function CardLow({ children, className, onClick, compact }: CardProps) {
     <div
       onClick={onClick}
       className={cn(
-        'bg-surface-container-low rounded-2xl overflow-hidden',
+        'overflow-hidden rounded-[24px] border border-black/5 bg-surface-container-low/80',
         compact ? 'p-3' : 'p-4',
-        onClick && 'cursor-pointer transition-colors duration-150 hover:bg-surface-container',
+        onClick && 'cursor-pointer transition-all duration-200 hover:bg-surface-container hover:-translate-y-0.5',
         className
       )}
     >
@@ -78,7 +78,7 @@ export function StatChip({
   }[accent ?? 'pink'] ?? 'text-on-surface'
 
   return (
-    <div className={cn('bg-surface-container-lowest rounded-xl p-3 shadow-ambient-xs', className)}>
+    <div className={cn('rounded-[24px] border border-black/5 bg-surface-container-lowest p-3 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
       <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest">{label}</p>
       <p className={cn('text-2xl font-headline font-extrabold mt-1 leading-none', accentClass)}>
         {value}
@@ -110,7 +110,7 @@ export function Tag({
 
   return (
     <span className={cn(
-      'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold',
+      'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
       colors[color ?? 'gray'],
       className
     )}>

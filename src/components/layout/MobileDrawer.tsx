@@ -75,24 +75,24 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
       <div className="absolute inset-0 glass-dark" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="absolute inset-x-0 bottom-0 bg-surface-container-lowest rounded-t-3xl max-h-[85dvh] flex flex-col animate-slide-up">
+      <div className="absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-[32px] border-t border-black/5 bg-surface-container-lowest animate-slide-up">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-outline-variant opacity-40" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3">
+        <div className="flex items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold text-white bg-gradient" style={{ background: 'var(--gradient)' }}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-[0_16px_32px_-18px_rgba(90,103,123,0.4)]" style={{ background: 'var(--gradient)' }}>
               D
             </div>
             <div>
               <p className="text-sm font-headline font-bold text-on-surface leading-tight">Daan</p>
-              <p className="text-[10px] text-on-surface-variant leading-tight">Persoonlijke Hulp</p>
+              <p className="text-[11px] text-on-surface-variant leading-tight">Persoonlijke cockpit</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors">
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high">
             <X size={16} />
           </button>
         </div>
@@ -101,10 +101,10 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
         <nav className="flex-1 overflow-y-auto px-4 pb-8 space-y-5">
           {DRAWER_GROUPS.map(group => (
             <div key={group.label}>
-              <p className="px-2 mb-1.5 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">
-                {group.label}
-              </p>
-              <div className="space-y-0.5">
+            <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/70">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href || (href !== '/' && pathname.startsWith(href))
                   return (
@@ -113,16 +113,16 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
                       href={href}
                       onClick={onClose}
                       className={cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all',
+                        'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all',
                         active
-                          ? 'bg-brand-subtle'
-                          : 'hover:bg-surface-container'
+                          ? 'bg-brand-subtle shadow-[0_18px_40px_-32px_rgba(90,103,123,0.24)]'
+                          : 'hover:bg-surface-container-low'
                       )}
                     >
-                      <span className={cn(active ? 'icon-gradient' : 'text-on-surface-variant')}>
+                      <span className={cn(active ? 'text-on-surface' : 'text-on-surface-variant')}>
                         <Icon size={16} strokeWidth={active ? 2.2 : 1.6} />
                       </span>
-                      <span className={cn('font-medium', active ? 'text-gradient' : 'text-on-surface-variant')}>
+                      <span className={cn('font-medium', active ? 'text-on-surface' : 'text-on-surface-variant')}>
                         {label}
                       </span>
                     </Link>

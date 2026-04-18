@@ -7,9 +7,9 @@
 
 /* ── Design tokens ──────────────────────────────────────────────────────────── */
 :root {
-  --sidebar-width: 220px;
-  --gradient: linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%);
-  --gradient-subtle: linear-gradient(135deg, #fff7ed 0%, #fdf2f8 50%, #f5f3ff 100%);
+  --sidebar-width: 248px;
+  --gradient: linear-gradient(135deg, #c86d40 0%, #a95470 48%, #5a677b 100%);
+  --gradient-subtle: linear-gradient(135deg, rgba(248,239,231,0.95) 0%, rgba(244,233,239,0.95) 52%, rgba(233,237,244,0.95) 100%);
 }
 
 /* ── Base reset ─────────────────────────────────────────────────────────────── */
@@ -26,8 +26,8 @@ html, body {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
-  background: #f9f9f8;
-  color: #2f3333;
+  background: #f6f3ed;
+  color: #1f2523;
 }
 
 /* Prevent any element from overflowing horizontally */
@@ -105,7 +105,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Glassmorphism for overlays ─────────────────────────────────────────────── */
 .glass {
-  background: rgba(249,249,248,0.82);
+  background: rgba(246,243,237,0.82);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
 }
@@ -118,7 +118,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Bottom nav glass ───────────────────────────────────────────────────────── */
 .bottom-nav-glass {
-  background: rgba(255,255,255,0.80);
+  background: rgba(255,253,250,0.84);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   box-shadow: 0 -10px 40px -15px rgba(0,0,0,0.08);

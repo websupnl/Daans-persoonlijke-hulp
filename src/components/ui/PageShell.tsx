@@ -6,6 +6,7 @@
 
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Panel } from '@/components/ui/Panel'
 
 interface PageShellProps {
   title: string
@@ -19,26 +20,31 @@ interface PageShellProps {
 
 export default function PageShell({ title, subtitle, actions, children, className, compact }: PageShellProps) {
   return (
-    <div className={cn('max-w-4xl mx-auto px-4 sm:px-6', compact ? 'py-4' : 'py-6', className)}>
-      {/* Page header */}
-      <div className="flex items-start justify-between mb-5 gap-3">
-        <div className="min-w-0">
-          <h1 className="font-headline text-xl font-extrabold text-on-surface tracking-tight leading-tight">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-sm text-on-surface-variant mt-0.5">{subtitle}</p>
+    <div className={cn('mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8', compact ? 'py-5' : 'py-6 sm:py-8', className)}>
+      <Panel tone="accent" padding="lg" className="mb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant/70">
+              Persoonlijke werkruimte
+            </p>
+            <h1 className="mt-2 font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-3xl">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant sm:text-[15px]">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {actions && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {actions}
+            </div>
           )}
         </div>
-        {actions && (
-          <div className="flex items-center gap-2 shrink-0">
-            {actions}
-          </div>
-        )}
-      </div>
+      </Panel>
 
-      {/* Content */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {children}
       </div>
     </div>
@@ -58,10 +64,10 @@ export function PageSection({
   className?: string
 }) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-3', className)}>
       {title && (
-        <div className="flex items-center justify-between px-0.5">
-          <h2 className="font-headline text-sm font-bold text-on-surface uppercase tracking-widest opacity-60">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="font-headline text-[11px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/75">
             {title}
           </h2>
           {action && <div className="text-xs text-on-surface-variant">{action}</div>}

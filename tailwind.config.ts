@@ -10,25 +10,25 @@ const config: Config = {
     extend: {
       colors: {
         // ── Ethereal surface hierarchy ───────────────────────────────────────
-        background:                 '#f9f9f8',
-        surface:                    '#f9f9f8',
+        background:                 '#f6f3ed',
+        surface:                    '#f6f3ed',
         'surface-bright':           '#ffffff',
-        'surface-dim':              '#d7dbda',
-        'surface-container-lowest': '#ffffff',
-        'surface-container-low':    '#f3f4f3',
-        'surface-container':        '#eceeed',
-        'surface-container-high':   '#e6e9e8',
-        'surface-container-highest':'#dfe3e2',
-        'surface-variant':          '#dfe3e2',
+        'surface-dim':              '#d7d0c6',
+        'surface-container-lowest': '#fffdfa',
+        'surface-container-low':    '#f2eee7',
+        'surface-container':        '#e9e3d8',
+        'surface-container-high':   '#ddd5c9',
+        'surface-container-highest':'#d1c8bc',
+        'surface-variant':          '#ded6ca',
 
         // ── Text ─────────────────────────────────────────────────────────────
-        'on-surface':               '#2f3333',
-        'on-surface-variant':       '#5b605f',
-        'on-background':            '#2f3333',
+        'on-surface':               '#1f2523',
+        'on-surface-variant':       '#5c615c',
+        'on-background':            '#1f2523',
 
         // ── Outlines ──────────────────────────────────────────────────────────
-        outline:                    '#777c7b',
-        'outline-variant':          '#afb3b2',
+        outline:                    '#7b756c',
+        'outline-variant':          '#b0a79b',
 
         // ── Inverse ───────────────────────────────────────────────────────────
         'inverse-surface':          '#0c0f0e',
@@ -82,8 +82,8 @@ const config: Config = {
       },
 
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)',
-        'brand-subtle':   'linear-gradient(135deg, #fff7ed 0%, #fdf2f8 50%, #f5f3ff 100%)',
+        'brand-gradient': 'linear-gradient(135deg, #c86d40 0%, #a95470 48%, #5a677b 100%)',
+        'brand-subtle':   'linear-gradient(135deg, rgba(248,239,231,0.95) 0%, rgba(244,233,239,0.95) 52%, rgba(233,237,244,0.95) 100%)',
       },
     },
   },
