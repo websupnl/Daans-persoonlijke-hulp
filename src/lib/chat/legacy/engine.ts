@@ -3,10 +3,10 @@ import { logActivity } from '@/lib/activity'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions, ActionResult } from '@/lib/ai/execute-actions'
 import { parseIntent } from '@/lib/chat-parser'
-import { buildChatContext, getSessionKey } from './context'
-import { normalizeDutch } from './normalize'
-import { planMessage, SMALL_TALK_RESPONSES } from './deterministic'
-import { loadSession, saveSession } from './session-state'
+import { buildChatContext, getSessionKey } from '../context'
+import { normalizeDutch } from '../normalize'
+import { planMessage, SMALL_TALK_RESPONSES } from '../deterministic'
+import { loadSession, saveSession } from '../session-state'
 import { extractAndLogHabits } from '@/lib/ai/habit-extractor'
 
 import type {
@@ -15,7 +15,7 @@ import type {
   ChatResult,
   ChatRuntimeContext,
   StoredAction,
-} from './types'
+} from '../types'
 import { AIAction } from '@/lib/ai/action-schema'
 
 // Background sync trigger (non-blocking)
