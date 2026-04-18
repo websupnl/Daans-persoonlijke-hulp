@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Brain, Plus, Trash2, Sparkles, Info } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Brain, Info, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { formatRelative } from '@/lib/utils'
+import PageShell from '@/components/ui/PageShell'
+import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 
 interface MemoryItem {
   id: number
@@ -11,8 +14,6 @@ interface MemoryItem {
   confidence: number
   last_reinforced_at: string
 }
-
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 const CATEGORY_LABELS: Record<string, string> = {
   personal_context: 'Persoonlijk',
@@ -25,15 +26,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: 'Algemeen',
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  personal_context: 'bg-pink-50 text-pink-600',
-  business_fact: 'bg-blue-50 text-blue-600',
-  project_fact: 'bg-violet-50 text-violet-600',
-  preference: 'bg-amber-50 text-amber-600',
-  routine: 'bg-emerald-50 text-emerald-600',
-  relationship: 'bg-orange-50 text-orange-600',
-  work_pattern: 'bg-teal-50 text-teal-600',
-  general: 'bg-gray-50 text-gray-500',
+const CATEGORY_ACCENTS: Record<string, string> = {
+  personal_context: 'bg-[#f3dce4] text-[#8a4f66]',
+  business_fact: 'bg-[#dde8f2] text-[#4e667e]',
+  project_fact: 'bg-[#e7def0] text-[#6f5b88]',
+  preference: 'bg-[#f3ead6] text-[#8b6d2f]',
+  routine: 'bg-[#dfeadf] text-[#4e7053]',
+  relationship: 'bg-[#f5e2d6] text-[#9b6941]',
+  work_pattern: 'bg-[#d9e9e8] text-[#446f6a]',
+  general: 'bg-surface-container text-on-surface-variant',
 }
 
 export default function MemoryView() {
@@ -46,12 +47,14 @@ export default function MemoryView() {
   const [genResult, setGenResult] = useState<string | null>(null)
 
   async function load() {
-    const res = await fetch('/api/memory')
-    const data = await res.json()
-    setMemories(data.memories || [])
+    const response = await fetch('/api/memory')
+    const payload = await response.json()
+    setMemories(payload.memories || [])
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   async function save() {
     if (!keyValue.trim() || !value.trim()) return
@@ -79,10 +82,13 @@ export default function MemoryView() {
     setGenerating(true)
     setGenResult(null)
     try {
-      const res = await fetch('/api/memory/generate', { method: 'POST' })
-      const data = await res.json()
-      if (data.error) { setGenResult(`Fout: ${data.error}`); return }
-      setGenResult(`${data.saved} nieuwe memories opgeslagen uit je data`)
+      const response = await fetch('/api/memory/generate', { method: 'POST' })
+      const payload = await response.json()
+      if (payload.error) {
+        setGenResult(`Fout: ${payload.error}`)
+        return
+      }
+      setGenResult(`${payload.saved} nieuwe memories opgeslagen uit je data`)
       load()
     } catch {
       setGenResult('Verbindingsfout')
@@ -91,114 +97,212 @@ export default function MemoryView() {
     }
   }
 
+  const groupedMemories = useMemo(() => {
+    return Object.entries(
+      memories.reduce<Record<string, MemoryItem[]>>((groups, memory) => {
+        if (!groups[memory.category]) groups[memory.category] = []
+        groups[memory.category].push(memory)
+        return groups
+      }, {})
+    ).sort((left, right) => right[1].length - left[1].length)
+  }, [memories])
+
+  const highConfidence = memories.filter((memory) => memory.confidence >= 0.8).length
+
   return (
-    <div className="mx-auto flex min-h-full max-w-5xl flex-col bg-white p-6">
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-extrabold text-gradient">Memory Center</h1>
-          <p className="mt-1 text-sm font-medium text-gray-400">Wat de AI structureel over jou en je werk onthoudt</p>
-        </div>
-        <div className="flex gap-2">
+    <PageShell
+      title="Memory"
+      subtitle={`${memories.length} opgeslagen feiten. Dit scherm moet laten voelen dat de app echt duurzame context van je opbouwt in plaats van alleen losse chatgeschiedenis te bewaren.`}
+      actions={
+        <>
           <button
             onClick={generate}
             disabled={generating}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: GRAD }}
+            className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
           >
-            <Sparkles size={14} />
+            <Sparkles size={15} />
             {generating ? 'Analyseren...' : 'Analyseer mijn data'}
           </button>
           <button
-            onClick={() => setShowAdd(s => !s)}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 transition-colors"
+            onClick={() => setShowAdd((value) => !value)}
+            className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
-            <Plus size={14} />
+            <Plus size={15} />
             Handmatig
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Totaal" value={memories.length} meta="Opslagen feiten en voorkeuren" icon={<Brain size={18} />} />
+        <MetricTile label="Sterk bevestigd" value={highConfidence} meta="80% zekerheid of hoger" icon={<Sparkles size={18} />} />
+        <MetricTile label="Categorieen" value={groupedMemories.length} meta="Soorten context in gebruik" icon={<Info size={18} />} />
+        <MetricTile label="Handmatig" value={showAdd ? 'Open' : 'Dicht'} meta="Direct iets toevoegen" icon={<Plus size={18} />} />
       </div>
 
       {genResult && (
-        <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 font-medium">
-          ✓ {genResult}
-        </div>
+        <Panel tone="accent">
+          <p className="text-sm font-medium leading-7 text-on-surface">{genResult}</p>
+        </Panel>
       )}
 
-      {/* How it works banner */}
-      <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 flex items-start gap-3">
-        <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-blue-700 leading-relaxed">
-          <strong>Hoe werkt dit?</strong> De AI vult dit automatisch aan op basis van je gesprekken via Telegram en chat. Klik op <strong>Analyseer mijn data</strong> om memories te genereren uit je bestaande taken, financiën en dagboek. Je kunt ze ook handmatig toevoegen of verwijderen.
-        </p>
-      </div>
+      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+          <Panel tone="muted">
+            <PanelHeader
+              eyebrow="Wat dit is"
+              title="Duurzaam geheugen"
+              description="Memory moet de feiten bevatten die je assistent structureel nodig heeft: voorkeuren, routines, relaties, zakelijke feiten en terugkerende patronen."
+            />
 
-      {showAdd && (
-        <div className="mb-5 rounded-3xl border border-pink-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <Brain size={16} className="text-pink-400" />
-            <p className="text-sm font-bold text-gray-700">Nieuwe memory</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)_160px]">
-            <input value={keyValue} onChange={(e) => setKeyValue(e.target.value)} placeholder="Sleutel (bijv. uurtarief)" className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-            <input value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} placeholder="Waarde" className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none">
-              {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={save} className="rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-sm" style={{ background: GRAD }}>
-              <span className="flex items-center gap-2"><Plus size={14} />Opslaan</span>
-            </button>
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600">Annuleer</button>
-          </div>
-        </div>
-      )}
+            <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
+              <p>Chatgeschiedenis is vluchtig. Memory is het deel dat bewust blijft hangen en later gedrag van de app stuurt.</p>
+              <p>Als dit goed voelt, vertrouw je sneller op de app omdat je niet steeds dezelfde context hoeft te herhalen.</p>
+            </div>
 
-      {memories.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg" style={{ background: GRAD }}>
-            <Brain size={28} />
-          </div>
-          <p className="text-gray-700 font-bold text-lg mb-2">Nog geen memories opgeslagen</p>
-          <p className="text-gray-400 text-sm max-w-sm leading-relaxed mb-6">
-            Klik op <strong>Analyseer mijn data</strong> om de AI je bestaande taken, financiën en dagboek te laten analyseren en er structurele feiten uit te destilleren.
-          </p>
-          <button
-            onClick={generate}
-            disabled={generating}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: GRAD }}
-          >
-            <Sparkles size={14} />
-            {generating ? 'Bezig...' : 'Analyseer mijn data'}
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {memories.map((memory) => (
-            <div key={memory.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md transition-shadow group">
-              <div className="mb-2 flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-800 truncate">{memory.key.replace(/_/g, ' ')}</p>
-                  <span className={`mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[memory.category] ?? 'bg-gray-50 text-gray-400'}`}>
-                    {CATEGORY_LABELS[memory.category] ?? memory.category}
-                  </span>
-                </div>
-                <button onClick={() => remove(memory.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0">
-                  <Trash2 size={13} />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ActionPill>Voorkeuren</ActionPill>
+              <ActionPill>Routines</ActionPill>
+              <ActionPill>Zakelijke feiten</ActionPill>
+            </div>
+          </Panel>
+
+          {showAdd && (
+            <Panel tone="accent">
+              <PanelHeader
+                eyebrow="Handmatig toevoegen"
+                title="Nieuwe memory"
+                description="Gebruik dit alleen voor dingen die echt duurzaam relevant zijn."
+              />
+
+              <div className="mt-5 space-y-3">
+                <input
+                  value={keyValue}
+                  onChange={(event) => setKeyValue(event.target.value)}
+                  placeholder="Sleutel, bijvoorbeeld uurtarief of ochtendroutine"
+                  className="w-full rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                />
+                <textarea
+                  value={value}
+                  onChange={(event) => setValue(event.target.value)}
+                  placeholder="Wat moet het systeem hierover onthouden?"
+                  className="min-h-[120px] w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                />
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="w-full rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                >
+                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={save}
+                  className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                >
+                  Opslaan
+                </button>
+                <button
+                  onClick={() => setShowAdd(false)}
+                  className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                >
+                  Annuleer
                 </button>
               </div>
-              <p className="text-sm leading-relaxed text-gray-600">{memory.value}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex-1 h-1 bg-gray-100 rounded-full mr-2">
-                  <div className="h-full rounded-full" style={{ width: `${Math.round(memory.confidence * 100)}%`, background: GRAD }} />
-                </div>
-                <span className="text-[10px] text-gray-400 whitespace-nowrap">{Math.round(memory.confidence * 100)}% zekerheid</span>
-              </div>
+            </Panel>
+          )}
+
+          <Panel>
+            <PanelHeader
+              eyebrow="Kwaliteit"
+              title="Waar je op wilt letten"
+              description="Te veel rommel hier maakt het systeem onbetrouwbaar. Te weinig maakt het dom."
+            />
+
+            <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
+              <p>Geen losse trivia. Alleen context die latere acties, antwoorden of prioriteiten echt beter maakt.</p>
+              <p>Verwijder dingen die verouderd zijn of geen duurzaam nut meer hebben.</p>
             </div>
-          ))}
+          </Panel>
         </div>
-      )}
-    </div>
+
+        <div className="space-y-5">
+          {memories.length === 0 ? (
+            <Panel>
+              <EmptyPanel
+                title="Nog geen memories opgeslagen"
+                description="Laat de app je data analyseren of voeg handmatig de eerste structurele feiten toe. Pas daarna gaat dit echt als tweede brein voelen."
+                action={
+                  <button
+                    onClick={generate}
+                    disabled={generating}
+                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                  >
+                    {generating ? 'Bezig...' : 'Analyseer mijn data'}
+                  </button>
+                }
+              />
+            </Panel>
+          ) : (
+            groupedMemories.map(([memoryCategory, items]) => (
+              <Panel key={memoryCategory}>
+                <PanelHeader
+                  eyebrow={CATEGORY_LABELS[memoryCategory] ?? memoryCategory}
+                  title={`${items.length} geheugenitems`}
+                  description="Dit zijn de feiten die in deze categorie blijven hangen."
+                />
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {items.map((memory) => (
+                    <div key={memory.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-on-surface">
+                            {memory.key.replace(/_/g, ' ')}
+                          </p>
+                          <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_ACCENTS[memory.category] ?? CATEGORY_ACCENTS.general}`}>
+                            {CATEGORY_LABELS[memory.category] ?? memory.category}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => remove(memory.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      <p className="mt-4 text-sm leading-7 text-on-surface">{memory.value}</p>
+
+                      <div className="mt-4 flex items-center gap-3">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container">
+                          <div
+                            className="h-full rounded-full bg-[#202625]"
+                            style={{ width: `${Math.round(memory.confidence * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium text-on-surface-variant">
+                          {Math.round(memory.confidence * 100)}%
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-xs text-on-surface-variant">
+                        Laatst bevestigd {memory.last_reinforced_at ? formatRelative(memory.last_reinforced_at) : 'onbekend'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            ))
+          )}
+        </div>
+      </div>
+    </PageShell>
   )
 }

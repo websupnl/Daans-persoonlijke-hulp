@@ -198,7 +198,7 @@ export default function ChatView() {
   return (
     <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
+        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
           <Panel tone="accent" padding="lg">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">

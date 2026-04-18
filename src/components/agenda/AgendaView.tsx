@@ -1,12 +1,21 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, CalendarDays, Trash2, ChevronLeft, ChevronRight, CheckSquare, Clock, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import {
+  CalendarDays,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { format, addDays, startOfWeek, isSameDay, parseISO, isToday, isPast } from 'date-fns'
 import { nl } from 'date-fns/locale'
-
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
+import { cn } from '@/lib/utils'
+import PageShell from '@/components/ui/PageShell'
+import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 
 interface AgendaEvent {
   id: number
@@ -27,15 +36,29 @@ interface Todo {
   completed: number
 }
 
-const TYPE_CONFIG: Record<string, { label: string; dot: string; bg: string; text: string }> = {
-  vergadering: { label: 'Vergadering', dot: 'bg-blue-400', bg: 'bg-blue-50', text: 'text-blue-700' },
-  deadline:    { label: 'Deadline',    dot: 'bg-red-400',  bg: 'bg-red-50',  text: 'text-red-700' },
-  afspraak:    { label: 'Afspraak',   dot: 'bg-emerald-400', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  herinnering: { label: 'Herinnering', dot: 'bg-amber-400', bg: 'bg-amber-50', text: 'text-amber-700' },
-  algemeen:    { label: 'Algemeen',   dot: 'bg-gray-300', bg: 'bg-gray-50', text: 'text-gray-600' },
+const TYPE_CONFIG: Record<string, { label: string; dot: string; badge: string }> = {
+  vergadering: { label: 'Vergadering', dot: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
+  deadline: { label: 'Deadline', dot: 'bg-red-500', badge: 'bg-red-100 text-red-700' },
+  afspraak: { label: 'Afspraak', dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700' },
+  herinnering: { label: 'Herinnering', dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-700' },
+  algemeen: { label: 'Algemeen', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700' },
 }
 
-const EMPTY_FORM = { title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', type: 'algemeen', description: '', recurring: '' }
+const EMPTY_FORM = {
+  title: '',
+  date: format(new Date(), 'yyyy-MM-dd'),
+  time: '',
+  type: 'algemeen',
+  description: '',
+  recurring: '',
+}
+
+function formatEventMeta(event: AgendaEvent) {
+  const parts = [event.time || 'Hele dag']
+  if (event.contact_name) parts.push(event.contact_name)
+  if (event.description) parts.push(event.description)
+  return parts.join(' | ')
+}
 
 export default function AgendaView() {
   const [events, setEvents] = useState<AgendaEvent[]>([])
@@ -46,30 +69,36 @@ export default function AgendaView() {
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [loading, setLoading] = useState(true)
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     const from = format(weekStart, 'yyyy-MM-dd')
     const to = format(addDays(weekStart, 6), 'yyyy-MM-dd')
-    const [eventsRes, todosRes] = await Promise.all([
-      fetch(`/api/events?from=${from}&to=${to}`).then(r => r.json()),
-      fetch('/api/todos?filter=week').then(r => r.json()),
+
+    const [eventsResponse, todosResponse] = await Promise.all([
+      fetch(`/api/events?from=${from}&to=${to}`).then((response) => response.json()),
+      fetch('/api/todos?filter=week').then((response) => response.json()),
     ])
-    setEvents(eventsRes.data ?? [])
-    setTodos(todosRes.data ?? [])
+
+    setEvents(eventsResponse.data ?? [])
+    setTodos(todosResponse.data ?? [])
     setLoading(false)
   }, [weekStart])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   async function saveEvent() {
     if (!form.title.trim() || !form.date) return
+
     await fetch('/api/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
+
     setForm({ ...EMPTY_FORM })
     setShowAdd(false)
     fetchData()
@@ -77,292 +106,418 @@ export default function AgendaView() {
 
   async function deleteEvent(id: number) {
     await fetch(`/api/events/${id}`, { method: 'DELETE' })
-    setEvents(prev => prev.filter(e => e.id !== id))
+    setEvents((previous) => previous.filter((event) => event.id !== id))
   }
 
   function eventsForDay(day: Date) {
     return events
-      .filter(e => { try { return isSameDay(parseISO(e.date), day) } catch { return false } })
-      .sort((a, b) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99'))
+      .filter((event) => {
+        try {
+          return isSameDay(parseISO(event.date), day)
+        } catch {
+          return false
+        }
+      })
+      .sort((left, right) => (left.time ?? '99:99').localeCompare(right.time ?? '99:99'))
   }
 
   function todosForDay(day: Date) {
-    return todos.filter(t => t.due_date && isSameDay(parseISO(t.due_date), day))
+    return todos.filter((todo) => todo.due_date && isSameDay(parseISO(todo.due_date), day))
   }
 
   const selectedEvents = eventsForDay(selectedDay)
   const selectedTodos = todosForDay(selectedDay)
-  const totalWeekItems = events.length + todos.filter(t => t.due_date).length
-
-  const HOURS = Array.from({ length: 13 }, (_, i) => i + 7) // 07:00 – 19:00
-
-  const SelectedDayContent = () => {
-    if (selectedEvents.length === 0 && selectedTodos.length === 0) {
-      return (
-        <div className="text-center py-8">
-          <CalendarDays size={28} className="text-gray-200 mx-auto mb-2" />
-          <p className="text-sm text-gray-400">Niets gepland</p>
-          <button
-            onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd(true) }}
-            className="mt-3 text-xs font-semibold text-pink-400 hover:text-pink-600 transition-colors"
-          >
-            + Evenement toevoegen
-          </button>
-        </div>
-      )
-    }
-
-    if (selectedEvents.some(e => e.time)) {
-      return (
-        <div className="space-y-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Tijdlijn</p>
-            <div className="relative">
-              {HOURS.map(h => (
-                <div key={h} className="flex items-start gap-2 mb-0">
-                  <span className="text-[10px] text-gray-300 w-8 flex-shrink-0 leading-none pt-0.5">{String(h).padStart(2, '0')}:00</span>
-                  <div className="flex-1 border-t border-gray-100 pt-0.5 min-h-[32px] relative">
-                    {selectedEvents
-                      .filter(e => {
-                        const [eh] = (e.time ?? '').split(':').map(Number)
-                        return eh === h
-                      })
-                      .map(e => {
-                        const cfg = TYPE_CONFIG[e.type] ?? TYPE_CONFIG.algemeen
-                        return (
-                          <div key={e.id} className={cn('rounded-xl px-2.5 py-1.5 mb-1 flex items-start gap-2 group', cfg.bg)}>
-                            <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
-                            <div className="flex-1 min-w-0">
-                              <p className={cn('text-xs font-semibold truncate', cfg.text)}>{e.title}</p>
-                              {e.time && <p className="text-[10px] text-gray-400">{e.time}{e.contact_name ? ` · ${e.contact_name}` : ''}</p>}
-                            </div>
-                            <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {selectedTodos.length > 0 && (
-             <div>
-               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">To-do&apos;s</p>
-               <div className="space-y-2">
-                 {selectedTodos.map(t => (
-                   <div key={t.id} className="rounded-2xl border border-amber-100 bg-amber-50 px-3.5 py-3 flex items-center gap-3">
-                     <CheckSquare size={14} className="text-amber-500 flex-shrink-0" />
-                     <p className="text-sm font-semibold text-amber-800 flex-1 truncate">{t.title}</p>
-                   </div>
-                 ))}
-               </div>
-             </div>
-          )}
-        </div>
-      )
-    }
-
-    return <DayDetail events={selectedEvents} todos={selectedTodos} onDelete={deleteEvent} />
-  }
+  const weeklyTodoDeadlines = todos.filter((todo) => todo.due_date)
+  const weeklyItems = events.length + weeklyTodoDeadlines.length
+  const todayEvents = eventsForDay(new Date()).length
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 sm:px-6 py-4 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-extrabold text-gradient">Agenda</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Week van {format(weekStart, 'd MMMM', { locale: nl })} · {totalWeekItems} items
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => { const d = addDays(weekStart, -7); setWeekStart(d); setSelectedDay(d) }} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
-              <ChevronLeft size={15} />
-            </button>
-            <button onClick={() => { setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setSelectedDay(new Date()) }} className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 hover:border-pink-200 transition-colors">
-              Vandaag
-            </button>
-            <button onClick={() => { const d = addDays(weekStart, 7); setWeekStart(d); setSelectedDay(d) }} className="h-9 w-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:border-pink-200 transition-colors">
-              <ChevronRight size={15} />
-            </button>
-            <button onClick={() => setShowAdd(s => !s)} className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity" style={{ background: GRAD }}>
-              <span className="flex items-center gap-1.5"><Plus size={14} />Nieuw</span>
-            </button>
-          </div>
-        </div>
+    <PageShell
+      title="Agenda"
+      subtitle={`Week van ${format(weekStart, 'd MMMM', { locale: nl })}. Je planning moet hier rust geven en niet als een rommelige kalenderdump voelen.`}
+      actions={
+        <>
+          <button
+            onClick={() => {
+              const next = addDays(weekStart, -7)
+              setWeekStart(next)
+              setSelectedDay(next)
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => {
+              const today = startOfWeek(new Date(), { weekStartsOn: 1 })
+              setWeekStart(today)
+              setSelectedDay(new Date())
+            }}
+            className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+          >
+            Vandaag
+          </button>
+          <button
+            onClick={() => {
+              const next = addDays(weekStart, 7)
+              setWeekStart(next)
+              setSelectedDay(next)
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            onClick={() => {
+              setForm((current) => ({ ...current, date: format(selectedDay, 'yyyy-MM-dd') }))
+              setShowAdd((value) => !value)
+            }}
+            className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          >
+            <Plus size={15} />
+            Nieuw item
+          </button>
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Items deze week" value={weeklyItems} meta={`${events.length} afspraken en ${weeklyTodoDeadlines.length} taken`} icon={<CalendarDays size={18} />} />
+        <MetricTile label="Vandaag" value={todayEvents} meta="Afspraken vandaag" icon={<Clock3 size={18} />} />
+        <MetricTile label="Todos met datum" value={weeklyTodoDeadlines.length} meta="Binnen deze week zichtbaar" icon={<CheckSquare size={18} />} />
+        <MetricTile label="Geselecteerde dag" value={selectedEvents.length + selectedTodos.length} meta={format(selectedDay, 'EEEE d MMM', { locale: nl })} icon={<CalendarDays size={18} />} />
       </div>
 
-      <div className="flex flex-1 min-h-0 flex-col xl:flex-row">
-        {/* Week grid */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          {showAdd && (
-            <div className="mb-5 rounded-2xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-gray-700">Nieuw evenement</p>
-                <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={15} /></button>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Titel *" className="sm:col-span-2 rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-                <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-                <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none">
-                  {Object.entries(TYPE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-                <select value={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.value }))} className="rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none">
-                  <option value="">Niet herhalend</option>
-                  <option value="dagelijks">Dagelijks</option>
-                  <option value="wekelijks">Wekelijks</option>
-                  <option value="maandelijks">Maandelijks</option>
-                </select>
-                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Omschrijving" className="sm:col-span-2 rounded-xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none" />
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button onClick={saveEvent} className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
-                <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600">Annuleer</button>
-              </div>
-            </div>
-          )}
+      {showAdd && (
+        <Panel tone="accent">
+          <PanelHeader
+            eyebrow="Nieuw agenda-item"
+            title="Snel iets plannen"
+            description="Voeg direct een afspraak of herinnering toe zonder eerst een los formulier in te duiken."
+            action={
+              <button
+                onClick={() => setShowAdd(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+              >
+                <X size={14} />
+              </button>
+            }
+          />
 
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-            </div>
-          ) : (
-            <div className="grid grid-cols-7 gap-1.5">
-              {/* Day headers */}
-              {weekDays.map(day => {
-                const today = isToday(day)
-                const selected = isSameDay(day, selectedDay)
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <input
+              value={form.title}
+              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              placeholder="Titel"
+              className="xl:col-span-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+            />
+            <input
+              type="date"
+              value={form.date}
+              onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+              className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+            />
+            <input
+              type="time"
+              value={form.time}
+              onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))}
+              className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+            />
+            <select
+              value={form.type}
+              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
+              className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+            >
+              {Object.entries(TYPE_CONFIG).map(([key, item]) => (
+                <option key={key} value={key}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={form.recurring}
+              onChange={(event) => setForm((current) => ({ ...current, recurring: event.target.value }))}
+              className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+            >
+              <option value="">Niet herhalend</option>
+              <option value="dagelijks">Dagelijks</option>
+              <option value="wekelijks">Wekelijks</option>
+              <option value="maandelijks">Maandelijks</option>
+            </select>
+            <input
+              value={form.description}
+              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+              placeholder="Omschrijving of context"
+              className="md:col-span-2 xl:col-span-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={saveEvent}
+              className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            >
+              Opslaan
+            </button>
+            <button
+              onClick={() => setShowAdd(false)}
+              className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            >
+              Annuleer
+            </button>
+          </div>
+        </Panel>
+      )}
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
+          <Panel>
+            <PanelHeader
+              eyebrow="Weekoverzicht"
+              title="Kies een dag"
+              description="Je agenda moet direct scanbaar zijn: welke dagen zitten vol, welke zijn leeg, en waar loopt planning door elkaar."
+            />
+
+            {loading ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                {weekDays.map((day) => (
+                  <div key={day.toISOString()} className="min-h-[168px] rounded-[24px] border border-black/5 bg-surface-container-low animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                {weekDays.map((day) => {
+                  const dayEvents = eventsForDay(day)
+                  const dayTodos = todosForDay(day)
+                  const total = dayEvents.length + dayTodos.length
+                  const selected = isSameDay(day, selectedDay)
+                  const today = isToday(day)
+                  const past = isPast(day) && !today
+
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      onClick={() => setSelectedDay(day)}
+                      className={cn(
+                        'rounded-[26px] border px-4 py-4 text-left transition-all duration-200',
+                        selected
+                          ? 'border-[#202625] bg-[#202625] text-white shadow-[0_24px_60px_-34px_rgba(18,22,21,0.42)]'
+                          : 'border-black/5 bg-white hover:-translate-y-0.5 hover:bg-surface-container-low',
+                        past && !selected && 'opacity-60'
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className={cn('text-[11px] font-semibold uppercase tracking-[0.16em]', selected ? 'text-white/70' : 'text-on-surface-variant/75')}>
+                            {format(day, 'EEEEEE', { locale: nl })}
+                          </p>
+                          <p className={cn('mt-1 text-2xl font-headline font-extrabold tracking-tight', selected ? 'text-white' : 'text-on-surface')}>
+                            {format(day, 'd')}
+                          </p>
+                        </div>
+                        {today && (
+                          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', selected ? 'bg-white/12 text-white' : 'bg-surface-container-low text-on-surface')}>
+                            Vandaag
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {dayEvents.length > 0 && <ActionPill className={selected ? 'border-white/10 bg-white/10 text-white/75 shadow-none' : ''}>{dayEvents.length} events</ActionPill>}
+                        {dayTodos.length > 0 && <ActionPill className={selected ? 'border-white/10 bg-white/10 text-white/75 shadow-none' : ''}>{dayTodos.length} todo's</ActionPill>}
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        {total === 0 ? (
+                          <p className={cn('text-xs leading-5', selected ? 'text-white/65' : 'text-on-surface-variant')}>
+                            Rustige dag. Nog niets gepland.
+                          </p>
+                        ) : (
+                          <>
+                            {dayEvents.slice(0, 2).map((event) => (
+                              <div key={event.id} className="flex items-start gap-2">
+                                <span className={cn('mt-1.5 h-2 w-2 rounded-full', TYPE_CONFIG[event.type]?.dot ?? TYPE_CONFIG.algemeen.dot)} />
+                                <div className="min-w-0">
+                                  <p className={cn('truncate text-sm font-semibold', selected ? 'text-white' : 'text-on-surface')}>
+                                    {event.title}
+                                  </p>
+                                  <p className={cn('text-[11px]', selected ? 'text-white/70' : 'text-on-surface-variant')}>
+                                    {event.time || 'Hele dag'}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                            {dayTodos.slice(0, Math.max(0, 2 - dayEvents.length)).map((todo) => (
+                              <div key={todo.id} className="flex items-start gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-amber-500" />
+                                <p className={cn('truncate text-sm', selected ? 'text-white/85' : 'text-on-surface')}>
+                                  {todo.title}
+                                </p>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </Panel>
+
+          <Panel tone="muted">
+            <PanelHeader
+              eyebrow="Weekritme"
+              title="Waar de spanning zit"
+              description="Een planner is pas goed als hij laat zien waar je week druk wordt en waar nog lucht zit."
+            />
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {weekDays.map((day) => {
                 const dayEvents = eventsForDay(day)
                 const dayTodos = todosForDay(day)
                 const total = dayEvents.length + dayTodos.length
-                const past = isPast(day) && !today
 
                 return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDay(day)}
-                    className={cn(
-                      'flex flex-col items-center rounded-2xl p-2 sm:p-3 transition-all border',
-                      selected
-                        ? 'border-pink-200 shadow-md'
-                        : today
-                          ? 'border-pink-100 bg-orange-50/50'
-                          : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50',
-                      past && !selected ? 'opacity-50' : ''
-                    )}
-                    style={selected ? { background: 'linear-gradient(135deg,#fff5f0,#fdf2f8,#f5f3ff)' } : {}}
-                  >
-                    <p className={cn('text-[10px] font-semibold uppercase tracking-wide mb-1', today ? 'text-pink-500' : 'text-gray-400')}>
-                      {format(day, 'EE', { locale: nl }).slice(0, 2)}
-                    </p>
-                    <div
-                      className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm font-bold mb-2', today ? 'text-white shadow-sm' : selected ? 'text-gray-800' : 'text-gray-600')}
-                      style={today ? { background: GRAD } : {}}
-                    >
-                      {format(day, 'd')}
+                  <div key={day.toISOString()} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                          {format(day, 'EEEE', { locale: nl })}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">
+                          {total === 0 ? 'Leeg' : `${total} item${total !== 1 ? 's' : ''}`}
+                        </p>
+                      </div>
+                      <span className={cn('h-3 w-3 rounded-full', total === 0 ? 'bg-surface-container-high' : total >= 4 ? 'bg-[#a55a2c]' : 'bg-[#202625]')} />
                     </div>
-                    {/* Event dots */}
-                    <div className="flex flex-wrap justify-center gap-0.5 min-h-[12px]">
-                      {dayEvents.slice(0, 3).map((e, i) => (
-                        <span key={i} className={cn('w-1.5 h-1.5 rounded-full', TYPE_CONFIG[e.type]?.dot ?? 'bg-gray-300')} />
-                      ))}
-                      {dayTodos.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
-                    </div>
-                    {total > 0 && (
-                      <p className={cn('text-[9px] font-semibold mt-1', selected ? 'text-pink-500' : 'text-gray-400')}>
-                        {total} item{total !== 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </button>
+                  </div>
                 )
               })}
             </div>
-          )}
-
-          {/* Selected day event cards — mobile/tablet */}
-          <div className="mt-4 xl:hidden">
-            <p className="text-sm font-bold text-gray-700 mb-3 capitalize">
-              {format(selectedDay, 'EEEE d MMMM', { locale: nl })}
-            </p>
-            <SelectedDayContent />
-          </div>
+          </Panel>
         </div>
 
-        {/* Right sidebar: selected day detail + timeline */}
-        <div className="hidden xl:flex xl:w-80 xl:flex-col border-l border-gray-100 bg-gray-50/40">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <p className="text-sm font-bold text-gradient capitalize">
-              {format(selectedDay, 'EEEE d MMMM', { locale: nl })}
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {selectedEvents.length} events · {selectedTodos.length} todos
-            </p>
-          </div>
+        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+          <Panel>
+            <PanelHeader
+              eyebrow="Geselecteerde dag"
+              title={format(selectedDay, 'EEEE d MMMM', { locale: nl })}
+              description={`${selectedEvents.length} afspraken en ${selectedTodos.length} taken op deze dag.`}
+            />
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            <SelectedDayContent />
-          </div>
+            <div className="mt-5 space-y-5">
+              {selectedEvents.length === 0 && selectedTodos.length === 0 ? (
+                <EmptyPanel
+                  title="Niets gepland"
+                  description="Dat mag ook. Als je hier iets toevoegt, blijft de rechterrail direct de bron van waarheid voor deze dag."
+                  action={
+                    <button
+                      onClick={() => {
+                        setForm((current) => ({ ...current, date: format(selectedDay, 'yyyy-MM-dd') }))
+                        setShowAdd(true)
+                      }}
+                      className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                    >
+                      Voeg item toe
+                    </button>
+                  }
+                />
+              ) : (
+                <>
+                  {selectedEvents.length > 0 && (
+                    <section className="space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                        Afspraken
+                      </p>
+                      {selectedEvents.map((event) => {
+                        const typeConfig = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen
+                        return (
+                          <div key={event.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                            <div className="flex items-start gap-3">
+                              <span className={cn('mt-1.5 h-2.5 w-2.5 rounded-full', typeConfig.dot)} />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold text-on-surface">{event.title}</p>
+                                  <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
+                                    {typeConfig.label}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                  {formatEventMeta(event)}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => deleteEvent(event.id)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </section>
+                  )}
 
-          {/* Week todos */}
-          {todos.filter(t => t.due_date).length > 0 && (
-            <div className="border-t border-gray-100 px-4 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
-                <Clock size={10} />Todos met deadline deze week
-              </p>
-              <div className="space-y-1.5">
-                {todos.filter(t => t.due_date).slice(0, 5).map(t => (
-                  <div key={t.id} className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-100 px-2.5 py-1.5">
-                    <CheckSquare size={11} className="text-amber-500 flex-shrink-0" />
-                    <p className="text-xs text-amber-800 font-medium truncate flex-1">{t.title}</p>
-                    <span className="text-[10px] text-amber-500">{format(parseISO(t.due_date!), 'E d', { locale: nl })}</span>
-                  </div>
-                ))}
-              </div>
+                  {selectedTodos.length > 0 && (
+                    <section className="space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                        Taken met deadline
+                      </p>
+                      {selectedTodos.map((todo) => (
+                        <div key={todo.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-on-surface">
+                              <CheckSquare size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-on-surface">{todo.title}</p>
+                              <p className="mt-1 text-xs text-on-surface-variant">
+                                Prioriteit: {todo.priority}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </Panel>
+
+          <Panel tone="muted">
+            <PanelHeader
+              eyebrow="Deze week"
+              title="Todos met datum"
+              description="Taken met een datum horen mee te bewegen met je planning, niet verstopt te zitten op een losse lijst."
+            />
+
+            <div className="mt-5 space-y-3">
+              {weeklyTodoDeadlines.length === 0 ? (
+                <EmptyPanel
+                  title="Geen gedateerde todos"
+                  description="Dat geeft lucht. Als een taak echt op tijd moet gebeuren, hoort hij hier zichtbaar te worden."
+                />
+              ) : (
+                weeklyTodoDeadlines.slice(0, 6).map((todo) => (
+                  <div key={todo.id} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-on-surface">{todo.title}</p>
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {todo.due_date ? format(parseISO(todo.due_date), 'EEEE d MMM', { locale: nl }) : 'Geen datum'}
+                        </p>
+                      </div>
+                      <ActionPill>{todo.priority}</ActionPill>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
         </div>
       </div>
-    </div>
-  )
-}
-
-function DayDetail({ events, todos, onDelete }: { events: AgendaEvent[]; todos: Todo[]; onDelete: (id: number) => void }) {
-  if (events.length === 0 && todos.length === 0) {
-    return <p className="text-sm text-gray-400 py-4 text-center">Niets gepland voor deze dag.</p>
-  }
-
-  return (
-    <div className="space-y-2">
-      {events.map(e => {
-        const cfg = TYPE_CONFIG[e.type] ?? TYPE_CONFIG.algemeen
-        return (
-          <div key={e.id} className={cn('rounded-2xl border px-3.5 py-3 flex items-start gap-3 group', cfg.bg, 'border-transparent')}>
-            <span className={cn('mt-1.5 w-2 h-2 rounded-full flex-shrink-0', cfg.dot)} />
-            <div className="flex-1 min-w-0">
-              <p className={cn('text-sm font-semibold', cfg.text)}>{e.title}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {e.time ? e.time : 'Hele dag'}{e.description ? ` · ${e.description}` : ''}{e.contact_name ? ` · ${e.contact_name}` : ''}
-              </p>
-            </div>
-            <button onClick={() => onDelete(e.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all mt-0.5">
-              <Trash2 size={13} />
-            </button>
-          </div>
-        )
-      })}
-      {todos.map(t => (
-        <div key={t.id} className="rounded-2xl border border-amber-100 bg-amber-50 px-3.5 py-3 flex items-center gap-3">
-          <CheckSquare size={14} className="text-amber-500 flex-shrink-0" />
-          <p className="text-sm font-semibold text-amber-800 flex-1 truncate">{t.title}</p>
-          <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', t.priority === 'hoog' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500')}>
-            {t.priority}
-          </span>
-        </div>
-      ))}
-    </div>
+    </PageShell>
   )
 }

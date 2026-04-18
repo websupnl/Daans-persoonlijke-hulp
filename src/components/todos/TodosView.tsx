@@ -1,10 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Check, Trash2, Calendar, LayoutGrid, ListTodo, Sparkles, Loader2 } from 'lucide-react'
+import {
+  Calendar,
+  Check,
+  LayoutGrid,
+  ListTodo,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import { cn, formatDate, isOverdue } from '@/lib/utils'
-import PageShell, { PageSection } from '@/components/ui/PageShell'
-import { Card, CardLow, Tag, PriorityDot } from '@/components/ui/Card'
+import PageShell from '@/components/ui/PageShell'
+import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
+import { PriorityDot } from '@/components/ui/Card'
 import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Todo {
@@ -22,15 +32,24 @@ interface Todo {
 const FILTERS = ['Alles', 'Vandaag', 'Deze week', 'Te laat', 'Afgerond'] as const
 const CATEGORIES = ['alles', 'werk', 'financieel', 'gezondheid', 'persoonlijk', 'studie', 'overig'] as const
 const PIPELINE = [
-  { key: 'hoog',    label: 'Nu eerst',  color: 'bg-red-100 text-red-600' },
-  { key: 'today',   label: 'Vandaag',   color: 'bg-orange-100 text-orange-600' },
-  { key: 'planned', label: 'Gepland',   color: 'bg-blue-100 text-blue-600' },
-  { key: 'later',   label: 'Later',     color: 'bg-surface-container text-on-surface-variant' },
+  { key: 'hoog', label: 'Nu eerst' },
+  { key: 'today', label: 'Vandaag' },
+  { key: 'planned', label: 'Gepland' },
+  { key: 'later', label: 'Later' },
 ] as const
 
 type Filter = typeof FILTERS[number]
 type Category = typeof CATEGORIES[number]
 type ViewMode = 'list' | 'board'
+
+function resolveBoardColumns(todos: Todo[]) {
+  return {
+    hoog: todos.filter((todo) => !todo.completed && todo.priority === 'hoog'),
+    today: todos.filter((todo) => !todo.completed && formatDate(todo.due_date) === 'Vandaag' && todo.priority !== 'hoog'),
+    planned: todos.filter((todo) => !todo.completed && !!todo.due_date && formatDate(todo.due_date) !== 'Vandaag' && !isOverdue(todo.due_date) && todo.priority !== 'hoog'),
+    later: todos.filter((todo) => !todo.completed && !todo.due_date && todo.priority !== 'hoog'),
+  }
+}
 
 export default function TodosView() {
   const [todos, setTodos] = useState<Todo[]>([])
@@ -51,21 +70,26 @@ export default function TodosView() {
     else if (filter === 'Te laat') params.set('filter', 'overdue')
     else if (filter === 'Afgerond') params.set('completed', '1')
     if (category !== 'alles') params.set('category', category)
-    const res = await fetch(`/api/todos?${params}`)
-    const data = await res.json()
-    setTodos(data.data || [])
+
+    const response = await fetch(`/api/todos?${params}`)
+    const payload = await response.json()
+    setTodos(payload.data || [])
     setLoading(false)
   }, [filter, category])
 
-  useEffect(() => { fetchTodos() }, [fetchTodos])
+  useEffect(() => {
+    fetchTodos()
+  }, [fetchTodos])
 
   async function addTodo() {
     if (!newTodo.title.trim()) return
+
     await fetch('/api/todos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTodo),
     })
+
     setNewTodo({ title: '', priority: 'medium', category: 'overig', due_date: '' })
     setShowAdd(false)
     fetchTodos()
@@ -87,250 +111,456 @@ export default function TodosView() {
 
   async function moveTodo(id: number, column: typeof PIPELINE[number]['key']) {
     const payload: Record<string, string | null> = {}
-    if (column === 'hoog') { payload.priority = 'hoog' }
-    else if (column === 'today') { payload.priority = 'medium'; payload.due_date = new Date().toISOString().split('T')[0] }
-    else if (column === 'planned') { const t = new Date(); t.setDate(t.getDate() + 1); payload.priority = 'medium'; payload.due_date = t.toISOString().split('T')[0] }
-    else if (column === 'later') { payload.priority = 'laag'; payload.due_date = null }
-    await fetch(`/api/todos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (column === 'hoog') {
+      payload.priority = 'hoog'
+    } else if (column === 'today') {
+      payload.priority = 'medium'
+      payload.due_date = new Date().toISOString().split('T')[0]
+    } else if (column === 'planned') {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      payload.priority = 'medium'
+      payload.due_date = tomorrow.toISOString().split('T')[0]
+    } else if (column === 'later') {
+      payload.priority = 'laag'
+      payload.due_date = null
+    }
+
+    await fetch(`/api/todos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
     fetchTodos()
   }
 
   async function getRecommendation() {
-    setLoadingRec(true); setRecommendation(null)
+    setLoadingRec(true)
+    setRecommendation(null)
     try {
-      const res = await fetch('/api/todos/recommend')
-      const data = await res.json()
-      setRecommendation(data.recommendation)
-    } finally { setLoadingRec(false) }
+      const response = await fetch('/api/todos/recommend')
+      const payload = await response.json()
+      setRecommendation(payload.recommendation)
+    } finally {
+      setLoadingRec(false)
+    }
   }
 
-  const openCount   = todos.filter(t => !t.completed).length
-  const overdueCount= todos.filter(t => !t.completed && isOverdue(t.due_date)).length
-  const todayCount  = todos.filter(t => !t.completed && formatDate(t.due_date) === 'Vandaag').length
-
-  const boardCols = {
-    hoog:    todos.filter(t => !t.completed && t.priority === 'hoog'),
-    today:   todos.filter(t => !t.completed && formatDate(t.due_date) === 'Vandaag' && t.priority !== 'hoog'),
-    planned: todos.filter(t => !t.completed && !!t.due_date && formatDate(t.due_date) !== 'Vandaag' && !isOverdue(t.due_date) && t.priority !== 'hoog'),
-    later:   todos.filter(t => !t.completed && !t.due_date && t.priority !== 'hoog'),
-  }
+  const openTodos = todos.filter((todo) => !todo.completed)
+  const completedTodos = todos.filter((todo) => todo.completed)
+  const overdueTodos = todos.filter((todo) => !todo.completed && isOverdue(todo.due_date))
+  const todayTodos = todos.filter((todo) => !todo.completed && formatDate(todo.due_date) === 'Vandaag')
+  const highPriorityTodos = todos.filter((todo) => !todo.completed && todo.priority === 'hoog')
+  const boardColumns = resolveBoardColumns(todos)
+  const nextUp = [...openTodos]
+    .sort((left, right) => (left.due_date || '9999').localeCompare(right.due_date || '9999'))
+    .slice(0, 5)
 
   return (
     <PageShell
       title="Todo's"
-      subtitle={`${openCount} open · ${todayCount} vandaag${overdueCount > 0 ? ` · ${overdueCount} te laat` : ''}`}
+      subtitle={`${openTodos.length} open taken. Dit scherm moet helpen kiezen wat nu telt, niet alleen een lijst langer maken.`}
       actions={
-        <div className="flex items-center gap-1.5">
-          {/* View toggle */}
-          <div className="flex bg-surface-container rounded-xl p-0.5">
-            {(['list', 'board'] as const).map(m => (
+        <>
+          <div className="flex rounded-full border border-black/5 bg-white p-1">
+            {(['list', 'board'] as const).map((mode) => (
               <button
-                key={m}
-                onClick={() => setViewMode(m)}
-                className={cn('px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all', viewMode === m ? 'btn-gradient shadow-ambient-xs' : 'text-on-surface-variant')}
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full transition-colors',
+                  viewMode === mode ? 'bg-[#202625] text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
+                )}
               >
-                {m === 'list' ? <ListTodo size={13} /> : <LayoutGrid size={13} />}
+                {mode === 'list' ? <ListTodo size={15} /> : <LayoutGrid size={15} />}
               </button>
             ))}
           </div>
           <button
             onClick={getRecommendation}
             disabled={loadingRec}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-container text-xs font-semibold text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
           >
-            {loadingRec ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {loadingRec ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
             Wat nu?
           </button>
           <button
-            onClick={() => setShowAdd(s => !s)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl btn-gradient text-xs font-semibold text-white"
+            onClick={() => setShowAdd((value) => !value)}
+            className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
           >
-            <Plus size={12} /> Todo
+            <Plus size={15} />
+            Nieuwe todo
           </button>
-        </div>
+        </>
       }
     >
-      {/* AI recommendation */}
-      {recommendation && (
-        <Card className="p-4 bg-brand-subtle relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-pink-100/50 rounded-full -translate-y-8 translate-x-8 blur-xl" />
-          <div className="relative flex items-start gap-3">
-            <Sparkles size={15} className="icon-gradient mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">AI Aanbeveling</p>
-              <p className="text-sm text-on-surface leading-relaxed">{recommendation}</p>
-            </div>
-            <button onClick={() => setRecommendation(null)} className="text-on-surface-variant hover:text-on-surface shrink-0">
-              <Plus size={14} className="rotate-45" />
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {/* Add form */}
-      {showAdd && (
-        <Card className="p-4">
-          <input
-            autoFocus
-            value={newTodo.title}
-            onChange={e => setNewTodo(p => ({ ...p, title: e.target.value }))}
-            onKeyDown={e => e.key === 'Enter' && addTodo()}
-            placeholder="Wat moet er gebeuren?"
-            className="w-full bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant outline-none border-b border-outline-variant pb-2 mb-3"
-          />
-          <div className="flex flex-wrap gap-2 items-center">
-            <select value={newTodo.priority} onChange={e => setNewTodo(p => ({ ...p, priority: e.target.value }))}
-              className="rounded-xl bg-surface-container px-2.5 py-1.5 text-xs text-on-surface-variant outline-none">
-              <option value="hoog">Hoog</option>
-              <option value="medium">Medium</option>
-              <option value="laag">Laag</option>
-            </select>
-            <select value={newTodo.category} onChange={e => setNewTodo(p => ({ ...p, category: e.target.value }))}
-              className="rounded-xl bg-surface-container px-2.5 py-1.5 text-xs text-on-surface-variant outline-none">
-              {CATEGORIES.filter(c => c !== 'alles').map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input type="date" value={newTodo.due_date} onChange={e => setNewTodo(p => ({ ...p, due_date: e.target.value }))}
-              className="rounded-xl bg-surface-container px-2.5 py-1.5 text-xs text-on-surface-variant outline-none" />
-            <div className="ml-auto flex gap-2">
-              <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface">Annuleer</button>
-              <button onClick={addTodo} className="px-3 py-1.5 text-xs font-semibold text-white rounded-xl btn-gradient">Opslaan</button>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-1">
-          {FILTERS.map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={cn('px-3 py-1 rounded-full text-xs font-medium transition-all', filter === f ? 'btn-gradient text-white' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high')}>
-              {f}{f === 'Te laat' && overdueCount > 0 && <span className="ml-1 bg-red-500 text-white px-1 rounded-full text-[9px]">{overdueCount}</span>}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {CATEGORIES.map(c => (
-            <button key={c} onClick={() => setCategory(c)}
-              className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all', category === c ? 'btn-gradient text-white' : 'text-on-surface-variant hover:bg-surface-container')}>
-              {c}
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile label="Open" value={openTodos.length} meta="Taken zonder afronding" icon={<ListTodo size={18} />} />
+        <MetricTile label="Vandaag" value={todayTodos.length} meta="Moeten vandaag bewegen" icon={<Calendar size={18} />} />
+        <MetricTile label="Te laat" value={overdueTodos.length} meta="Direct risico op vergeten" icon={<Sparkles size={18} />} />
+        <MetricTile label="Afgerond" value={completedTodos.length} meta="Binnen de huidige filter" icon={<Check size={18} />} />
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 size={20} className="animate-spin text-pink-400" />
-        </div>
-      ) : todos.length === 0 ? (
-        <div className="text-center py-12 text-on-surface-variant text-sm">Geen todos gevonden.</div>
-      ) : viewMode === 'board' && filter !== 'Afgerond' ? (
-        /* Board view */
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          {PIPELINE.map(col => (
-            <div
-              key={col.key}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); const id = Number(e.dataTransfer.getData('text/plain')); if (id) moveTodo(id, col.key) }}
-              className="bg-surface-container-low rounded-2xl p-3"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <p className={cn('text-xs font-bold px-2 py-0.5 rounded-full', col.color)}>{col.label}</p>
-                <span className="text-[10px] text-on-surface-variant font-bold">{boardCols[col.key].length}</span>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-5">
+          {showAdd && (
+            <Panel tone="accent">
+              <PanelHeader
+                eyebrow="Nieuwe taak"
+                title="Snel vastleggen"
+                description="Vang eerst de taak af. Structuur mag helpen, maar mag het invoeren niet zwaarder maken."
+              />
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <input
+                  autoFocus
+                  value={newTodo.title}
+                  onChange={(event) => setNewTodo((current) => ({ ...current, title: event.target.value }))}
+                  onKeyDown={(event) => event.key === 'Enter' && addTodo()}
+                  placeholder="Wat moet er gebeuren?"
+                  className="md:col-span-2 xl:col-span-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                />
+                <select
+                  value={newTodo.priority}
+                  onChange={(event) => setNewTodo((current) => ({ ...current, priority: event.target.value }))}
+                  className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                >
+                  <option value="hoog">Hoog</option>
+                  <option value="medium">Medium</option>
+                  <option value="laag">Laag</option>
+                </select>
+                <select
+                  value={newTodo.category}
+                  onChange={(event) => setNewTodo((current) => ({ ...current, category: event.target.value }))}
+                  className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                >
+                  {CATEGORIES.filter((item) => item !== 'alles').map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={newTodo.due_date}
+                  onChange={(event) => setNewTodo((current) => ({ ...current, due_date: event.target.value }))}
+                  className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                />
               </div>
-              <div className="space-y-2 min-h-[40px]">
-                {boardCols[col.key].length === 0 ? (
-                  <div className="border-2 border-dashed border-outline-variant/20 rounded-xl py-4 text-center text-[10px] text-on-surface-variant">leeg</div>
-                ) : boardCols[col.key].map(todo => (
-                  <TodoCard key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={addTodo}
+                  className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                >
+                  Opslaan
+                </button>
+                <button
+                  onClick={() => setShowAdd(false)}
+                  className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                >
+                  Annuleer
+                </button>
+              </div>
+            </Panel>
+          )}
+
+          <Panel tone="muted">
+            <PanelHeader
+              eyebrow="Filters"
+              title="Scherp je lijst aan"
+              description="Hoe minder ruis, hoe makkelijker kiezen. Filter op urgentie, tijd en context."
+            />
+
+            <div className="mt-5 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {FILTERS.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setFilter(item)}
+                    className={cn(
+                      'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                      filter === item ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
+                    )}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setCategory(item)}
+                    className={cn(
+                      'rounded-full border border-black/5 px-3 py-1.5 text-xs font-medium transition-colors',
+                      category === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
+                    )}
+                  >
+                    {item}
+                  </button>
                 ))}
               </div>
             </div>
-          ))}
+          </Panel>
+
+          {loading ? (
+            <Panel className="min-h-[320px]">
+              <div className="flex min-h-[280px] items-center justify-center">
+                <Loader2 size={22} className="animate-spin text-on-surface-variant" />
+              </div>
+            </Panel>
+          ) : todos.length === 0 ? (
+            <Panel>
+              <EmptyPanel
+                title="Geen taken gevonden"
+                description="Dat is of heel goed, of je filters zijn te scherp. In beide gevallen hoort het scherm rustig en duidelijk te blijven."
+              />
+            </Panel>
+          ) : viewMode === 'board' && filter !== 'Afgerond' ? (
+            <div className="grid gap-3 xl:grid-cols-4">
+              {PIPELINE.map((column) => (
+                <Panel
+                  key={column.key}
+                  tone="muted"
+                  className="p-4"
+                >
+                  <div
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      const id = Number(event.dataTransfer.getData('text/plain'))
+                      if (id) moveTodo(id, column.key)
+                    }}
+                    className="min-h-[280px]"
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-2">
+                      <p className="text-sm font-headline font-bold text-on-surface">{column.label}</p>
+                      <ActionPill>{boardColumns[column.key].length}</ActionPill>
+                    </div>
+                    <div className="space-y-3">
+                      {boardColumns[column.key].length === 0 ? (
+                        <div className="rounded-[22px] border border-dashed border-outline-variant/40 bg-white/55 px-4 py-10 text-center text-xs text-on-surface-variant">
+                          Geen taken in deze kolom
+                        </div>
+                      ) : (
+                        boardColumns[column.key].map((todo) => (
+                          <TodoCard key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </Panel>
+              ))}
+            </div>
+          ) : (
+            <Panel padding="sm">
+              <PanelHeader
+                eyebrow="Taken"
+                title={filter === 'Afgerond' ? 'Afgeronde taken' : 'Actieve taken'}
+                description="Een goede takenlijst laat in een oogopslag zien wat urgent is, wat context heeft en wat mag wachten."
+                className="px-2 pb-2"
+              />
+              <div className="mt-2 space-y-1">
+                {todos.map((todo) => (
+                  <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                ))}
+              </div>
+            </Panel>
+          )}
         </div>
-      ) : (
-        /* List view */
-        <Card className="p-1 divide-y divide-surface-container/50">
-          {todos.map(todo => (
-            <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
-          ))}
-        </Card>
-      )}
+
+        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+          <Panel tone={recommendation ? 'accent' : 'default'}>
+            <PanelHeader
+              eyebrow="AI focus"
+              title="Wat nu?"
+              description="De assistent hoort je te helpen kiezen, niet alleen nog een laag tekst bovenop de lijst te leggen."
+            />
+
+            <div className="mt-5">
+              {recommendation ? (
+                <p className="text-sm leading-7 text-on-surface">{recommendation}</p>
+              ) : (
+                <EmptyPanel
+                  title="Nog geen advies opgehaald"
+                  description="Vraag een aanbeveling als je veel open eindes hebt en even wilt forceren wat eerst moet."
+                  action={
+                    <button
+                      onClick={getRecommendation}
+                      disabled={loadingRec}
+                      className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                    >
+                      {loadingRec ? 'Bezig...' : 'Vraag advies'}
+                    </button>
+                  }
+                />
+              )}
+            </div>
+          </Panel>
+
+          <Panel tone="muted">
+            <PanelHeader
+              eyebrow="Kernsignalen"
+              title="Waar de druk zit"
+              description="Deze rail moet je helpen beoordelen of je lijst hanteerbaar is of uit de rails loopt."
+            />
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <ActionPill>{highPriorityTodos.length} hoog</ActionPill>
+              <ActionPill>{todayTodos.length} vandaag</ActionPill>
+              <ActionPill>{overdueTodos.length} te laat</ActionPill>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {nextUp.length === 0 ? (
+                <EmptyPanel
+                  title="Geen open taken"
+                  description="Dat is precies de rust die je uiteindelijk wilt: geen verborgen werk meer dat in je hoofd blijft hangen."
+                />
+              ) : (
+                nextUp.map((todo) => (
+                  <div key={todo.id} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                    <div className="flex items-start gap-3">
+                      <PriorityDot priority={todo.priority} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-on-surface">{todo.title}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+                          <span>{todo.category}</span>
+                          {todo.due_date && <span>{formatDate(todo.due_date)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
+        </div>
+      </div>
     </PageShell>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TodoCard({ todo, onToggle, onDelete }: { todo: Todo; onToggle: (id: number, completed: boolean) => void; onDelete: (id: number) => void }) {
+function TodoCard({
+  todo,
+  onToggle,
+  onDelete,
+}: {
+  todo: Todo
+  onToggle: (id: number, completed: boolean) => void
+  onDelete: (id: number) => void
+}) {
   return (
     <div
       draggable
-      onDragStart={e => e.dataTransfer.setData('text/plain', String(todo.id))}
-      className="group bg-surface-container-lowest rounded-xl p-2.5 shadow-ambient-xs hover:shadow-ambient-sm transition-all cursor-grab active:cursor-grabbing"
+      onDragStart={(event) => event.dataTransfer.setData('text/plain', String(todo.id))}
+      className="group rounded-[22px] border border-black/5 bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]"
     >
-      <div className="flex items-start gap-2 mb-1.5">
+      <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(todo.id, todo.completed)}
-          className={cn('mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all', todo.completed ? 'border-transparent bg-brand-gradient' : 'border-outline-variant hover:border-pink-400')}
-          style={todo.completed ? { background: 'var(--gradient)' } : undefined}
+          className={cn(
+            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+            todo.completed ? 'border-[#202625] bg-[#202625] text-white' : 'border-outline-variant hover:border-on-surface'
+          )}
         >
-          {todo.completed && <Check size={9} className="text-white" strokeWidth={3} />}
+          {todo.completed && <Check size={11} strokeWidth={3} />}
         </button>
-        <p className={cn('text-xs font-medium flex-1 leading-snug', todo.completed ? 'line-through text-on-surface-variant' : 'text-on-surface')}>{todo.title}</p>
+
+        <div className="min-w-0 flex-1">
+          <p className={cn('text-sm font-semibold leading-6', todo.completed ? 'text-on-surface-variant line-through' : 'text-on-surface')}>
+            {todo.title}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+            <span>{todo.category}</span>
+            {todo.due_date && (
+              <span className={cn(isOverdue(todo.due_date) && !todo.completed ? 'text-[#a55a2c]' : '')}>
+                {formatDate(todo.due_date)}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1.5 pl-6">
+
+      <div className="mt-3 flex items-center gap-2">
         <PriorityDot priority={todo.priority} />
-        {todo.due_date && (
-          <span className={cn('text-[9px]', isOverdue(todo.due_date) && !todo.completed ? 'text-red-500' : 'text-on-surface-variant')}>
-            {formatDate(todo.due_date)}
-          </span>
-        )}
-        <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1">
+        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <AIContextButton type="todo" title={todo.title} id={todo.id} />
-          <button onClick={() => onDelete(todo.id)} className="text-on-surface-variant hover:text-red-500"><Trash2 size={11} /></button>
+          <button
+            onClick={() => onDelete(todo.id)}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-function TodoRow({ todo, onToggle, onDelete }: { todo: Todo; onToggle: (id: number, completed: boolean) => void; onDelete: (id: number) => void }) {
+function TodoRow({
+  todo,
+  onToggle,
+  onDelete,
+}: {
+  todo: Todo
+  onToggle: (id: number, completed: boolean) => void
+  onDelete: (id: number) => void
+}) {
   return (
-    <div className={cn('group flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-container transition-colors', todo.completed && 'opacity-50')}>
-      <button
-        onClick={() => onToggle(todo.id, todo.completed)}
-        className={cn('w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all', todo.completed ? 'border-transparent' : 'border-outline-variant hover:border-pink-400')}
-        style={todo.completed ? { background: 'var(--gradient)' } : undefined}
-      >
-        {todo.completed && <Check size={10} className="text-white" strokeWidth={3} />}
-      </button>
-
-      <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium truncate', todo.completed ? 'line-through text-on-surface-variant' : 'text-on-surface')}>{todo.title}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <PriorityDot priority={todo.priority} />
-          <span className="text-[10px] text-on-surface-variant">{todo.category}</span>
-          {todo.due_date && (
-            <span className={cn('text-[10px]', isOverdue(todo.due_date) && !todo.completed ? 'text-red-500 font-medium' : 'text-on-surface-variant')}>
-              <Calendar size={8} className="inline mr-0.5" />{formatDate(todo.due_date)}
-            </span>
+    <div className={cn('group rounded-[24px] px-4 py-3.5 transition-colors hover:bg-surface-container-low', todo.completed && 'opacity-60')}>
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => onToggle(todo.id, todo.completed)}
+          className={cn(
+            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+            todo.completed ? 'border-[#202625] bg-[#202625] text-white' : 'border-outline-variant hover:border-on-surface'
           )}
-          {todo.project_title && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${todo.project_color ?? '#ec4899'}18`, color: todo.project_color ?? '#ec4899' }}>
-              {todo.project_title}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-        <AIContextButton type="todo" title={todo.title} id={todo.id} />
-        <button onClick={() => onDelete(todo.id)} className="p-1 text-on-surface-variant hover:text-red-500 transition-colors">
-          <Trash2 size={13} />
+        >
+          {todo.completed && <Check size={11} strokeWidth={3} />}
         </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-2">
+            <p className={cn('text-sm font-semibold leading-6', todo.completed ? 'line-through text-on-surface-variant' : 'text-on-surface')}>
+              {todo.title}
+            </p>
+            {todo.project_title && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  background: `${todo.project_color ?? '#5a677b'}18`,
+                  color: todo.project_color ?? '#5a677b',
+                }}
+              >
+                {todo.project_title}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+            <PriorityDot priority={todo.priority} />
+            <span>{todo.category}</span>
+            {todo.due_date && (
+              <span className={cn('inline-flex items-center gap-1', isOverdue(todo.due_date) && !todo.completed ? 'text-[#a55a2c]' : '')}>
+                <Calendar size={11} />
+                {formatDate(todo.due_date)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <AIContextButton type="todo" title={todo.title} id={todo.id} />
+          <button
+            onClick={() => onDelete(todo.id)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -23,7 +23,7 @@ export default function AIContextButton({ type, title, content, id, className }:
         title="AI context toevoegen"
         className={cn(
           'flex items-center justify-center w-6 h-6 rounded-lg transition-all duration-150',
-          'text-on-surface-variant hover:text-pink-500 hover:bg-pink-50',
+          'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
           className
         )}
       >
