@@ -10,7 +10,7 @@
 import { execute, queryOne, query } from '@/lib/db'
 
 export interface ChatIntent {
-  type: 'todo_add' | 'habit_log' | 'finance_expense' | 'finance_income' | 'query_work' | 'query_agenda' | 'query_todos' | 'unknown'
+  type: 'todo_add' | 'habit_log' | 'finance_expense' | 'finance_income' | 'event_create' | 'query_work' | 'query_agenda' | 'query_todos' | 'unknown'
   confidence: number
   params: Record<string, any>
   raw: string
@@ -137,6 +137,8 @@ export async function executeAction(intent: ChatIntent): Promise<ActionResult> {
         return await executeQueryAgenda(intent.params as { query: string })
       case 'query_todos':
         return await executeQueryTodos(intent.params as { query: string })
+      case 'event_create':
+        return await executeEventCreate(intent.params as { title: string; time: string; date: string })
       default:
         return {
           success: false,
@@ -362,6 +364,75 @@ async function executeQueryTodos(params: { query: string }): Promise<ActionResul
       message: `Je hebt ${todos.length} openstaande todos`,
       todos: todos 
     },
+    verified: true
+  }
+}
+
+/**
+ * Event Create - agenda item toevoegen met verification
+ */
+async function executeEventCreate(params: { title: string; time: string; date: string }): Promise<ActionResult> {
+  console.log('[SimpleChat] Creating event:', params.title, params.time, params.date)
+  
+  // Parse date to proper format
+  let eventDate = new Date()
+  const dateMap: Record<string, number> = {
+    'maandag': 1, 'dinsdag': 2, 'woensdag': 3, 'donderdag': 4,
+    'vrijdag': 5, 'zaterdag': 6, 'zondag': 0,
+    'morgen': 1, 'vandaag': 0, 'gisteren': -1
+  }
+  
+  const dayOffset = dateMap[params.date.toLowerCase()] || 0
+  const currentDay = new Date().getDay()
+  const targetDay = dayOffset === 0 ? currentDay : dayOffset
+  
+  if (targetDay >= currentDay) {
+    eventDate.setDate(eventDate.getDate() + (targetDay - currentDay))
+  } else {
+    eventDate.setDate(eventDate.getDate() + (7 - currentDay + targetDay))
+  }
+  
+  // Parse time
+  const timeMatch = params.time.match(/(\d{1,2})[:.]?(\d{0,2})?/)
+  const hours = parseInt(timeMatch?.[1] || '20')
+  const minutes = parseInt(timeMatch?.[2] || '00')
+  eventDate.setHours(hours, minutes, 0, 0)
+  
+  // Execute insert
+  const result = await execute(`
+    INSERT INTO events (title, date, time, type, created_at)
+    VALUES ($1, $2, $3, 'algemeen', CURRENT_TIMESTAMP)
+    RETURNING id, title, date, time
+  `, [params.title, eventDate.toISOString().split('T')[0], `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`])
+  
+  if (!result?.id) {
+    return {
+      success: false,
+      error: 'Event creation failed - no ID returned',
+      verified: false
+    }
+  }
+  
+  // Verify it was actually created
+  const verification = await queryOne(`
+    SELECT id, title, date, time 
+    FROM events 
+    WHERE id = $1 AND title = $2
+  `, [result.id, params.title])
+  
+  if (!verification) {
+    return {
+      success: false,
+      error: 'Event creation verification failed',
+      verified: false
+    }
+  }
+  
+  console.log('[SimpleChat] Event verified:', verification)
+  
+  return {
+    success: true,
+    data: verification,
     verified: true
   }
 }
