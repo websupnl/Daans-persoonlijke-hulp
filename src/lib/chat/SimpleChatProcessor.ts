@@ -7,10 +7,10 @@
  * Flow: Input -> Intent -> Action -> Database -> Verification -> Response
  */
 
-import { execute, queryOne } from '@/lib/db'
+import { execute, queryOne, query } from '@/lib/db'
 
 export interface ChatIntent {
-  type: 'todo_add' | 'habit_log' | 'finance_expense' | 'finance_income' | 'unknown'
+  type: 'todo_add' | 'habit_log' | 'finance_expense' | 'finance_income' | 'query_work' | 'query_agenda' | 'query_todos' | 'unknown'
   confidence: number
   params: Record<string, any>
   raw: string
@@ -83,6 +83,34 @@ export function parseIntent(message: string): ChatIntent {
     }
   }
   
+  // QUERY patterns
+  if (normalized.includes('hoeveel') && normalized.includes('gewerkt')) {
+    return {
+      type: 'query_work',
+      confidence: 0.8,
+      params: { query: 'vandaag' },
+      raw: message
+    }
+  }
+  
+  if (normalized.includes('agenda') || normalized.includes('planning')) {
+    return {
+      type: 'query_agenda',
+      confidence: 0.8,
+      params: { query: 'week' },
+      raw: message
+    }
+  }
+  
+  if (normalized.includes('toon') && (normalized.includes('todos') || normalized.includes('open'))) {
+    return {
+      type: 'query_todos',
+      confidence: 0.8,
+      params: { query: 'open' },
+      raw: message
+    }
+  }
+  
   return {
     type: 'unknown',
     confidence: 0.5,
@@ -103,6 +131,12 @@ export async function executeAction(intent: ChatIntent): Promise<ActionResult> {
         return await executeHabitLog(intent.params as { habit_name: string })
       case 'finance_expense':
         return await executeFinanceExpense(intent.params as { amount: number; title: string })
+      case 'query_work':
+        return await executeQueryWork(intent.params as { query: string })
+      case 'query_agenda':
+        return await executeQueryAgenda(intent.params as { query: string })
+      case 'query_todos':
+        return await executeQueryTodos(intent.params as { query: string })
       default:
         return {
           success: false,
@@ -254,6 +288,80 @@ async function executeFinanceExpense(params: { amount: number; title: string }):
   return {
     success: true,
     data: verification,
+    verified: true
+  }
+}
+
+/**
+ * Query Work - hoeveel gewerkt vandaag
+ */
+async function executeQueryWork(params: { query: string }): Promise<ActionResult> {
+  console.log('[SimpleChat] Query work:', params.query)
+  
+  const workLogs = await query(`
+    SELECT title, duration_minutes, date, created_at
+    FROM work_logs 
+    WHERE DATE(created_at) = CURRENT_DATE
+    ORDER BY created_at DESC
+  `)
+  
+  return {
+    success: true,
+    data: { 
+      message: `Vandaag heb je ${workLogs.length} werklogs ingevoerd`,
+      logs: workLogs 
+    },
+    verified: true
+  }
+}
+
+/**
+ * Query Agenda - toon agenda deze week
+ */
+async function executeQueryAgenda(params: { query: string }): Promise<ActionResult> {
+  console.log('[SimpleChat] Query agenda:', params.query)
+  
+  const todos = await query(`
+    SELECT id, title, due_date, priority
+    FROM todos 
+    WHERE completed = 0::smallint 
+    AND due_date IS NOT NULL 
+    AND due_date >= CURRENT_DATE 
+    AND due_date <= CURRENT_DATE + INTERVAL '7 days'
+    ORDER BY due_date ASC
+    LIMIT 10
+  `)
+  
+  return {
+    success: true,
+    data: { 
+      message: `Je hebt ${todos.length} openstaande taken deze week`,
+      todos: todos 
+    },
+    verified: true
+  }
+}
+
+/**
+ * Query Todos - toon open todos
+ */
+async function executeQueryTodos(params: { query: string }): Promise<ActionResult> {
+  console.log('[SimpleChat] Query todos:', params.query)
+  
+  const todos = await query(`
+    SELECT id, title, priority, created_at
+    FROM todos 
+    WHERE completed = 0::smallint 
+    ORDER BY created_at DESC
+    LIMIT 20
+  `)
+  
+  return {
+    success: true,
+    data: { 
+      message: `Je hebt ${todos.length} openstaande todos`,
+      todos: todos 
+    },
     verified: true
   }
 }
