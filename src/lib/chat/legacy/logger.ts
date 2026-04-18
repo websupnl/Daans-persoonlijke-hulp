@@ -5,7 +5,7 @@
  */
 
 import { execute, query } from '@/lib/db'
-import { correlationTracker, CorrelationLog } from './correlation'
+import { correlationTracker, CorrelationLog } from '../correlation'
 
 export interface ChatLog {
   correlationId: string

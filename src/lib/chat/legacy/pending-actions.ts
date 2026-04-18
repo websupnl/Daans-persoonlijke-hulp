@@ -5,7 +5,7 @@
  */
 
 import { execute, query, queryOne } from '@/lib/db'
-import { correlationTracker } from './correlation'
+import { correlationTracker } from '../correlation'
 import { chatLogger } from './logger'
 
 export interface PendingAction {

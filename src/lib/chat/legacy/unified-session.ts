@@ -6,7 +6,7 @@
 
 import { query, queryOne, execute } from '@/lib/db'
 import { chatLogger } from './logger'
-import { correlationTracker } from './correlation'
+import { correlationTracker } from '../correlation'
 
 export interface UnifiedSession {
   userId: string
