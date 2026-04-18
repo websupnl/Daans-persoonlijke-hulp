@@ -1,12 +1,5 @@
-/**
- * PageShell — consistent page wrapper for all module views.
- * Provides: header (title + subtitle + actions), content area with breathing room.
- * Used everywhere instead of StandardPageLayout.
- */
-
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { Panel } from '@/components/ui/Panel'
 
 interface PageShellProps {
   title: string
@@ -14,44 +7,39 @@ interface PageShellProps {
   actions?: ReactNode
   children: ReactNode
   className?: string
-  /** Tighter padding for dense modules */
   compact?: boolean
 }
 
 export default function PageShell({ title, subtitle, actions, children, className, compact }: PageShellProps) {
   return (
     <div className={cn('mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8', compact ? 'py-5' : 'py-6 sm:py-8', className)}>
-      <Panel tone="accent" padding="lg" className="mb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant/70">
-              Persoonlijke werkruimte
+      {/* Flat page header — geen card wrapper */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[28px]">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-on-surface-variant">
+              {subtitle}
             </p>
-            <h1 className="mt-2 font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-3xl">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant sm:text-[15px]">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {actions}
-            </div>
           )}
         </div>
-      </Panel>
+        {actions && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {actions}
+          </div>
+        )}
+      </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {children}
       </div>
     </div>
   )
 }
 
-/** Section within a page — title + content block, no lines */
+/** Section label + optional action */
 export function PageSection({
   title,
   action,
@@ -64,12 +52,12 @@ export function PageSection({
   className?: string
 }) {
   return (
-    <div className={cn('space-y-3', className)}>
+    <div className={cn('space-y-2', className)}>
       {title && (
-        <div className="flex items-center justify-between px-1">
-          <h2 className="font-headline text-[11px] font-bold uppercase tracking-[0.18em] text-on-surface-variant/75">
+        <div className="flex items-center justify-between px-0.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant/60">
             {title}
-          </h2>
+          </p>
           {action && <div className="text-xs text-on-surface-variant">{action}</div>}
         </div>
       )}

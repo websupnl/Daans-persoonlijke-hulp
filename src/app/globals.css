@@ -7,7 +7,7 @@
 
 /* ── Design tokens ──────────────────────────────────────────────────────────── */
 :root {
-  --sidebar-width: 248px;
+  --sidebar-width: 240px;
   --gradient: linear-gradient(135deg, #c86d40 0%, #a95470 48%, #5a677b 100%);
   --gradient-subtle: linear-gradient(135deg, rgba(248,239,231,0.95) 0%, rgba(244,233,239,0.95) 52%, rgba(233,237,244,0.95) 100%);
 }

@@ -5,6 +5,8 @@ import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'luci
 import { cn } from '@/lib/utils'
 import type { ChatAction } from '@/lib/chat/types'
 import AIContextButton from '@/components/ai/AIContextButton'
+import PageShell from '@/components/ui/PageShell'
+import { EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
 interface WorkLog {
   id: number
@@ -42,22 +44,21 @@ interface FocusStats {
 interface Project { id: number; title: string }
 
 const CONTEXT_OPTIONS = ['Bouma', 'WebsUp', 'privé', 'studie', 'overig']
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
-const CONTEXT_COLORS: Record<string, string> = {
-  Bouma: 'text-blue-600 bg-blue-50',
-  WebsUp: 'text-violet-600 bg-violet-50',
-  privé: 'text-amber-600 bg-amber-50',
-  studie: 'text-emerald-600 bg-emerald-50',
-  overig: 'text-gray-500 bg-gray-100',
+const CONTEXT_PILLS: Record<string, string> = {
+  Bouma: 'bg-blue-50 text-blue-700',
+  WebsUp: 'bg-violet-50 text-violet-700',
+  privé: 'bg-amber-50 text-amber-700',
+  studie: 'bg-emerald-50 text-emerald-700',
+  overig: 'bg-surface-container text-on-surface-variant',
 }
 
-const CONTEXT_BAR_COLORS: Record<string, string> = {
+const CONTEXT_BAR: Record<string, string> = {
   Bouma: 'bg-blue-400',
   WebsUp: 'bg-violet-400',
   privé: 'bg-amber-400',
   studie: 'bg-emerald-400',
-  overig: 'bg-gray-300',
+  overig: 'bg-surface-container-high',
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -94,20 +95,17 @@ export default function WorklogsView() {
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false)
 
-  // Timer
   const [isRunning, setIsRunning] = useState(false)
   const [timerStart, setTimerStart] = useState<Date | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [timerContext, setTimerContext] = useState('WebsUp')
   const [timerTitle, setTimerTitle] = useState('')
 
-  // AI quick-add
   const [aiText, setAiText] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
   const [aiProposal, setAiProposal] = useState<{ reply: string; actions: ChatAction[] } | null>(null)
 
-  // Restore timer from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem('werklog_timer')
@@ -121,7 +119,6 @@ export default function WorklogsView() {
     } catch { /* ignore */ }
   }, [])
 
-  // Timer tick
   useEffect(() => {
     if (!isRunning || !timerStart) return
     const interval = setInterval(() => {
@@ -132,9 +129,9 @@ export default function WorklogsView() {
 
   const load = useCallback(async () => {
     const [logsRes, focusRes, projectsRes] = await Promise.all([
-      fetch('/api/worklogs').then(r => r.json()),
-      fetch('/api/worklogs/stats?period=week').then(r => r.json()).catch(() => null),
-      fetch('/api/projects').then(r => r.json()).catch(() => ({ data: [] })),
+      fetch('/api/worklogs').then((r) => r.json()),
+      fetch('/api/worklogs/stats?period=week').then((r) => r.json()).catch(() => null),
+      fetch('/api/projects').then((r) => r.json()).catch(() => ({ data: [] })),
     ])
     setLogs(logsRes.logs ?? [])
     setStats(logsRes.stats ?? [])
@@ -147,7 +144,6 @@ export default function WorklogsView() {
 
   useEffect(() => { load() }, [load])
 
-  // Load AI summary after data loads
   useEffect(() => {
     if (loading) return
     setAiSummaryLoading(true)
@@ -156,11 +152,13 @@ export default function WorklogsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'worklogs' }),
     })
-      .then(r => r.json())
-      .then(d => setAiSummary(d.summary ?? null))
+      .then((r) => r.json())
+      .then((d) => setAiSummary(d.summary ?? null))
       .catch(() => {})
       .finally(() => setAiSummaryLoading(false))
   }, [loading])
+
+  void projects
 
   function startTimer() {
     const now = new Date()
@@ -194,31 +192,6 @@ export default function WorklogsView() {
     setElapsed(0)
     setTimerTitle('')
     load()
-  }
-
-  async function handleAiInput() {
-    if (!aiText.trim() || aiLoading) return
-    setAiLoading(true)
-    setAiStatus(null)
-    try {
-      const res = await fetch('/api/worklogs/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: aiText }),
-      })
-      const data = await res.json()
-      if (res.ok && data.data) {
-        setAiStatus(`✓ Opgeslagen: ${formatDuration(data.data.actual_duration_minutes || data.data.duration_minutes)}`)
-        setAiText('')
-        load()
-      } else {
-        setAiStatus(`⚠️ ${data.error ?? 'Kon niet verwerken'}`)
-      }
-    } catch {
-      setAiStatus('⚠️ Verbindingsfout')
-    } finally {
-      setAiLoading(false)
-    }
   }
 
   async function handleAiInputEnhanced() {
@@ -300,337 +273,314 @@ export default function WorklogsView() {
 
   const todayStr = new Date().toISOString().split('T')[0]
   const maxStatMinutes = stats.reduce((m, s) => Math.max(m, s.total_minutes), 1)
-  void projects
 
   return (
-    <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-5 bg-white p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-gradient">Werklog</h1>
-          <p className="text-gray-400 text-sm mt-1 font-medium">Tijdregistratie en werkactiviteit</p>
-        </div>
+    <PageShell
+      title="Werklog"
+      subtitle="Tijdregistratie en werkactiviteit. Zie precies waar je tijd naartoe gaat."
+      actions={
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
-          style={{ background: GRAD }}
+          onClick={() => setShowForm((s) => !s)}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Log toevoegen</span>
-          <span className="sm:hidden">Log</span>
+          <Plus size={15} />
+          Log toevoegen
         </button>
-      </div>
+      }
+    >
+      <StatStrip stats={[
+        { label: 'Vandaag', value: formatDuration(todayMinutes), meta: 'gelogd' },
+        { label: 'Deze week', value: formatDuration(weekMinutes), meta: 'totaal' },
+        ...(focusStats ? [{ label: 'Focus score', value: focusStats.focus_score, meta: '/100' }] : []),
+        ...(stats[0] ? [{ label: stats[0].context, value: formatDuration(stats[0].total_minutes), meta: `${stats[0].count} logs` }] : []),
+      ]} />
 
-      {/* AI Summary */}
       {(aiSummary || aiSummaryLoading) && (
-        <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
-          <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
-          {aiSummaryLoading ? (
-            <div className="flex gap-1 mt-1">
-              {[0, 1, 2].map(i => (
-                <span key={i} className="w-1.5 h-1.5 rounded-full bg-pink-300 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-600 leading-relaxed">{aiSummary}</p>
-          )}
-        </div>
+        <Panel tone="accent">
+          <div className="flex items-start gap-2.5">
+            <Sparkles size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />
+            {aiSummaryLoading ? (
+              <div className="flex gap-1 mt-1">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-on-surface-variant/40" style={{ animationDelay: `${i * 0.15}s` }} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-7 text-on-surface-variant">{aiSummary}</p>
+            )}
+          </div>
+        </Panel>
       )}
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
-          <p className="text-gray-400 text-xs mb-1 font-medium">Vandaag</p>
-          <p className="text-2xl font-extrabold text-gradient">{formatDuration(todayMinutes)}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
-          <p className="text-gray-400 text-xs mb-1 font-medium">Deze week</p>
-          <p className="text-2xl font-extrabold text-gradient">{formatDuration(weekMinutes)}</p>
-        </div>
-        {focusStats && (
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
-            <div className="flex items-center gap-1 mb-1">
-              <BarChart3 className="w-3 h-3 text-gray-400" />
-              <p className="text-gray-400 text-xs font-medium">Focus score</p>
-            </div>
-            <p className={cn(
-              'text-2xl font-extrabold',
-              focusStats.focus_score >= 75 ? 'text-emerald-500' :
-              focusStats.focus_score >= 50 ? 'text-amber-500' : 'text-red-500'
-            )}>
-              {focusStats.focus_score}
-            </p>
-            <p className="text-gray-400 text-xs mt-0.5">/100</p>
-          </div>
-        )}
-        {stats.slice(0, focusStats ? 1 : 2).map(s => (
-          <div key={s.context} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm card-hover">
-            <p className="text-gray-400 text-xs mb-1 font-medium">{s.context}</p>
-            <p className="text-2xl font-extrabold text-gradient">{formatDuration(s.total_minutes)}</p>
-            <p className="text-gray-400 text-xs mt-0.5">{s.count} logs</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Weekly context breakdown chart */}
-      {stats.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-gray-400" />
-            <span className="text-sm font-bold text-gray-700">Tijdverdeling (totaal)</span>
-          </div>
-          <div className="space-y-3">
-            {stats.map(s => {
-              const pct = Math.round((s.total_minutes / maxStatMinutes) * 100)
-              const barColor = CONTEXT_BAR_COLORS[s.context] ?? 'bg-gray-300'
-              return (
-                <div key={s.context} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-14 font-medium">{s.context}</span>
-                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={cn('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs font-bold text-gradient w-14 text-right">{formatDuration(s.total_minutes)}</span>
-                  <span className="text-[10px] text-gray-300 w-8 text-right">{s.count}x</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Detections */}
       {focusStats?.detections && focusStats.detections.length > 0 && (
         <div className="flex flex-col gap-2">
           {focusStats.detections.map((d, i) => (
-            <div key={i} className={cn(
-              'px-4 py-2.5 rounded-xl border text-sm font-medium',
-              d.type === 'error' ? 'bg-red-50 border-red-100 text-red-700' :
-              d.type === 'warning' ? 'bg-amber-50 border-amber-100 text-amber-700' :
-              'bg-blue-50 border-blue-100 text-blue-700'
-            )}>
+            <div
+              key={i}
+              className={cn(
+                'rounded-[22px] border px-4 py-3 text-sm font-medium',
+                d.type === 'error' ? 'border-red-100 bg-red-50 text-red-700' :
+                d.type === 'warning' ? 'border-amber-100 bg-amber-50 text-amber-700' :
+                'border-blue-100 bg-blue-50 text-blue-700'
+              )}
+            >
               {d.type === 'error' ? '🚨' : d.type === 'warning' ? '⚠️' : 'ℹ️'} {d.message}
             </div>
           ))}
         </div>
       )}
 
-      {/* Timer */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="w-4 h-4 text-violet-500" />
-          <span className="text-sm font-bold text-gray-700">Timer</span>
-          {isRunning && (
-            <span className="ml-auto flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              actief
-            </span>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-5">
+          {showForm && (
+            <Panel tone="accent">
+              <PanelHeader eyebrow="Handmatig toevoegen" title="Werklog toevoegen" />
+              <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    required
+                    placeholder="Wat heb je gedaan? *"
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    style={{ fontSize: '16px' }}
+                  />
+                  <input
+                    type="number"
+                    value={form.duration_minutes}
+                    onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))}
+                    required
+                    placeholder="Duur in minuten *"
+                    min="1"
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    style={{ fontSize: '16px' }}
+                  />
+                  <select
+                    value={form.context}
+                    onChange={(e) => setForm((f) => ({ ...f, context: e.target.value }))}
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                    style={{ fontSize: '16px' }}
+                  >
+                    {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <input
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Notitie (optioneel)"
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="submit" className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
+                    Opslaan
+                  </button>
+                  <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
+                    Annuleren
+                  </button>
+                </div>
+              </form>
+            </Panel>
+          )}
+
+          {loading ? (
+            <Panel>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-[22px] bg-surface-container-low" />
+                ))}
+              </div>
+            </Panel>
+          ) : Object.keys(grouped).length === 0 ? (
+            <Panel>
+              <EmptyPanel
+                title="Nog geen werklogs"
+                description="Gebruik de timer of AI-invoer rechts om een werklog toe te voegen."
+              />
+            </Panel>
+          ) : (
+            <div className="space-y-5">
+              {Object.entries(grouped)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([date, dayLogs]) => {
+                  const total = dayLogs.reduce((sum, l) => sum + (l.actual_duration_minutes || l.duration_minutes || 0), 0)
+                  return (
+                    <Panel key={date}>
+                      <div className="mb-4 flex items-center justify-between">
+                        <p className="text-sm font-extrabold text-on-surface">
+                          {date === todayStr ? 'Vandaag' : date}
+                        </p>
+                        <ActionPill>{formatDuration(total)} totaal</ActionPill>
+                      </div>
+                      <div className="space-y-2">
+                        {dayLogs.map((log) => {
+                          const actualDur = log.actual_duration_minutes || log.duration_minutes
+                          const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
+                          return (
+                            <div key={log.id} className="group flex items-start justify-between gap-4 rounded-[22px] border border-black/5 bg-white p-4">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-sm">
+                                  {log.type ? (TYPE_ICONS[log.type] ?? <Clock size={14} className="text-on-surface-variant" />) : <Clock size={14} className="text-on-surface-variant" />}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-on-surface">{log.title}</p>
+                                  {log.description && <p className="mt-0.5 text-xs text-on-surface-variant">{log.description}</p>}
+                                  {log.project_title && <p className="mt-0.5 text-xs text-on-surface-variant">📁 {log.project_title}</p>}
+                                  {hasDeviation && (
+                                    <p className="mt-0.5 text-xs text-amber-600">
+                                      ⏰ Verwacht {formatDuration(log.expected_duration_minutes)}, werd {formatDuration(actualDur)}
+                                    </p>
+                                  )}
+                                  {log.interruptions && <p className="mt-0.5 text-xs text-red-500">⚠️ {log.interruptions}</p>}
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold', CONTEXT_PILLS[log.context] ?? 'bg-surface-container text-on-surface-variant')}>
+                                  {log.context}
+                                </span>
+                                <span className="text-sm font-extrabold text-on-surface">{formatDuration(actualDur)}</span>
+                                <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                  <AIContextButton type="worklog" title={log.title} content={log.description} id={log.id} />
+                                  <button
+                                    onClick={() => handleDelete(log.id)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-[#a55a2c]"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </Panel>
+                  )
+                })}
+            </div>
           )}
         </div>
 
-        {isRunning ? (
-          <div className="flex flex-col gap-3 items-center">
-            <div className="text-5xl font-mono font-black text-gradient tabular-nums">
-              {formatElapsed(elapsed)}
-            </div>
-            <p className="text-gray-400 text-sm font-medium">{timerContext}{timerTitle ? ` · ${timerTitle}` : ''}</p>
-            <button
-              onClick={stopTimer}
-              className="px-6 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
-            >
-              ⏹ Stop &amp; Opslaan
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <input
-              value={timerTitle}
-              onChange={e => setTimerTitle(e.target.value)}
-              placeholder="Beschrijving (optioneel)"
-              className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
-              style={{ fontSize: '16px' }}
+        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+          <Panel tone={isRunning ? 'accent' : 'default'}>
+            <PanelHeader
+              eyebrow="Timer"
+              title={isRunning ? 'Timer loopt' : 'Start timer'}
+              description={isRunning ? undefined : 'Meet je werktijd precies.'}
             />
-            <div className="flex gap-3">
-              <select
-                value={timerContext}
-                onChange={e => setTimerContext(e.target.value)}
-                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
-                style={{ fontSize: '16px' }}
-              >
-                {CONTEXT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <button
-                onClick={startTimer}
-                className="flex-1 py-2 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
-                style={{ background: GRAD }}
-              >
-                ▶ Start Timer
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* AI quick-add */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="w-4 h-4 text-pink-500" />
-          <span className="text-sm font-bold text-gray-700">AI toevoegen</span>
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={aiText}
-            onChange={e => setAiText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiInputEnhanced()}
-            placeholder='"2u aan Prime Animals", "Van 19:00 tot 21:30 Sjoeli"...'
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors"
-            style={{ fontSize: '16px' }}
-          />
-          <button
-            onClick={handleAiInputEnhanced}
-            disabled={aiLoading || !aiText.trim()}
-            className={cn(
-              'px-3 py-2 rounded-xl text-sm font-semibold transition-all',
-              aiLoading || !aiText.trim()
-                ? 'bg-gray-100 text-gray-400'
-                : 'text-white shadow-sm hover:opacity-90'
-            )}
-            style={aiLoading || !aiText.trim() ? undefined : { background: GRAD }}
-          >
-            {aiLoading ? (
-              <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-        {aiStatus && (
-          <p className={cn('text-xs mt-2 font-medium', aiStatus.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>
-            {aiStatus}
-          </p>
-        )}
-        {aiProposal && (
-          <div className="mt-3 rounded-2xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-3">
-            <p className="text-xs font-medium text-gray-600 whitespace-pre-line">{aiProposal.reply}</p>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={confirmAiProposal}
-                disabled={aiLoading}
-                className="rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-50"
-                style={{ background: GRAD }}
-              >
-                Bevestig voorstel
-              </button>
-              <button
-                onClick={() => setAiProposal(null)}
-                className="rounded-xl px-3 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200"
-              >
-                Sluiten
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Manual add form */}
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-gradient">Werklog toevoegen</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs font-medium">Omschrijving *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required placeholder="Wat heb je gedaan?" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs font-medium">Duur (minuten) *</label>
-              <input type="number" value={form.duration_minutes} onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))} required placeholder="120" min="1" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs font-medium">Context *</label>
-              <select value={form.context} onChange={e => setForm(f => ({ ...f, context: e.target.value }))} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }}>
-                {CONTEXT_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs font-medium">Notitie</label>
-              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optioneel" className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm focus:outline-none focus:border-pink-300 transition-colors" style={{ fontSize: '16px' }} />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button type="submit" className="px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-sm transition-colors font-medium">Annuleren</button>
-          </div>
-        </form>
-      )}
-
-      {/* Log list grouped by date */}
-      {loading ? (
-        <div className="flex justify-center py-10">
-          <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-        </div>
-      ) : Object.keys(grouped).length === 0 ? (
-        <div className="text-gray-400 text-center py-10 font-medium">Nog geen werklogs. Gebruik de timer of AI-invoer hierboven!</div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {Object.entries(grouped)
-            .sort(([a], [b]) => b.localeCompare(a))
-            .map(([date, dayLogs]) => {
-              const total = dayLogs.reduce((sum, l) => sum + (l.actual_duration_minutes || l.duration_minutes || 0), 0)
-              return (
-                <div key={date}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-gradient">{date === todayStr ? 'Vandaag' : date}</h3>
-                    <span className="text-gray-400 text-xs font-medium">{formatDuration(total)} totaal</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {dayLogs.map(log => {
-                      const actualDur = log.actual_duration_minutes || log.duration_minutes
-                      const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
-                      return (
-                        <div key={log.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-start justify-between gap-4 card-hover group">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-sm text-sm" style={{ background: GRAD }}>
-                              {log.type ? (TYPE_ICONS[log.type] ?? <Clock className="w-3.5 h-3.5" />) : <Clock className="w-3.5 h-3.5" />}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-gray-700 text-sm font-semibold truncate">{log.title}</p>
-                              {log.description && <p className="text-gray-400 text-xs mt-0.5">{log.description}</p>}
-                              {log.project_title && <p className="text-violet-500 text-xs mt-0.5 font-medium">📁 {log.project_title}</p>}
-                              {hasDeviation && (
-                                <p className="text-amber-600 text-xs mt-0.5">
-                                  ⏰ Verwacht {formatDuration(log.expected_duration_minutes)}, werd {formatDuration(actualDur)}
-                                </p>
-                              )}
-                              {log.interruptions && <p className="text-red-500 text-xs mt-0.5">⚠️ {log.interruptions}</p>}
-                              {log.source === 'ai' && <p className="text-gray-300 text-xs mt-0.5">· AI</p>}
-                              {log.source === 'timer' && <p className="text-gray-300 text-xs mt-0.5">· Timer</p>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className={cn('text-xs px-2.5 py-1 rounded-full font-semibold', CONTEXT_COLORS[log.context] ?? 'text-gray-500 bg-gray-100')}>
-                              {log.context}
-                            </span>
-                            <span className="text-sm font-extrabold text-gradient">{formatDuration(actualDur)}</span>
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
-                              <AIContextButton
-                                type="worklog"
-                                title={log.title}
-                                content={log.description}
-                                id={log.id}
-                              />
-                              <button onClick={() => handleDelete(log.id)} className="text-gray-300 hover:text-red-400 transition-all p-1">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+            {isRunning ? (
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <div className="font-mono text-5xl font-black tabular-nums text-on-surface">
+                  {formatElapsed(elapsed)}
                 </div>
-              )
-            })}
+                <p className="text-sm text-on-surface-variant">{timerContext}{timerTitle ? ` · ${timerTitle}` : ''}</p>
+                <button
+                  onClick={stopTimer}
+                  className="rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+                >
+                  ⏹ Stop &amp; Opslaan
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <input
+                  value={timerTitle}
+                  onChange={(e) => setTimerTitle(e.target.value)}
+                  placeholder="Beschrijving (optioneel)"
+                  className="w-full rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  style={{ fontSize: '16px' }}
+                />
+                <div className="flex gap-2">
+                  <select
+                    value={timerContext}
+                    onChange={(e) => setTimerContext(e.target.value)}
+                    className="flex-1 rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                    style={{ fontSize: '16px' }}
+                  >
+                    {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button
+                    onClick={startTimer}
+                    className="flex-1 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  >
+                    ▶ Start
+                  </button>
+                </div>
+              </div>
+            )}
+          </Panel>
+
+          <Panel>
+            <PanelHeader eyebrow="AI invoer" title="Snel toevoegen" description='"2u aan Prime Animals", "Van 19:00 tot 21:30 Sjoeli"' />
+            <div className="mt-4 flex gap-2">
+              <input
+                value={aiText}
+                onChange={(e) => setAiText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiInputEnhanced()}
+                placeholder="Vertel wat je gedaan hebt..."
+                className="flex-1 rounded-2xl border border-black/5 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                style={{ fontSize: '16px' }}
+              />
+              <button
+                onClick={handleAiInputEnhanced}
+                disabled={aiLoading || !aiText.trim()}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#202625] text-white transition-colors hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant"
+              >
+                {aiLoading ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Send size={16} />
+                )}
+              </button>
+            </div>
+            {aiStatus && (
+              <p className={cn('mt-2 text-xs font-medium', aiStatus.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600')}>
+                {aiStatus}
+              </p>
+            )}
+            {aiProposal && (
+              <div className="mt-3 rounded-2xl border border-black/5 bg-surface-container-low p-3">
+                <p className="text-xs leading-6 text-on-surface-variant">{aiProposal.reply}</p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={confirmAiProposal}
+                    disabled={aiLoading}
+                    className="rounded-full bg-[#202625] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:opacity-50"
+                  >
+                    Bevestig
+                  </button>
+                  <button
+                    onClick={() => setAiProposal(null)}
+                    className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container-low"
+                  >
+                    Sluiten
+                  </button>
+                </div>
+              </div>
+            )}
+          </Panel>
+
+          {stats.length > 0 && (
+            <Panel tone="muted">
+              <PanelHeader eyebrow="Tijdverdeling" title="Per context" />
+              <div className="mt-4 space-y-3">
+                {stats.map((s) => {
+                  const pct = Math.round((s.total_minutes / maxStatMinutes) * 100)
+                  return (
+                    <div key={s.context} className="flex items-center gap-3">
+                      <span className="w-14 text-xs text-on-surface-variant">{s.context}</span>
+                      <div className="flex-1 h-2 overflow-hidden rounded-full bg-surface-container">
+                        <div className={cn('h-full rounded-full transition-all duration-500', CONTEXT_BAR[s.context] ?? 'bg-[#202625]')} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="w-14 text-right text-xs font-bold text-on-surface">{formatDuration(s.total_minutes)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </Panel>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </PageShell>
   )
 }

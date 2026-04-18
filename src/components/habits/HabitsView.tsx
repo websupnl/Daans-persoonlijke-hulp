@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { Plus, Check, Flame, Target, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, subDays } from 'date-fns'
+import PageShell from '@/components/ui/PageShell'
+import { Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
 interface Habit {
   id: number
@@ -18,7 +20,6 @@ interface Habit {
 }
 
 const ICONS = ['⭐', '💪', '🏃', '📚', '🧘', '💧', '🥗', '😴', '🎯', '✍️', '🚴', '📵']
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function HabitsView() {
   const [habits, setHabits] = useState<Habit[]>([])
@@ -68,174 +69,195 @@ export default function HabitsView() {
     fetchHabits()
   }
 
-  const completedToday = habits.filter((habit) => habit.completedToday).length
-  const topStreak = Math.max(...habits.map((habit) => habit.streak), 0)
+  const completedToday = habits.filter((h) => h.completedToday).length
+  const topStreak = Math.max(...habits.map((h) => h.streak), 0)
+  const consistency = habits.length ? Math.round((completedToday / habits.length) * 100) : 0
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
-      <div className="border-b border-gray-100 px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-gradient">Gewoontes</h1>
-            <p className="mt-1 text-xs font-medium text-gray-400">{completedToday}/{habits.length} vandaag gedaan · beste streak {topStreak} dagen</p>
-          </div>
-          <button
-            onClick={() => setShowAdd((s) => !s)}
-            className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-            style={{ background: GRAD }}
-          >
-            <Plus size={14} />
-            Nieuwe gewoonte
-          </button>
-        </div>
-      </div>
+    <PageShell
+      title="Gewoontes"
+      subtitle={`${completedToday}/${habits.length} vandaag gedaan.`}
+      actions={
+        <button
+          onClick={() => setShowAdd((s) => !s)}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+        >
+          <Plus size={14} />
+          Nieuwe gewoonte
+        </button>
+      }
+    >
+      <StatStrip stats={[
+        { label: 'Consistency', value: `${consistency}%`, meta: 'vandaag' },
+        { label: 'Beste streak', value: topStreak, meta: 'dagen', accent: 'orange' },
+        { label: 'Gedaan vandaag', value: `${completedToday}/${habits.length}`, meta: 'gewoontes' },
+      ]} />
 
-      {showAdd && (
-        <div className="mx-6 mt-4 rounded-3xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <input
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Naam gewoonte *"
-              className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none"
-            />
-            <input
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Waarom deze belangrijk is"
-              className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 text-sm text-gray-700 outline-none"
-            />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {ICONS.map((icon) => (
-              <button
-                key={icon}
-                onClick={() => setForm((prev) => ({ ...prev, icon }))}
-                className={cn('rounded-2xl p-2 text-lg transition-all', form.icon === icon ? 'bg-white shadow-sm scale-110' : 'bg-white/70')}
-              >
-                {icon}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-2">
-            {(['dagelijks', 'wekelijks'] as const).map((frequency) => (
-              <button
-                key={frequency}
-                onClick={() => setForm((prev) => ({ ...prev, frequency }))}
-                className={cn('rounded-2xl px-4 py-2 text-xs font-semibold transition-all', form.frequency === frequency ? 'text-white shadow-sm' : 'bg-white text-gray-500')}
-                style={form.frequency === frequency ? { background: GRAD } : undefined}
-              >
-                {frequency}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="px-3 py-2 text-xs font-medium text-gray-500">Annuleer</button>
-            <button onClick={addHabit} className="rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-sm" style={{ background: GRAD }}>Opslaan</button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-4 px-6 py-4 md:grid-cols-3">
-        <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center gap-2">
-            <Target size={14} className="text-gray-400" />
-            <p className="text-sm font-bold text-gray-700">Consistency</p>
-          </div>
-          <p className="text-2xl font-extrabold text-gradient">{habits.length ? Math.round((completedToday / habits.length) * 100) : 0}%</p>
-          <p className="text-xs text-gray-400">van je gewoontes gedaan vandaag</p>
-        </div>
-        <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center gap-2">
-            <Flame size={14} className="text-orange-400" />
-            <p className="text-sm font-bold text-gray-700">Beste streak</p>
-          </div>
-          <p className="text-2xl font-extrabold text-gradient">{topStreak}</p>
-          <p className="text-xs text-gray-400">dagen achter elkaar</p>
-        </div>
-        <div className="rounded-3xl border border-pink-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles size={14} className="text-pink-400" />
-            <p className="text-sm font-bold text-gray-700">Praktisch advies</p>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-600">
-            {completedToday === habits.length && habits.length > 0
-              ? 'Vandaag zit je ritme goed. Houd het klein en herhaalbaar zodat het morgen net zo makkelijk is.'
-              : 'Leg je gewoontes zo laagdrempelig mogelijk neer. Het doel is vooral dat je blijft verschijnen.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="px-6 pb-2">
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-          </div>
-        ) : habits.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-200 px-6 py-14 text-center">
-            <p className="text-4xl">🎯</p>
-            <p className="mt-3 text-sm font-medium text-gray-400">Nog geen gewoontes. Voeg de eerste toe.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {habits.map((habit) => (
-              <div key={habit.id} className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md group">
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => toggleHabit(habit)}
-                    className={cn('flex h-12 w-12 items-center justify-center rounded-2xl border text-lg shadow-sm transition-all', habit.completedToday ? 'scale-95 border-transparent' : 'border-gray-200 bg-gray-50 hover:scale-105')}
-                    style={habit.completedToday ? { background: GRAD } : undefined}
-                  >
-                    {habit.completedToday ? <Check size={18} className="text-white" strokeWidth={3} /> : habit.icon}
-                  </button>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className={cn('text-sm font-bold', habit.completedToday ? 'text-gradient' : 'text-gray-700')}>{habit.name}</p>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">{habit.frequency}</span>
-                    </div>
-                    {habit.description && <p className="mt-0.5 text-xs text-gray-400">{habit.description}</p>}
-                    {habit.streak > 0 && (
-                      <div className="mt-1 flex items-center gap-1">
-                        <Flame size={10} className="text-orange-400" />
-                        <span className="text-[10px] font-semibold text-orange-400">{habit.streak} dag streak</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <div className="grid grid-cols-7 gap-1">
-                      {last28.map((day) => {
-                        const done = habit.logs.some((log) => log.logged_date === day)
-                        return (
-                          <div
-                            key={day}
-                            title={format(new Date(`${day}T12:00:00`), 'd MMM')}
-                            className={cn(
-                              'h-3 w-3 rounded-sm transition-all',
-                              done ? 'bg-orange-500 shadow-sm' : 'bg-gray-100 hover:bg-gray-200'
-                            )}
-                            style={done ? { background: GRAD } : undefined}
-                          />
-                        )
-                      })}
-                    </div>
-                    <button
-                      onClick={() => deleteHabit(habit.id)}
-                      className="opacity-0 group-hover:opacity-100 ml-2 h-8 w-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-4">
+          {showAdd && (
+            <Panel tone="accent">
+              <PanelHeader eyebrow="Nieuw" title="Voeg een gewoonte toe" />
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Naam gewoonte *"
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  />
+                  <input
+                    value={form.description}
+                    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    placeholder="Waarom is dit belangrijk?"
+                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Icoon</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ICONS.map((icon) => (
+                      <button
+                        key={icon}
+                        onClick={() => setForm((p) => ({ ...p, icon }))}
+                        className={cn('rounded-lg p-2 text-base transition-colors', form.icon === icon ? 'bg-[#202625]' : 'bg-white hover:bg-surface-container-low')}
+                      >
+                        {icon}
+                      </button>
+                    ))}
                   </div>
                 </div>
+                <div className="flex gap-2">
+                  {(['dagelijks', 'wekelijks'] as const).map((frequency) => (
+                    <button
+                      key={frequency}
+                      onClick={() => setForm((p) => ({ ...p, frequency }))}
+                      className={cn(
+                        'rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors',
+                        form.frequency === frequency ? 'bg-[#202625] text-white' : 'border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low'
+                      )}
+                    >
+                      {frequency}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={addHabit} className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
+                  Opslaan
+                </button>
+                <button onClick={() => setShowAdd(false)} className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
+                  Annuleer
+                </button>
+              </div>
+            </Panel>
+          )}
+
+          <Panel>
+            <PanelHeader
+              eyebrow="Tracking"
+              title="Jouw gewoontes"
+            />
+
+            <div className="mt-4 space-y-0">
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-container-low my-1" />
+                ))
+              ) : habits.length === 0 ? (
+                <EmptyPanel
+                  title="Nog geen gewoontes"
+                  description="Voeg je eerste gewoonte toe. Houd het klein en concreet."
+                />
+              ) : (
+                habits.map((habit, index) => (
+                  <div key={habit.id}>
+                    {index > 0 && <Divider />}
+                    <div className="group flex flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/50">
+                      <button
+                        onClick={() => toggleHabit(habit)}
+                        className={cn(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+                          habit.completedToday
+                            ? 'border-transparent bg-[#202625]'
+                            : 'border-black/8 bg-surface-container-low hover:bg-surface-container'
+                        )}
+                      >
+                        {habit.completedToday
+                          ? <Check size={16} className="text-white" strokeWidth={2.5} />
+                          : <span className="text-base">{habit.icon}</span>}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className={cn('text-sm font-semibold text-on-surface', habit.completedToday && 'line-through text-on-surface-variant')}>{habit.name}</p>
+                          <span className="rounded-md bg-surface-container px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">{habit.frequency}</span>
+                          {habit.completedToday && <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">✓ Gedaan</span>}
+                        </div>
+                        {habit.streak > 0 && (
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <Flame size={9} className="text-orange-500" />
+                            <span className="text-[10px] font-semibold text-orange-500">{habit.streak} dag streak</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="hidden grid-cols-7 gap-0.5 sm:grid">
+                          {last28.map((day) => {
+                            const done = habit.logs.some((log) => log.logged_date === day)
+                            return (
+                              <div
+                                key={day}
+                                title={format(new Date(`${day}T12:00:00`), 'd MMM')}
+                                className={cn('h-2.5 w-2.5 rounded-sm', done ? 'bg-[#202625]' : 'bg-surface-container')}
+                              />
+                            )
+                          })}
+                        </div>
+                        <button
+                          onClick={() => deleteHabit(habit.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
+        </div>
+
+        <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+          <Panel tone="muted">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Vandaag</p>
+            <div className="mt-3">
+              <div className="mb-1.5 flex items-center justify-between text-[11px] text-on-surface-variant">
+                <span>Voortgang</span>
+                <span className="font-semibold">{consistency}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+                <div className="h-full rounded-full bg-[#202625] transition-all duration-500" style={{ width: `${consistency}%` }} />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="rounded-md border border-black/5 bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{completedToday} gedaan</span>
+              <span className="rounded-md border border-black/5 bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{habits.length - completedToday} resterend</span>
+            </div>
+          </Panel>
+
+          <Panel>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Tip</p>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              {completedToday === habits.length && habits.length > 0
+                ? 'Vandaag zit je ritme goed. Houd het klein en herhaalbaar zodat het morgen net zo makkelijk is.'
+                : 'Leg je gewoontes zo laagdrempelig mogelijk neer. Het doel is dat je blijft verschijnen.'}
+            </p>
+          </Panel>
+        </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

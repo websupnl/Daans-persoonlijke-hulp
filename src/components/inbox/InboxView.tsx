@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Inbox, Plus, Check, Tag, Sparkles } from 'lucide-react'
+import { Check, Plus, Sparkles } from 'lucide-react'
+import PageShell from '@/components/ui/PageShell'
+import { Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
 interface InboxItem {
   id: number
@@ -20,25 +22,28 @@ export default function InboxView() {
   const [newText, setNewText] = useState('')
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [triage, setTriage] = useState<Record<number, Record<string, unknown>>>({})
+  const [saving, setSaving] = useState(false)
 
   async function load() {
-    const res = await fetch('/api/inbox')
-    const data = await res.json()
-    setItems(data.items ?? [])
-    setPendingCount(data.pendingCount ?? 0)
+    const response = await fetch('/api/inbox')
+    const payload = await response.json()
+    setItems(payload.items ?? [])
+    setPendingCount(payload.pendingCount ?? 0)
   }
 
   useEffect(() => { load() }, [])
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newText.trim()) return
+  async function handleAdd(event: React.FormEvent) {
+    event.preventDefault()
+    if (!newText.trim() || saving) return
+    setSaving(true)
     await fetch('/api/inbox', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ raw_text: newText }),
     })
     setNewText('')
+    setSaving(false)
     load()
   }
 
@@ -52,126 +57,146 @@ export default function InboxView() {
   }
 
   async function handleTriage(item: InboxItem) {
-    const res = await fetch('/api/inbox/triage', {
+    const response = await fetch('/api/inbox/triage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ raw_text: item.raw_text }),
     })
-    const data = await res.json()
-    if (data.suggestion) {
-      setTriage((prev) => ({ ...prev, [item.id]: data.suggestion }))
+    const payload = await response.json()
+    if (payload.suggestion) {
+      setTriage((previous) => ({ ...previous, [item.id]: payload.suggestion }))
     }
   }
 
-  const filtered = filter === 'pending' ? items.filter(i => i.parsed_status === 'pending') : items
-
-  const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
+  const filteredItems = filter === 'pending' ? items.filter((item) => item.parsed_status === 'pending') : items
+  const processedCount = items.filter((item) => item.parsed_status === 'processed').length
 
   return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-6 bg-white p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-gradient flex items-center gap-2">
-            <Inbox className="w-6 h-6" style={{ color: '#ec4899' }} />
-            Inbox
-            {pendingCount > 0 && (
-              <span className="text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm" style={{ background: GRAD }}>{pendingCount}</span>
-            )}
-          </h1>
-          <p className="text-gray-400 text-sm mt-1 font-medium">Snelle captures en onverwerkte ideeën</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter('pending')}
-            className="px-3 py-1.5 text-xs rounded-xl font-semibold transition-all"
-            style={filter === 'pending' ? { background: GRAD, color: '#fff' } : { background: '#f9fafb', color: '#9ca3af' }}
-          >
-            Onverwerkt
-          </button>
-          <button
-            onClick={() => setFilter('all')}
-            className="px-3 py-1.5 text-xs rounded-xl font-semibold transition-all"
-            style={filter === 'all' ? { background: GRAD, color: '#fff' } : { background: '#f9fafb', color: '#9ca3af' }}
-          >
-            Alles
-          </button>
-        </div>
-      </div>
+    <PageShell
+      title="Inbox"
+      subtitle={`${pendingCount} onverwerkt.`}
+    >
+      <StatStrip stats={[
+        { label: 'Onverwerkt', value: pendingCount, accent: pendingCount > 0 ? 'orange' : undefined },
+        { label: 'Verwerkt', value: processedCount, accent: 'green' },
+        { label: 'Totaal', value: items.length },
+      ]} />
 
-      {/* Quick capture */}
-      <form onSubmit={handleAdd} className="flex gap-2">
-        <input
-          value={newText}
-          onChange={e => setNewText(e.target.value)}
-          placeholder="Snel iets vastleggen..."
-          className="flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 text-sm focus:outline-none focus:border-pink-300 placeholder-gray-400 shadow-sm transition-colors"
-        />
-        <button
-          type="submit"
-          className="px-4 py-3 rounded-2xl text-white text-sm font-semibold transition-opacity hover:opacity-90 flex items-center shadow-sm"
-          style={{ background: GRAD }}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </form>
+      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+          <Panel tone="accent">
+            <PanelHeader
+              eyebrow="Quick capture"
+              title="Gooi het hier neer"
+            />
+            <form onSubmit={handleAdd} className="mt-4 space-y-3">
+              <textarea
+                value={newText}
+                onChange={(event) => setNewText(event.target.value)}
+                placeholder="Snel iets vastleggen: idee, follow-up, losse taak, belofte, notitie..."
+                className="min-h-[160px] w-full resize-none rounded-lg border border-black/5 bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+              />
+              <button
+                type="submit"
+                disabled={!newText.trim() || saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus size={13} />
+                {saving ? 'Opslaan...' : 'Voeg toe aan inbox'}
+              </button>
+            </form>
+          </Panel>
 
-      {/* Items */}
-      <div className="flex flex-col gap-3">
-        {filtered.length === 0 ? (
-          <div className="text-gray-400 text-center py-10 font-medium">
-            {filter === 'pending' ? 'Inbox leeg! Goed bezig. ✨' : 'Geen items gevonden.'}
-          </div>
-        ) : filtered.map(item => (
-          <div
-            key={item.id}
-            className={`bg-white rounded-2xl p-4 border shadow-sm transition-all ${item.parsed_status === 'processed' ? 'border-gray-100 opacity-50' : 'border-gray-100 card-hover'}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${item.parsed_status === 'processed' ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.raw_text}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-gray-400 text-xs font-medium">{new Date(item.created_at).toLocaleDateString('nl-NL')}</span>
-                  {item.suggested_type && (
-                    <span className="flex items-center gap-1 text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full font-semibold">
-                      <Tag className="w-3 h-3" />
-                      {item.suggested_type}
-                    </span>
-                  )}
-                  {item.suggested_context && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{item.suggested_context}</span>
-                  )}
-                </div>
-              </div>
-              {item.parsed_status === 'pending' && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    onClick={() => handleTriage(item)}
-                    className="p-2 text-gray-300 hover:text-pink-500 transition-colors"
-                    title="Laat AI triage doen"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleProcess(item.id)}
-                    className="p-2 text-gray-300 hover:text-emerald-500 transition-colors"
-                    title="Markeer als verwerkt"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+          <Panel tone="muted">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Filter</p>
+            <div className="mt-3 flex gap-1.5">
+              <button
+                onClick={() => setFilter('pending')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'pending' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
+              >
+                Onverwerkt
+              </button>
+              <button
+                onClick={() => setFilter('all')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
+              >
+                Alles
+              </button>
             </div>
-            {triage[item.id] && (
-              <div className="mt-3 rounded-2xl border border-pink-100 bg-gradient-to-r from-orange-50 via-pink-50 to-violet-50 p-3">
-                <p className="text-xs font-bold text-gray-700">AI voorstel</p>
-                <p className="mt-1 text-xs text-gray-600">Type: {String(triage[item.id].type || 'onbekend')}</p>
-                <p className="mt-1 text-xs text-gray-600">Samenvatting: {String(triage[item.id].summary || '')}</p>
-                <p className="mt-1 text-xs text-gray-600">Advies: {String(triage[item.id].action_advice || '')}</p>
-              </div>
+          </Panel>
+        </div>
+
+        <Panel>
+          <PanelHeader
+            eyebrow={`${filteredItems.length} items`}
+            title={filter === 'pending' ? 'Open items' : 'Alle items'}
+          />
+
+          <div className="mt-4">
+            {filteredItems.length === 0 ? (
+              <EmptyPanel
+                title={filter === 'pending' ? 'Inbox leeg' : 'Geen items gevonden'}
+                description={filter === 'pending' ? 'Geen losse eindes meer. Dat is goed nieuws.' : 'In deze filter staat nu niets zichtbaar.'}
+              />
+            ) : (
+              filteredItems.map((item, index) => (
+                <div key={item.id}>
+                  {index > 0 && <Divider />}
+                  <div className="rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm leading-6 ${item.parsed_status === 'processed' ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
+                          {item.raw_text}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-md bg-surface-container px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                            {new Date(item.created_at).toLocaleDateString('nl-NL')}
+                          </span>
+                          {item.suggested_type && (
+                            <span className="rounded-md bg-surface-container px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                              {item.suggested_type}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {item.parsed_status === 'pending' && (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            onClick={() => handleTriage(item)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                            title="AI triage"
+                          >
+                            <Sparkles size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleProcess(item.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#202625] text-white transition-colors hover:bg-[#2a3230]"
+                            title="Markeer als verwerkt"
+                          >
+                            <Check size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {triage[item.id] && (
+                      <div className="mt-3 rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">AI voorstel</p>
+                        <div className="mt-2 space-y-1 text-sm leading-6 text-on-surface">
+                          <p><span className="font-semibold">Type:</span> {String(triage[item.id].type || 'onbekend')}</p>
+                          <p><span className="font-semibold">Samenvatting:</span> {String(triage[item.id].summary || '')}</p>
+                          <p><span className="font-semibold">Advies:</span> {String(triage[item.id].action_advice || '')}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
             )}
           </div>
-        ))}
+        </Panel>
       </div>
-    </div>
+    </PageShell>
   )
 }

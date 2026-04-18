@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Brain, Lightbulb, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Brain, Lightbulb, Sparkles, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
+import PageShell from '@/components/ui/PageShell'
+import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
 interface Idea {
   id: number
@@ -26,14 +28,13 @@ const STATUS_LABELS: Record<Idea['status'], string> = {
   wachten: 'Wachten',
   archief: 'Archief',
 }
-const VERDICT_COLORS: Record<Idea['verdict'], string> = {
-  'super slim': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  kansrijk: 'bg-blue-50 text-blue-700 border-blue-100',
-  twijfelachtig: 'bg-amber-50 text-amber-700 border-amber-100',
-  'niet waardig': 'bg-red-50 text-red-700 border-red-100',
-  'nog beoordelen': 'bg-gray-50 text-gray-600 border-gray-100',
+const VERDICT_CLASSES: Record<Idea['verdict'], string> = {
+  'super slim': 'bg-emerald-50 text-emerald-700',
+  kansrijk: 'bg-blue-50 text-blue-700',
+  twijfelachtig: 'bg-amber-50 text-amber-700',
+  'niet waardig': 'bg-red-50 text-red-700',
+  'nog beoordelen': 'bg-surface-container text-on-surface-variant',
 }
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
 export default function IdeasView() {
   const [ideas, setIdeas] = useState<Idea[]>([])
@@ -86,7 +87,7 @@ export default function IdeasView() {
     })
     const data = await res.json()
     if (data.data) {
-      setIdeas((prev) => prev.map((idea) => idea.id === id ? data.data : idea))
+      setIdeas((prev) => prev.map((idea) => (idea.id === id ? data.data : idea)))
     }
   }
 
@@ -97,187 +98,200 @@ export default function IdeasView() {
     setSelectedId(remaining[0]?.id ?? null)
   }
 
-  return (
-    <div className="flex min-h-full flex-col bg-white">
-      <div className="border-b border-gray-100 px-6 py-5">
-        <h1 className="text-xl font-extrabold text-gradient">Ideeën</h1>
-        <p className="mt-1 text-xs font-medium text-gray-400">Snelle brain dumps met directe AI-analyse en vervolgstappen</p>
-      </div>
+  const byStatus = (status: Idea['status']) => ideas.filter((i) => i.status === status).length
 
-      <div className="grid flex-1 gap-0 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <div className="border-b border-gray-100 bg-gray-50/60 p-6 xl:border-b-0 xl:border-r">
-          <div className="rounded-3xl border border-pink-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles size={14} className="text-pink-400" />
-              <p className="text-sm font-bold text-gray-700">Drop een idee</p>
-            </div>
+  return (
+    <PageShell
+      title="Ideeën"
+      subtitle={`${ideas.length} ideeën opgeslagen.`}
+      actions={
+        <button
+          onClick={() => { if (ideas[0]) { setSelectedId(ideas[0].id); setShowModal(true) } }}
+          className="inline-flex items-center gap-2 rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
+        >
+          <Brain size={14} />
+          Details
+        </button>
+      }
+    >
+      <StatStrip stats={STATUS_OPTIONS.map((s) => ({ label: STATUS_LABELS[s], value: byStatus(s) }))} />
+
+      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <Panel tone="accent">
+            <PanelHeader
+              eyebrow="Brain dump"
+              title="Drop een idee"
+              description="AI analyseert en scoort je idee automatisch."
+            />
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Bijv: lokale leadmachine voor thuisbatterijen met offerteflow + AI opvolging..."
-              className="min-h-[160px] w-full resize-none rounded-2xl border border-white bg-white/90 px-3 py-3 text-sm text-gray-700 outline-none placeholder:text-gray-400"
+              className="mt-4 min-h-[140px] w-full resize-none rounded-lg border border-black/5 bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
             />
-            <button
-              onClick={createIdea}
-              disabled={!input.trim() || saving}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: GRAD }}
-            >
-              <Plus size={14} />
-              {saving ? 'Analyseren...' : 'Opslaan en analyseren'}
-            </button>
-          </div>
-
-          <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">Pipeline</p>
-            <div className="space-y-2">
-              {STATUS_OPTIONS.map((status) => (
-                <div key={status} className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">{STATUS_LABELS[status]}</span>
-                  <span className="font-bold text-gray-700">{ideas.filter((idea) => idea.status === status).length}</span>
-                </div>
-              ))}
+            <div className="mt-3">
+              <button
+                onClick={createIdea}
+                disabled={!input.trim() || saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Sparkles size={13} />
+                {saving ? 'Analyseren...' : 'Opslaan en analyseren'}
+              </button>
             </div>
-          </div>
+          </Panel>
 
-          <div className="mt-5 space-y-2">
-            {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-              </div>
-            ) : ideas.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
-                <Lightbulb size={28} className="mx-auto mb-3 text-gray-200" />
-                <p className="text-sm text-gray-400">Nog geen ideeën opgeslagen.</p>
-              </div>
-            ) : (
-              ideas.map((idea) => (
-                <div
-                  key={idea.id}
-                  className={cn(
-                    'group relative rounded-3xl border p-4 text-left shadow-sm transition-all cursor-pointer',
-                    selectedId === idea.id ? 'border-pink-200 bg-white shadow-md' : 'border-gray-200 bg-white hover:border-pink-100'
-                  )}
-                  onClick={() => { setSelectedId(idea.id); setShowModal(true) }}
-                >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-sm font-bold text-gray-700 flex-1">{idea.title}</p>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <div className="opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
-                        <AIContextButton type="idea" title={idea.title} id={idea.id} />
+          <Panel>
+            <PanelHeader eyebrow="Pipeline" title="Alle ideeën" />
+            <div className="mt-4">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-container-low my-1" />
+                ))
+              ) : ideas.length === 0 ? (
+                <EmptyPanel title="Nog geen ideeën" description="Dump hierboven je eerste idee." />
+              ) : (
+                ideas.map((idea, index) => (
+                  <div key={idea.id}>
+                    {index > 0 && <Divider />}
+                    <div
+                      className={cn(
+                        'group flex cursor-pointer items-start gap-3 rounded-lg px-2 py-3 transition-colors',
+                        selectedId === idea.id ? 'bg-surface-container-low' : 'hover:bg-surface-container-low/60'
+                      )}
+                      onClick={() => { setSelectedId(idea.id); setShowModal(true) }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-1 text-sm font-semibold text-on-surface">{idea.title}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', VERDICT_CLASSES[idea.verdict])}>
+                            {idea.verdict}
+                          </span>
+                          <span className="rounded-md bg-surface-container px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                            {STATUS_LABELS[idea.status]}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-xs font-black text-gradient">{idea.score}</span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <div className="opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                          <AIContextButton type="idea" title={idea.title} id={idea.id} />
+                        </div>
+                        <span className="text-xs font-bold text-on-surface-variant">{idea.score}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', VERDICT_COLORS[idea.verdict])}>
-                      {idea.verdict}
-                    </span>
-                    <span className="text-[10px] text-gray-400">{STATUS_LABELS[idea.status]}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          </Panel>
         </div>
 
-        <div className="hidden xl:block overflow-y-auto p-6">
-          <IdeaDetail 
-            idea={selectedIdea} 
-            onUpdate={updateIdea} 
-            onDelete={(id) => { deleteIdea(id); setShowModal(false) }} 
+        <div className="hidden xl:block">
+          <IdeaDetail
+            idea={selectedIdea}
+            onUpdate={updateIdea}
+            onDelete={(id) => { deleteIdea(id); setShowModal(false) }}
           />
         </div>
       </div>
 
       {showModal && selectedIdea && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 xl:hidden">
-          <div className="relative h-full w-full max-w-2xl overflow-y-auto rounded-3xl bg-gray-50 p-6 shadow-xl">
-             <button 
-               onClick={() => setShowModal(false)}
-               className="absolute right-6 top-6 z-10 rounded-full bg-white p-2 shadow-md"
-             >
-               <Plus size={20} className="rotate-45" />
-             </button>
-             <IdeaDetail 
-               idea={selectedIdea} 
-               onUpdate={updateIdea} 
-               onDelete={(id) => { deleteIdea(id); setShowModal(false) }} 
-             />
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 xl:hidden sm:items-center sm:p-4">
+          <div className="relative h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-surface-container-lowest p-6 shadow-xl sm:h-auto sm:max-h-[85vh] sm:rounded-2xl">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low"
+            >
+              <X size={15} />
+            </button>
+            <IdeaDetail
+              idea={selectedIdea}
+              onUpdate={updateIdea}
+              onDelete={(id) => { deleteIdea(id); setShowModal(false) }}
+            />
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }
 
-function IdeaDetail({ idea, onUpdate, onDelete }: { idea: Idea | null, onUpdate: (id: number, patch: Partial<Idea>) => void, onDelete: (id: number) => void }) {
+function IdeaDetail({
+  idea,
+  onUpdate,
+  onDelete,
+}: {
+  idea: Idea | null
+  onUpdate: (id: number, patch: Partial<Idea>) => void
+  onDelete: (id: number) => void
+}) {
   if (!idea) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-200 px-6 py-16 text-center">
-        <Brain size={30} className="mx-auto mb-3 text-gray-200" />
-        <p className="text-sm font-medium text-gray-400">Selecteer een idee of maak er eentje aan.</p>
-      </div>
+      <Panel>
+        <EmptyPanel
+          title="Selecteer een idee"
+          description="Klik op een idee in de lijst om de details te zien."
+        />
+      </Panel>
     )
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', VERDICT_COLORS[idea.verdict])}>
+    <div className="space-y-4">
+      <Panel>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className={cn('rounded-md px-2 py-0.5 text-[10px] font-semibold', VERDICT_CLASSES[idea.verdict])}>
                 {idea.verdict}
               </span>
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-500">
-                Score {idea.score}/100
-              </span>
+              <ActionPill>Score {idea.score}/100</ActionPill>
             </div>
             <input
               value={idea.title}
               onChange={(e) => onUpdate(idea.id, { title: e.target.value })}
-              className="w-full bg-transparent text-2xl font-extrabold text-gray-800 outline-none"
+              className="w-full bg-transparent text-xl font-extrabold text-on-surface outline-none"
             />
           </div>
           <button
             onClick={() => onDelete(idea.id)}
-            className="flex items-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-500 transition-colors hover:bg-red-100"
+            className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-red-50 hover:text-red-600"
           >
-            <Trash2 size={12} />
+            <Trash2 size={11} />
             Verwijderen
           </button>
         </div>
-      </div>
+      </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-5">
-          <Card title="Ruwe input">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="space-y-3">
+          <FieldPanel title="Ruwe input">
             <textarea
               value={idea.raw_input}
               onChange={(e) => onUpdate(idea.id, { raw_input: e.target.value })}
-              className="min-h-[110px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 outline-none"
+              className="min-h-[100px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
-          </Card>
+          </FieldPanel>
 
-          <Card title="AI-samenvatting">
+          <FieldPanel title="AI-samenvatting">
             <textarea
               value={idea.refined_summary || ''}
               onChange={(e) => onUpdate(idea.id, { refined_summary: e.target.value })}
-              className="min-h-[160px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
+              className="min-h-[120px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
-          </Card>
+          </FieldPanel>
 
-          <Card title="Marktgat / oordeel">
+          <FieldPanel title="Marktgat / oordeel">
             <textarea
               value={idea.market_gap || ''}
               onChange={(e) => onUpdate(idea.id, { market_gap: e.target.value })}
-              className="min-h-[140px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm leading-relaxed text-gray-700 outline-none"
+              className="min-h-[100px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
-          </Card>
+          </FieldPanel>
 
-          <Card title="Volgende stappen">
-            <div className="space-y-2">
+          <FieldPanel title="Volgende stappen">
+            <div className="space-y-1.5">
               {idea.next_steps.map((step, index) => (
                 <input
                   key={`${idea.id}-${index}`}
@@ -287,44 +301,48 @@ function IdeaDetail({ idea, onUpdate, onDelete }: { idea: Idea | null, onUpdate:
                     next[index] = e.target.value
                     onUpdate(idea.id, { next_steps: next })
                   }}
-                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none"
+                  className="w-full rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
                 />
               ))}
             </div>
-          </Card>
+          </FieldPanel>
         </div>
 
-        <div className="space-y-5">
-          <Card title="Status">
+        <div className="space-y-3">
+          <FieldPanel title="Status">
             <select
               value={idea.status}
               onChange={(e) => onUpdate(idea.id, { status: e.target.value as Idea['status'] })}
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none"
+              className="w-full rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
             >
-              {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
-            </select>
-          </Card>
-
-          <Card title="Tags">
-            <div className="flex flex-wrap gap-2">
-              {idea.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600">
-                  {tag}
-                </span>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>{STATUS_LABELS[status]}</option>
               ))}
+            </select>
+          </FieldPanel>
+
+          <FieldPanel title="Tags">
+            <div className="flex flex-wrap gap-1.5">
+              {idea.tags.length === 0 ? (
+                <p className="text-xs text-on-surface-variant">Geen tags</p>
+              ) : (
+                idea.tags.map((tag) => (
+                  <ActionPill key={tag}>{tag}</ActionPill>
+                ))
+              )}
             </div>
-          </Card>
+          </FieldPanel>
         </div>
       </div>
     </div>
   )
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function FieldPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-      <p className="mb-3 text-sm font-bold text-gray-700">{title}</p>
+    <Panel>
+      <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">{title}</p>
       {children}
-    </div>
+    </Panel>
   )
 }

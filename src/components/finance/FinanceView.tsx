@@ -1,13 +1,38 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Plus, TrendingUp, TrendingDown, Trash2, Upload, X, CheckCircle, Sparkles, BarChart2, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, Repeat, Eye, ChevronLeft, ChevronRight, Pencil, Copy } from 'lucide-react'
-import { cn, formatDate, formatCurrency, isOverdue } from '@/lib/utils'
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addWeeks, addMonths, format, startOfDay, endOfDay } from 'date-fns'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Euro,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns'
 import { nl } from 'date-fns/locale'
+import { cn, formatCurrency } from '@/lib/utils'
+import PageShell from '@/components/ui/PageShell'
+import { ActionPill, Divider, EmptyPanel, MetricTile, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import TransactionModal from './TransactionModal'
-import StandardPageLayout, { Section, StatsGrid, MainWithSidebar } from '@/components/layout/StandardPageLayout'
-import { StatsCard, LightCard, CompactListItem } from '@/components/ui/DesignSystem'
 import AIContextButton from '@/components/ai/AIContextButton'
 
 interface FinanceItem {
@@ -58,6 +83,10 @@ interface ImportRow {
   amount: number
   type: 'inkomst' | 'uitgave'
   category: string
+  subcategory?: string
+  merchant_raw?: string
+  merchant_normalized?: string
+  category_confidence?: number
   is_duplicate?: boolean
 }
 
@@ -65,42 +94,24 @@ interface AnalyseResult {
   recurringGroups: Array<{
     merchantKey: string
     displayName: string
-    merchantType: string
-    category: string
-    subcategory: string
-    recurrenceType: string
     recurrenceLabel: string
-    recurrenceConfidence: number
     confidenceLabel: 'high' | 'medium' | 'low'
-    frequency: string
-    amountPerCharge: number
     monthlyEquivalent: number | null
-    monthlyEquivalentLabel: string | null
-    count: number
-    lastSeen: string
-    intervalDaysMedian: number | null
     explanation: string
-    needsReview: boolean
-    userVerified: boolean
-    fixedCost: boolean
-    essential: boolean
-    reviewReason?: string
   }>
-  patterns: Array<{ merchant: string; totalSpent: number; visits: number; avgAmount: number; category: string; confidenceLabel: 'high' | 'medium' | 'low' }>
-  trends: Array<{ month: string; income: number; expenses: number; net: number; topCategory: string }>
-  anomalies: Array<{ id?: number; title: string; amount: number; date: string; reason: string; severity: 'low' | 'medium' | 'high' }>
+  anomalies: Array<{
+    id?: number
+    title: string
+    amount: number
+    date: string
+    reason: string
+    severity: 'low' | 'medium' | 'high'
+  }>
   reviewQuestions: Array<{
     queueKey: string
-    merchantKey: string
     merchantLabel: string
     prompt: string
     rationale: string
-    priority: number
-    confidenceLabel: 'high' | 'medium' | 'low'
-    suggestedActions: Array<{
-      label: string
-      rulePatch: Record<string, unknown>
-    }>
   }>
   summary: {
     totalIncome: number
@@ -115,36 +126,39 @@ interface AnalyseResult {
   aiInsights: string
 }
 
-const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven']
-const ACCOUNT_FILTERS = ['Alle rekeningen', 'Privé', 'Zakelijk', 'Spaar Privé', 'Spaar Zakelijk']
-const ACCOUNTS = ['privé', 'zakelijk', 'spaar-privé', 'spaar-zakelijk']
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
-
-const CATEGORY_COLORS: Record<string, string> = {
-  boodschappen: 'bg-emerald-400',
-  auto: 'bg-blue-400',
-  transport: 'bg-sky-400',
-  eten: 'bg-amber-400',
-  abonnement: 'bg-violet-400',
-  belasting: 'bg-red-400',
-  'vaste lasten': 'bg-orange-400',
-  kleding: 'bg-pink-400',
-  buffer: 'bg-indigo-400',
-  btw: 'bg-purple-400',
-  sparen: 'bg-teal-400',
-  overig: 'bg-gray-300',
+const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven'] as const
+const ACCOUNT_FILTERS = ['Alle rekeningen', 'Prive', 'Zakelijk', 'Spaar Prive', 'Spaar Zakelijk'] as const
+const ACCOUNT_VALUES: Record<string, string | null> = {
+  'Alle rekeningen': null,
+  Prive: 'privé',
+  Zakelijk: 'zakelijk',
+  'Spaar Prive': 'spaar-privé',
+  'Spaar Zakelijk': 'spaar-zakelijk',
+}
+const CATEGORY_OPTIONS = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding', 'buffer', 'btw', 'sparen']
+const VIEW_MODES = ['day', 'week', 'month'] as const
+const CONFIDENCE_TEXT: Record<'high' | 'medium' | 'low', string> = {
+  high: 'zeker',
+  medium: 'waarschijnlijk',
+  low: 'twijfelachtig',
 }
 
-const CONFIDENCE_STYLE: Record<'high' | 'medium' | 'low', string> = {
-  high: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-  medium: 'bg-amber-50 text-amber-600 border-amber-100',
-  low: 'bg-red-50 text-red-600 border-red-100',
+function accountLabel(account: string) {
+  if (account === 'privé') return 'Prive'
+  if (account === 'spaar-privé') return 'Spaar Prive'
+  if (account === 'spaar-zakelijk') return 'Spaar Zakelijk'
+  if (account === 'zakelijk') return 'Zakelijk'
+  return account
 }
 
-function confidenceText(level: 'high' | 'medium' | 'low') {
-  if (level === 'high') return 'zeker'
-  if (level === 'medium') return 'waarschijnlijk'
-  return 'twijfel'
+function periodLabel(mode: (typeof VIEW_MODES)[number], currentDate: Date) {
+  if (mode === 'day') return format(currentDate, 'EEEE d MMMM', { locale: nl })
+  if (mode === 'week') {
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 })
+    const end = endOfWeek(currentDate, { weekStartsOn: 1 })
+    return `${format(start, 'd MMM', { locale: nl })} - ${format(end, 'd MMM', { locale: nl })}`
+  }
+  return format(currentDate, 'MMMM yyyy', { locale: nl })
 }
 
 export default function FinanceView() {
@@ -152,118 +166,115 @@ export default function FinanceView() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
   const [monthlyData, setMonthlyData] = useState<MonthlyPoint[]>([])
-  const [typeFilter, setTypeFilter] = useState('Alles')
-  const [accountFilter, setAccountFilter] = useState('Alle rekeningen')
-  const [actualBalances, setActualBalances] = useState<Balance[]>([])
+  const [balances, setBalances] = useState<Balance[]>([])
+  const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>('Alles')
+  const [accountFilter, setAccountFilter] = useState<(typeof ACCOUNT_FILTERS)[number]>('Alle rekeningen')
+  const [viewMode, setViewMode] = useState<(typeof VIEW_MODES)[number]>('month')
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [loading, setLoading] = useState(true)
+
   const [showAdd, setShowAdd] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceItem | null>(null)
-  const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
+
+  const [form, setForm] = useState({
+    type: 'uitgave' as 'inkomst' | 'uitgave',
+    title: '',
+    amount: '',
+    due_date: '',
+    category: 'overig',
+    account: 'privé',
+  })
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [form, setForm] = useState({ type: 'uitgave' as 'inkomst' | 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
-
-  useEffect(() => {
-    if (editingItem) {
-      setForm({
-        type: editingItem.type,
-        title: editingItem.title,
-        amount: String(editingItem.amount),
-        due_date: editingItem.due_date ? editingItem.due_date.split('T')[0] : '',
-        category: editingItem.category,
-        account: editingItem.account
-      })
-      setShowAdd(true)
-    }
-  }, [editingItem])
-
-  const dateRange = useMemo(() => {
-    let start, end
-    if (viewMode === 'day') {
-      start = startOfDay(currentDate)
-      end = endOfDay(currentDate)
-    } else if (viewMode === 'week') {
-      start = startOfWeek(currentDate, { weekStartsOn: 1 })
-      end = endOfWeek(currentDate, { weekStartsOn: 1 })
-    } else {
-      start = startOfMonth(currentDate)
-      end = endOfMonth(currentDate)
-    }
-    return { start, end }
-  }, [viewMode, currentDate])
-
-  const navigate = (direction: 'prev' | 'next') => {
-    const amount = direction === 'prev' ? -1 : 1
-    if (viewMode === 'day') setCurrentDate(prev => addDays(prev, amount))
-    else if (viewMode === 'week') setCurrentDate(prev => addWeeks(prev, amount))
-    else setCurrentDate(prev => addMonths(prev, amount))
-  }
+  const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
 
   const [aiSummary, setAiSummary] = useState<string | null>(null)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [showBulkDelete, setShowBulkDelete] = useState(false)
-  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
-  const [showAnalyse, setShowAnalyse] = useState(false)
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
   const [analyseLoading, setAnalyseLoading] = useState(false)
   const [analyseError, setAnalyseError] = useState<string | null>(null)
-  const [applyingRuleKey, setApplyingRuleKey] = useState<string | null>(null)
 
-  // Bank import state
-  const [showImport, setShowImport] = useState(false)
   const [importMethod, setImportMethod] = useState<'csv' | 'ai'>('csv')
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importText, setImportText] = useState('')
   const [importAccount, setImportAccount] = useState('privé')
-  const [importPreview, setImportPreview] = useState<(ImportRow & { is_duplicate?: boolean })[] | null>(null)
+  const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; total: number } | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const dateRange = useMemo(() => {
+    if (viewMode === 'day') {
+      return { start: startOfDay(currentDate), end: endOfDay(currentDate) }
+    }
+    if (viewMode === 'week') {
+      return {
+        start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+        end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+      }
+    }
+    return { start: startOfMonth(currentDate), end: endOfMonth(currentDate) }
+  }, [viewMode, currentDate])
+
   const fetchData = useCallback(async () => {
+    setLoading(true)
     const params = new URLSearchParams()
     if (typeFilter === 'Inkomsten') params.set('type', 'inkomst')
     else if (typeFilter === 'Uitgaven') params.set('type', 'uitgave')
-    if (accountFilter === 'Privé') params.set('account', 'privé')
-    else if (accountFilter === 'Zakelijk') params.set('account', 'zakelijk')
-    else if (accountFilter === 'Spaar Privé') params.set('account', 'spaar-privé')
-    else if (accountFilter === 'Spaar Zakelijk') params.set('account', 'spaar-zakelijk')
+
+    const accountValue = ACCOUNT_VALUES[accountFilter]
+    if (accountValue) params.set('account', accountValue)
 
     params.set('from', format(dateRange.start, 'yyyy-MM-dd'))
     params.set('to', format(dateRange.end, 'yyyy-MM-dd'))
 
-    const [financeRes, catRes, balanceRes] = await Promise.all([
-      fetch(`/api/finance?${params}`).then(r => r.json()),
-      fetch(`/api/finance/stats?from=${format(dateRange.start, 'yyyy-MM-dd')}&to=${format(dateRange.end, 'yyyy-MM-dd')}`).then(r => r.json()).catch(() => ({ categories: [], monthly: [] })),
-      fetch('/api/finance/balances').then(r => r.json()).catch(() => ({ data: [] })),
+    const [financeResponse, statsResponse, balanceResponse] = await Promise.all([
+      fetch(`/api/finance?${params}`).then((response) => response.json()),
+      fetch(`/api/finance/stats?from=${format(dateRange.start, 'yyyy-MM-dd')}&to=${format(dateRange.end, 'yyyy-MM-dd')}`)
+        .then((response) => response.json())
+        .catch(() => ({ categories: [], monthly: [] })),
+      fetch('/api/finance/balances')
+        .then((response) => response.json())
+        .catch(() => ({ data: [] })),
     ])
 
-    const filtered = (financeRes.data || []).filter((i: FinanceItem) => i.type !== 'factuur' as string)
-    setItems(filtered)
-    setStats(financeRes.stats)
-    setCategoryStats(catRes.categories || [])
-    setMonthlyData(catRes.monthly || [])
-    setActualBalances(balanceRes.data || [])
+    const filteredItems = (financeResponse.data || []).filter((item: { type?: string }) => item.type !== 'factuur')
+    setItems(filteredItems as FinanceItem[])
+    setStats(financeResponse.stats)
+    setCategoryStats(statsResponse.categories || [])
+    setMonthlyData(statsResponse.monthly || [])
+    setBalances(balanceResponse.data || [])
     setLoading(false)
-  }, [typeFilter, accountFilter, dateRange.start, dateRange.end])
-
-  useEffect(() => { fetchData() }, [fetchData])
+  }, [accountFilter, dateRange.end, dateRange.start, typeFilter])
 
   useEffect(() => {
-    setAiLoading(true)
+    fetchData()
+  }, [fetchData])
+
+  useEffect(() => {
     fetch('/api/ai/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'finance' }),
     })
-      .then(r => r.json())
-      .then(d => setAiSummary(d.summary ?? null))
+      .then((response) => response.json())
+      .then((payload) => setAiSummary(payload.summary ?? null))
       .catch(() => {})
-      .finally(() => setAiLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!editingItem) return
+    setForm({
+      type: editingItem.type,
+      title: editingItem.title,
+      amount: String(editingItem.amount),
+      due_date: editingItem.due_date ? editingItem.due_date.split('T')[0] : '',
+      category: editingItem.category,
+      account: editingItem.account,
+    })
+    setShowAdd(true)
+  }, [editingItem])
 
   async function addItem() {
     if (!form.title.trim()) return
@@ -275,10 +286,45 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
+
     setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
-    setShowAdd(false)
     setEditingItem(null)
+    setShowAdd(false)
     fetchData()
+  }
+
+  async function deleteItem(id: number) {
+    await fetch(`/api/finance/${id}`, { method: 'DELETE' })
+    setItems((previous) => previous.filter((item) => item.id !== id))
+    if (selectedTransaction?.id === id) setSelectedTransaction(null)
+  }
+
+  async function updateTransaction(id: number, data: Record<string, unknown>) {
+    const response = await fetch(`/api/finance/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const payload = await response.json()
+    if (payload.data) {
+      setSelectedTransaction(payload.data)
+    }
+    fetchData()
+  }
+
+  async function copyItem(item: FinanceItem) {
+    setEditingItem(null)
+    setForm({
+      type: item.type,
+      title: `${item.title} (kopie)`,
+      amount: String(item.amount),
+      due_date: new Date().toISOString().split('T')[0],
+      category: item.category,
+      account: item.account,
+    })
+    setShowAdd(true)
+    setShowImport(false)
+    setShowAdjust(false)
   }
 
   async function handleAdjust() {
@@ -288,62 +334,54 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         account: adjustForm.account,
-        balance: parseFloat(adjustForm.actual_balance)
-      })
+        balance: parseFloat(adjustForm.actual_balance),
+      }),
     })
-    setShowAdjust(false)
     setAdjustForm({ account: 'privé', actual_balance: '' })
+    setShowAdjust(false)
     fetchData()
   }
 
-  async function copyItem(item: FinanceItem) {
-    setForm({
-      type: item.type,
-      title: `${item.title} (kopie)`,
-      amount: String(item.amount),
-      due_date: new Date().toISOString().split('T')[0],
-      category: item.category,
-      account: item.account
-    })
-    setShowAdd(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  async function runAnalyse() {
+    setAnalyseLoading(true)
+    setAnalyseError(null)
+    try {
+      const response = await fetch('/api/finance/analyse', { method: 'POST' })
+      const payload = await response.json()
+      if (!response.ok) {
+        setAnalyseError(payload.error ?? 'Analyse mislukt')
+        return
+      }
+      setAnalyseResult(payload)
+    } catch {
+      setAnalyseError('Verbindingsfout')
+    } finally {
+      setAnalyseLoading(false)
+    }
   }
 
-  async function deleteItem(id: number) {
-    await fetch(`/api/finance/${id}`, { method: 'DELETE' })
-    setItems(prev => prev.filter(i => i.id !== id))
-  }
-
-  async function bulkDelete(type?: string, account?: string) {
-    setBulkDeleteLoading(true)
-    const params = new URLSearchParams()
-    if (type) params.set('type', type)
-    if (account) params.set('account', account)
-    await fetch(`/api/finance?${params}`, { method: 'DELETE' })
-    setShowBulkDelete(false)
-    setBulkDeleteLoading(false)
-    fetchData()
-  }
-
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
     if (!file) return
     setImportFile(file)
+    setImportLoading(true)
+    setImportError(null)
     setImportPreview(null)
     setImportResult(null)
-    setImportError(null)
-    setImportLoading(true)
 
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('import', 'false')
-    fd.append('account', importAccount)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('import', 'false')
+    formData.append('account', importAccount)
 
     try {
-      const res = await fetch('/api/finance/import', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) { setImportError(data.error ?? 'Parseren mislukt'); return }
-      setImportPreview(data.preview)
+      const response = await fetch('/api/finance/import', { method: 'POST', body: formData })
+      const payload = await response.json()
+      if (!response.ok) {
+        setImportError(payload.error ?? 'Parseren mislukt')
+        return
+      }
+      setImportPreview(payload.preview)
     } catch {
       setImportError('Verbindingsfout')
     } finally {
@@ -359,14 +397,17 @@ export default function FinanceView() {
     setImportResult(null)
 
     try {
-      const res = await fetch('/api/finance/import/ai', {
+      const response = await fetch('/api/finance/import/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: importText, account: importAccount })
+        body: JSON.stringify({ text: importText, account: importAccount }),
       })
-      const data = await res.json()
-      if (!res.ok) { setImportError(data.error ?? 'AI Parseren mislukt'); return }
-      setImportPreview(data.preview)
+      const payload = await response.json()
+      if (!response.ok) {
+        setImportError(payload.error ?? 'AI parseren mislukt')
+        return
+      }
+      setImportPreview(payload.preview)
     } catch {
       setImportError('Verbindingsfout')
     } finally {
@@ -375,31 +416,37 @@ export default function FinanceView() {
   }
 
   async function doImport() {
-    if (importMethod === 'csv' && !importFile) return
-    if (importMethod === 'ai' && !importPreview) return
-    
     setImportLoading(true)
+    setImportError(null)
+
     try {
-      let res;
+      let response: Response
       if (importMethod === 'csv') {
-        const fd = new FormData()
-        fd.append('file', importFile!)
-        fd.append('import', 'true')
-        fd.append('account', importAccount)
-        res = await fetch('/api/finance/import', { method: 'POST', body: fd })
+        if (!importFile) return
+        const formData = new FormData()
+        formData.append('file', importFile)
+        formData.append('import', 'true')
+        formData.append('account', importAccount)
+        response = await fetch('/api/finance/import', { method: 'POST', body: formData })
       } else {
-        res = await fetch('/api/finance/import/save', {
+        response = await fetch('/api/finance/import/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: importPreview, account: importAccount })
+          body: JSON.stringify({ rows: importPreview, account: importAccount }),
         })
       }
-      
-      const data = await res.json()
-      if (!res.ok) { setImportError(data.error ?? 'Import mislukt'); return }
-      setImportResult(data)
+
+      const payload = await response.json()
+      if (!response.ok) {
+        setImportError(payload.error ?? 'Import mislukt')
+        return
+      }
+
+      setImportResult(payload)
       setImportPreview(null)
       setImportText('')
+      setImportFile(null)
+      if (fileRef.current) fileRef.current.value = ''
       fetchData()
     } catch {
       setImportError('Verbindingsfout')
@@ -408,1069 +455,690 @@ export default function FinanceView() {
     }
   }
 
-  async function runAnalyse() {
-    setAnalyseLoading(true)
-    setAnalyseError(null)
-    try {
-      const res = await fetch('/api/finance/analyse', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) { setAnalyseError(data.error ?? 'Analyse mislukt'); return }
-      setAnalyseResult(data)
-      setShowAnalyse(true)
-    } catch {
-      setAnalyseError('Verbindingsfout')
-    } finally {
-      setAnalyseLoading(false)
-    }
-  }
-
-  async function applyFinanceRule(questionKey: string, rulePatch: Record<string, unknown>) {
-    setApplyingRuleKey(questionKey)
-    setAnalyseError(null)
-    try {
-      const res = await fetch('/api/finance/rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rulePatch),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setAnalyseError(data.error ?? 'Opslaan van merchantregel mislukt')
-        return
-      }
-      await runAnalyse()
-    } catch {
-      setAnalyseError('Verbindingsfout bij opslaan van merchantregel')
-    } finally {
-      setApplyingRuleKey(null)
-    }
-  }
-
-  async function updateTransaction(id: number, data: Record<string, unknown>) {
-    try {
-      const res = await fetch(`/api/finance/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error('Update mislukt')
-      await runAnalyse()
-      fetchData()
-    } catch (err) {
-      setAnalyseError('Fout bij bijwerken transactie')
-    }
-  }
-
-  function resetImport() {
-    setImportFile(null)
-    setImportText('')
-    setImportPreview(null)
-    setImportResult(null)
-    setImportError(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
-
   const net = (stats?.month_income || 0) - (stats?.month_expenses || 0)
-  const maxMonthly = monthlyData.reduce((m, d) => Math.max(m, d.income, d.expenses), 1)
-
-  // Format active_month (e.g. "2024-12") to readable label like "dec. 2024"
-  const activePeriod = viewMode === 'month'
-    ? (format(currentDate, 'yyyy-MM') === format(new Date(), 'yyyy-MM') ? 'deze maand' : format(currentDate, 'MMM yyyy', { locale: nl }))
-    : viewMode === 'week' ? 'deze week' : 'vandaag'
+  const incomeItems = items.filter((item) => item.type === 'inkomst')
+  const expenseItems = items.filter((item) => item.type === 'uitgave')
+  const biggestExpense = [...expenseItems].sort((left, right) => right.amount - left.amount)[0]
+  const maxMonthly = monthlyData.reduce((max, item) => Math.max(max, item.income, item.expenses), 1)
 
   return (
-    <StandardPageLayout
-      title="Financiën"
-      subtitle="Inkomsten & uitgaven"
-      actions={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={runAnalyse}
-            disabled={analyseLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: GRAD }}
-            title="AI Analyse"
-          >
-            {analyseLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            <span className="hidden sm:inline">{analyseLoading ? 'Analyseren...' : 'Analyseer'}</span>
-          </button>
-          <button
-            onClick={() => setShowBulkDelete(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400 transition-colors"
-            title="Alles verwijderen"
-          >
-            <Trash2 size={14} />
-          </button>
-          <button
-            onClick={() => { setShowImport(s => !s); setShowAdd(false) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500 hover:border-pink-200 hover:text-gray-700 transition-colors"
-          >
-            <Upload size={14} />
-            <span className="hidden sm:inline">Import</span>
-          </button>
-          <button
-            onClick={() => { setShowAdjust(!showAdjust); setShowAdd(false); setShowImport(false) }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500 hover:border-amber-200 hover:text-gray-700 transition-colors"
-          >
-            <RefreshCw size={14} />
-            <span className="hidden sm:inline">Kasverschil</span>
-          </button>
-          <button
-            onClick={() => {
-              if (showAdd && editingItem) {
-                setEditingItem(null)
-                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
-              } else {
-                setShowAdd(!showAdd)
-                setShowImport(false)
-                setShowAdjust(false)
-                setEditingItem(null)
-              }
-            }}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
-            style={{ background: GRAD }}
-          >
-            <Plus size={14} />
-            <span className="hidden sm:inline">Toevoegen</span>
-          </button>
-        </div>
-      }>
-      {/* Date Navigation */}
-      <div className="px-4 sm:px-6 py-2 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between gap-4 flex-shrink-0">
-        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200">
-          {(['day', 'week', 'month'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={cn(
-                'px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all',
-                viewMode === mode ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              )}
-              style={viewMode === mode ? { background: GRAD } : {}}
-            >
-              {mode === 'day' ? 'Dag' : mode === 'week' ? 'Week' : 'Maand'}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('prev')} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-bold text-gray-700 min-w-[120px] text-center capitalize">
-            {viewMode === 'day' && format(currentDate, 'd MMMM yyyy', { locale: nl })}
-            {viewMode === 'week' && `${format(dateRange.start, 'd MMM')} - ${format(dateRange.end, 'd MMM')}`}
-            {viewMode === 'month' && format(currentDate, 'MMMM yyyy', { locale: nl })}
-          </span>
-          <button onClick={() => navigate('next')} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500">
-            <ChevronRight size={16} />
-          </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className="text-[10px] font-bold text-pink-500 hover:text-pink-600 uppercase tracking-wider ml-1 hidden sm:inline"
-          >
-            Vandaag
-          </button>
-        </div>
-      </div>
-
-      {/* Bulk delete modal */}
-      {showBulkDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-                <AlertTriangle size={18} className="text-red-500" />
-              </div>
-              <div>
-                <p className="font-bold text-gray-800">Transacties verwijderen</p>
-                <p className="text-xs text-gray-400">Kies wat je wilt wissen</p>
-              </div>
-            </div>
-            <div className="space-y-2 mb-5">
-              <button onClick={() => bulkDelete('uitgave', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                🏠 Alle privé uitgaven
-              </button>
-              <button onClick={() => bulkDelete('uitgave', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                💼 Alle zakelijke uitgaven
-              </button>
-              <button onClick={() => bulkDelete('inkomst', 'privé')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                🏠 Alle privé inkomsten
-              </button>
-              <button onClick={() => bulkDelete('inkomst', 'zakelijk')} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-gray-200 text-sm text-left hover:bg-red-50 hover:border-red-200 transition-colors">
-                💼 Alle zakelijke inkomsten
-              </button>
-              <button onClick={() => bulkDelete()} disabled={bulkDeleteLoading} className="w-full py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 text-sm text-left text-red-600 font-semibold hover:bg-red-100 transition-colors">
-                ⚠️ Alles verwijderen
-              </button>
-            </div>
-            <button onClick={() => setShowBulkDelete(false)} className="w-full py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
-              Annuleer
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Analyse error */}
-      {analyseError && (
-        <div className="mx-4 sm:mx-6 mt-3 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-600">
-          ⚠️ {analyseError}
-        </div>
-      )}
-
-      {analyseResult && (
-        <FinanceAnalysisPanel
-          analyseResult={analyseResult}
-          showAnalyse={showAnalyse}
-          setShowAnalyse={setShowAnalyse}
-          applyingRuleKey={applyingRuleKey}
-          onApplyRule={applyFinanceRule}
-          onUpdateTransaction={updateTransaction}
-        />
-      )}
-
-      {/* AI Summary */}
-      {(aiSummary || aiLoading) && (
-        <div className="mx-4 sm:mx-6 mt-3 px-4 py-3 bg-gradient-to-r from-orange-50 to-pink-50 border border-pink-100 rounded-2xl flex items-start gap-2.5">
-          <Sparkles size={14} className="text-pink-400 flex-shrink-0 mt-0.5" />
-          {aiLoading ? (
-            <div className="flex gap-1">
-              {[0, 1, 2].map(i => (
-                <span key={i} className="w-1.5 h-1.5 rounded-full bg-pink-300 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
+    <>
+      <PageShell
+        title="Financien"
+        subtitle={`Deze pagina moet je geldbeeld versimpelen: snel zien waar geld lekt, wat binnenkomt en welke transacties aandacht nodig hebben in ${periodLabel(viewMode, currentDate)}.`}
+        actions={
+          <>
+            <div className="flex rounded-full border border-black/5 bg-white p-1">
+              {VIEW_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                    viewMode === mode ? 'bg-[#202625] text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
+                  )}
+                >
+                  {mode === 'day' ? 'Dag' : mode === 'week' ? 'Week' : 'Maand'}
+                </button>
               ))}
             </div>
-          ) : (
-            <p className="text-xs text-gray-600 leading-relaxed">{aiSummary}</p>
-          )}
-        </div>
-      )}
-
-      {/* Bank import panel */}
-      {showImport && (
-        <div className="mx-4 sm:mx-6 mt-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-bold text-blue-800">Transacties importeren</p>
-              <p className="text-xs text-blue-500 mt-0.5">Upload CSV of plak ruwe banktekst (AI)</p>
-            </div>
-            <button onClick={() => { setShowImport(false); resetImport() }} className="text-blue-400 hover:text-blue-600">
-              <X size={16} />
+            <button
+              onClick={() => {
+                if (viewMode === 'day') setCurrentDate((previous) => addDays(previous, -1))
+                else if (viewMode === 'week') setCurrentDate((previous) => addWeeks(previous, -1))
+                else setCurrentDate((previous) => addMonths(previous, -1))
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+            >
+              <ChevronLeft size={16} />
             </button>
-          </div>
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            >
+              {periodLabel(viewMode, currentDate)}
+            </button>
+            <button
+              onClick={() => {
+                if (viewMode === 'day') setCurrentDate((previous) => addDays(previous, 1))
+                else if (viewMode === 'week') setCurrentDate((previous) => addWeeks(previous, 1))
+                else setCurrentDate((previous) => addMonths(previous, 1))
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              onClick={runAnalyse}
+              disabled={analyseLoading}
+              className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
+            >
+              {analyseLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              Analyse
+            </button>
+            <button
+              onClick={() => {
+                setShowImport((value) => !value)
+                setShowAdd(false)
+                setShowAdjust(false)
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            >
+              <Upload size={15} />
+              Import
+            </button>
+            <button
+              onClick={() => {
+                setShowAdd((value) => !value)
+                setEditingItem(null)
+                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+                setShowImport(false)
+                setShowAdjust(false)
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            >
+              <Plus size={15} />
+              Nieuwe transactie
+            </button>
+          </>
+        }
+      >
+        <StatStrip stats={[
+          { label: 'Netto', value: formatCurrency(net), meta: `${formatCurrency(stats?.month_income || 0)} in / ${formatCurrency(stats?.month_expenses || 0)} uit`, accent: net >= 0 ? 'green' : 'red' },
+          { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties' },
+          { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen' },
+          { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'orange' : undefined },
+        ]} />
 
-          {/* Method selector */}
-          <div className="flex gap-2 mb-3">
-            {(['csv', 'ai'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => { setImportMethod(m); resetImport() }}
-                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', importMethod === m ? 'bg-blue-600 text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
-              >
-                {m === 'csv' ? 'CSV Bestand' : 'Plak Tekst (AI)'}
-              </button>
-            ))}
-          </div>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-5">
+            {showAdd && (
+              <Panel tone="accent">
+                <PanelHeader
+                  eyebrow="Nieuwe transactie"
+                  title={editingItem ? 'Bewerk transactie' : 'Voeg transactie toe'}
+                  description="Registratie moet snel blijven. Eerst de kern, daarna pas extra nuance."
+                />
 
-          {/* Account selector */}
-          <div className="flex gap-2 mb-3">
-            {ACCOUNTS.map(acc => (
-              <button
-                key={acc}
-                onClick={() => setImportAccount(acc)}
-                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', importAccount === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
-                style={importAccount === acc ? { background: GRAD } : {}}
-              >
-                {acc === 'privé' ? '🏠 Privé' : '💼 Zakelijk'}
-              </button>
-            ))}
-          </div>
-
-          {!importResult && !importPreview && (
-            <>
-              {importMethod === 'csv' ? (
-                <label className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-blue-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors bg-white">
-                  <Upload size={20} className="text-blue-400" />
-                  <span className="text-sm text-blue-600 font-medium">{importFile ? importFile.name : 'Klik om CSV te kiezen'}</span>
-                  <span className="text-xs text-gray-400">Exporteer je bankafschrift als CSV</span>
-                  <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFileSelect} />
-                </label>
-              ) : (
-                <div className="space-y-2">
-                  <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder="Plak hier de tekst uit je (Rabobank) PDF export..."
-                    className="w-full h-32 p-3 text-xs border border-blue-200 rounded-xl outline-none focus:border-blue-400 transition-colors bg-white"
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  <input
+                    value={form.title}
+                    onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="Omschrijving"
+                    className="md:col-span-2 xl:col-span-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
-                  <button
-                    onClick={handleAiParse}
-                    disabled={importLoading || !importText.trim()}
-                    className="w-full py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                    style={{ background: GRAD }}
+                  <input
+                    type="number"
+                    value={form.amount}
+                    onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                    placeholder="Bedrag"
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  />
+                  <select
+                    value={form.type}
+                    onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as 'inkomst' | 'uitgave' }))}
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   >
-                    {importLoading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    Parseren met AI
+                    <option value="uitgave">Uitgave</option>
+                    <option value="inkomst">Inkomst</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={form.due_date}
+                    onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))}
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                  />
+                  <select
+                    value={form.category}
+                    onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                  >
+                    {CATEGORY_OPTIONS.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={form.account}
+                    onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))}
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                  >
+                    <option value="privé">Prive</option>
+                    <option value="zakelijk">Zakelijk</option>
+                    <option value="spaar-privé">Spaar Prive</option>
+                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
+                  </select>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={addItem}
+                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  >
+                    {editingItem ? 'Opslaan' : 'Toevoegen'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAdd(false)
+                      setEditingItem(null)
+                    }}
+                    className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  >
+                    Annuleer
                   </button>
                 </div>
-              )}
-            </>
-          )}
+              </Panel>
+            )}
 
-          {importLoading && (importMethod === 'csv' || !importPreview) && (
-            <div className="flex items-center gap-2 mt-3">
-              <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#3b82f6 transparent #3b82f6 #3b82f6' }} />
-              <span className="text-sm text-blue-600">Verwerken...</span>
-            </div>
-          )}
-          {importError && <p className="text-sm text-red-600 mt-2 font-medium">⚠️ {importError}</p>}
-          {importResult && (
-            <div className="flex items-center gap-2 mt-2">
-              <CheckCircle size={16} className="text-emerald-500" />
-              <p className="text-sm text-emerald-700 font-medium">{importResult.imported} van {importResult.total} transacties geïmporteerd als <strong>{importAccount}</strong>!</p>
-              <button onClick={resetImport} className="text-xs text-blue-500 ml-auto underline">Nog een bestand</button>
-            </div>
-          )}
-          {importPreview && importPreview.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs text-blue-600 font-semibold mb-2">{importPreview.length} transacties gevonden ({importAccount}) — controleer op duplicaten:</p>
-              <div className="space-y-1 max-h-64 overflow-y-auto">
-                {importPreview.map((row, i) => (
-                  <div key={i} className={cn('flex items-center gap-2 rounded-xl px-3 py-2 text-xs border', row.is_duplicate ? 'bg-amber-50 border-amber-100 opacity-75' : 'bg-white border-gray-100')}>
-                    <span className={cn('font-bold w-14 shrink-0', row.type === 'inkomst' ? 'text-emerald-600' : 'text-red-500')}>
-                      {row.type === 'inkomst' ? '+' : '-'}€{row.amount.toFixed(2)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-600 truncate font-medium">{row.description}</p>
-                      {row.is_duplicate && <p className="text-[9px] text-amber-600 font-bold uppercase tracking-wider">Mogelijk duplicaat</p>}
-                    </div>
-                    <span className="text-gray-400 shrink-0">{row.date}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button onClick={doImport} className="flex-1 py-2 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity" style={{ background: GRAD }}>
-                  Importeer {importPreview.filter(p => !p.is_duplicate).length} nieuwe transacties
-                </button>
-                <button onClick={resetImport} className="px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors">Annuleer</button>
-              </div>
-              {importPreview.some(p => p.is_duplicate) && (
-                <p className="text-[10px] text-amber-600 mt-2 text-center">
-                  <strong>Let op:</strong> Transacties die gemarkeerd zijn als &quot;Mogelijk duplicaat&quot; worden overgeslagen.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+            {showImport && (
+              <Panel tone="accent">
+                <PanelHeader
+                  eyebrow="Import"
+                  title="Bankgegevens inladen"
+                  description="Import hoort gecontroleerd te voelen: eerst preview, dan pas opslaan."
+                />
 
-      {/* Stats */}
-      {stats && (
-        <div className="px-4 sm:px-6 pt-4 pb-2 space-y-3 flex-shrink-0">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <MiniStat icon={<TrendingUp size={14} />} label={`Inkomsten`} value={formatCurrency(stats.month_income)} positive />
-            <MiniStat icon={<TrendingDown size={14} />} label={`Uitgaven`} value={formatCurrency(stats.month_expenses)} negative />
-            <MiniStat
-              icon={net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-              label={`Netto`}
-              value={formatCurrency(Math.abs(net))}
-              positive={net >= 0}
-              negative={net < 0}
-              prefix={net >= 0 ? '+' : '-'}
-            />
-            
-            {/* Balance Card Privé */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
-              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                <span className="text-pink-500">🏠</span>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Saldo Privé</span>
-              </div>
-              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'privé')?.balance ?? stats.total_balance_prive) >= 0 ? 'text-gray-800' : 'text-red-500')}>
-                {formatCurrency(actualBalances.find(b => b.account === 'privé')?.balance ?? stats.total_balance_prive)}
-              </p>
-              <div className="flex items-center justify-between mt-1 relative z-10">
-                <p className="text-[9px] text-gray-400 font-medium">Systeem: {formatCurrency(stats.total_balance_prive)}</p>
-                <button 
-                  onClick={() => { setAdjustForm({ account: 'privé', actual_balance: '' }); setShowAdjust(true) }}
-                  className="p-1 hover:bg-pink-50 rounded-lg text-pink-400 transition-colors"
-                >
-                  <RefreshCw size={10} />
-                </button>
-              </div>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-pink-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-            </div>
-
-            {/* Balance Card Zakelijk */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
-              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                <span className="text-blue-500">💼</span>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Saldo Zakelijk</span>
-              </div>
-              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'zakelijk')?.balance ?? stats.total_balance_zakelijk) >= 0 ? 'text-gray-800' : 'text-red-500')}>
-                {formatCurrency(actualBalances.find(b => b.account === 'zakelijk')?.balance ?? stats.total_balance_zakelijk)}
-              </p>
-              <div className="flex items-center justify-between mt-1 relative z-10">
-                <p className="text-[9px] text-gray-400 font-medium">Systeem: {formatCurrency(stats.total_balance_zakelijk)}</p>
-                <button
-                  onClick={() => { setAdjustForm({ account: 'zakelijk', actual_balance: '' }); setShowAdjust(true) }}
-                  className="p-1 hover:bg-blue-50 rounded-lg text-blue-400 transition-colors"
-                >
-                  <RefreshCw size={10} />
-                </button>
-              </div>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-            </div>
-
-            {/* Balance Card Spaar Privé */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
-              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                <span className="text-teal-500">🏦</span>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Spaar Privé</span>
-              </div>
-              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'spaar-privé')?.balance ?? 0) >= 0 ? 'text-gray-800' : 'text-red-500')}>
-                {formatCurrency(actualBalances.find(b => b.account === 'spaar-privé')?.balance ?? 0)}
-              </p>
-              <div className="flex items-center justify-between mt-1 relative z-10">
-                <p className="text-[9px] text-gray-400 font-medium">Handmatig bijhouden</p>
-                <button
-                  onClick={() => { setAdjustForm({ account: 'spaar-privé', actual_balance: '' }); setShowAdjust(true) }}
-                  className="p-1 hover:bg-teal-50 rounded-lg text-teal-400 transition-colors"
-                >
-                  <RefreshCw size={10} />
-                </button>
-              </div>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-teal-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-            </div>
-
-            {/* Balance Card Spaar Zakelijk */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden group">
-              <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                <span className="text-indigo-500">🏦</span>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Spaar Zakelijk</span>
-              </div>
-              <p className={cn('text-sm sm:text-lg font-black relative z-10', (actualBalances.find(b => b.account === 'spaar-zakelijk')?.balance ?? 0) >= 0 ? 'text-gray-800' : 'text-red-500')}>
-                {formatCurrency(actualBalances.find(b => b.account === 'spaar-zakelijk')?.balance ?? 0)}
-              </p>
-              <div className="flex items-center justify-between mt-1 relative z-10">
-                <p className="text-[9px] text-gray-400 font-medium">Handmatig bijhouden</p>
-                <button
-                  onClick={() => { setAdjustForm({ account: 'spaar-zakelijk', actual_balance: '' }); setShowAdjust(true) }}
-                  className="p-1 hover:bg-indigo-50 rounded-lg text-indigo-400 transition-colors"
-                >
-                  <RefreshCw size={10} />
-                </button>
-              </div>
-              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Kasverschil form */}
-      {showAdjust && (
-        <div className="mx-4 sm:mx-6 mt-2 p-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm">
-          <p className="text-sm font-bold text-amber-800 mb-3">Saldo handmatig corrigeren</p>
-          <div className="flex gap-2 mb-3">
-            {ACCOUNTS.map(acc => (
-              <button
-                key={acc}
-                onClick={() => setAdjustForm(p => ({ ...p, account: acc }))}
-                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', adjustForm.account === acc ? 'bg-amber-500 text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
-              >
-                {acc === 'privé' ? '🏠 Privé' : acc === 'zakelijk' ? '💼 Zakelijk' : acc === 'spaar-privé' ? '🏦 Spaar Privé' : '🏦 Spaar Zakelijk'}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 mb-3">
-            <input
-              type="number"
-              value={adjustForm.actual_balance}
-              onChange={e => setAdjustForm(p => ({ ...p, actual_balance: e.target.value }))}
-              placeholder="Huidig werkelijk saldo (€)"
-              className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200"
-              style={{ fontSize: '16px' }}
-            />
-            <button
-              onClick={handleAdjust}
-              disabled={!adjustForm.actual_balance}
-              className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold shadow-sm hover:bg-amber-600 transition-colors disabled:opacity-50"
-            >
-              Corrigeer
-            </button>
-          </div>
-          <p className="text-[10px] text-amber-600">
-            {adjustForm.account === 'spaar-privé' || adjustForm.account === 'spaar-zakelijk'
-              ? 'Vul het huidige saldo van je spaarrekening in. Dit wordt direct opgeslagen als werkelijk saldo.'
-              : `De bot berekent het verschil met het huidige systeem-saldo (${formatCurrency(adjustForm.account === 'zakelijk' ? stats?.total_balance_zakelijk ?? 0 : stats?.total_balance_prive ?? 0)}) en maakt automatisch een inkomst of uitgave aan.`
-            }
-          </p>
-        </div>
-      )}
-
-      {/* Add form */}
-      {showAdd && (
-        <div className="mx-4 sm:mx-6 mt-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl shadow-sm">
-          <div className="flex gap-2 mb-3">
-            {(['inkomst', 'uitgave'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setForm(p => ({ ...p, type: t }))}
-                className={cn('flex-1 py-1.5 rounded-xl text-xs capitalize font-semibold transition-all', form.type === t ? 'text-white shadow-sm' : 'bg-white text-gray-400 border border-gray-200 hover:text-gray-600')}
-                style={form.type === t ? { background: GRAD } : {}}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Omschrijving *" className="w-full bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none mb-2 border border-gray-200" style={{ fontSize: '16px' }} />
-          <div className="flex gap-2 mb-2">
-            <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="Bedrag (€)" className="flex-1 bg-white text-gray-700 placeholder:text-gray-400 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
-            <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }} />
-          </div>
-          <div className="flex gap-2 mb-3">
-            <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className="flex-1 bg-white text-gray-600 rounded-xl px-3 py-2 outline-none border border-gray-200" style={{ fontSize: '16px' }}>
-              {['overig','boodschappen','auto','transport','eten','abonnement','belasting','vaste lasten','kleding','buffer','btw','sparen'].map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            {ACCOUNTS.map(acc => (
-              <button
-                key={acc}
-                onClick={() => setForm(p => ({ ...p, account: acc }))}
-                className={cn('flex-1 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border', form.account === acc ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-400 border-gray-200')}
-                style={form.account === acc ? { background: GRAD } : {}}
-              >
-                {acc === 'privé' ? '🏠 Privé' : acc === 'zakelijk' ? '💼 Zakelijk' : acc === 'spaar-privé' ? '🏦 Spaar P' : '🏦 Spaar Z'}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 transition-colors">Annuleer</button>
-            <button onClick={addItem} className="text-sm text-white px-4 py-1.5 rounded-xl font-semibold shadow-sm transition-opacity hover:opacity-90" style={{ background: GRAD }}>Opslaan</button>
-          </div>
-        </div>
-      )}
-
-      {/* Categorieën per rekeningtype */}
-      {categoryStats.length > 0 && (
-        <div className="px-4 sm:px-6 pt-3 pb-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Privé categorieën */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-pink-500"></span>
-                <p className="text-xs font-bold text-pink-600">Privé Categorieën</p>
-              </div>
-              <div className="space-y-2">
-                {categoryStats
-                  .filter(cat => items.some(item => item.category === cat.category && item.account === 'privé'))
-                  .slice(0, 4)
-                  .map(cat => {
-                    const privéItems = items.filter(item => item.category === cat.category && item.account === 'privé')
-                    const total = privéItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
-                    const maxCat = Math.max(...categoryStats
-                      .filter(cat => items.some(item => item.category === cat.category && item.account === 'privé'))
-                      .map(cat => {
-                        const privéItems = items.filter(item => item.category === cat.category && item.account === 'privé')
-                        return privéItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
-                      })
-                    ) || 1
-                    const pct = Math.round((total / maxCat) * 100)
-                    const colorClass = CATEGORY_COLORS[cat.category] || 'bg-gray-300'
-                    return (
-                      <div key={`privé-${cat.category}`} className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 w-20 truncate capitalize">{cat.category}</span>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-[10px] font-medium text-pink-600 w-14 text-right">{formatCurrency(total)}</span>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-
-            {/* Zakelijke categorieën */}
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-blue-500"></span>
-                <p className="text-xs font-bold text-blue-600">Zakelijke Categorieën</p>
-              </div>
-              <div className="space-y-2">
-                {categoryStats
-                  .filter(cat => items.some(item => item.category === cat.category && item.account === 'zakelijk'))
-                  .slice(0, 4)
-                  .map(cat => {
-                    const zakelijkItems = items.filter(item => item.category === cat.category && item.account === 'zakelijk')
-                    const total = zakelijkItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
-                    const maxCat = Math.max(...categoryStats
-                      .filter(cat => items.some(item => item.category === cat.category && item.account === 'zakelijk'))
-                      .map(cat => {
-                        const zakelijkItems = items.filter(item => item.category === cat.category && item.account === 'zakelijk')
-                        return zakelijkItems.reduce((sum, item) => sum + (item.type === 'uitgave' ? item.amount : 0), 0)
-                      })
-                    ) || 1
-                    const pct = Math.round((total / maxCat) * 100)
-                    const colorClass = CATEGORY_COLORS[cat.category] || 'bg-gray-300'
-                    return (
-                      <div key={`zakelijk-${cat.category}`} className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 w-20 truncate capitalize">{cat.category}</span>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-[10px] font-medium text-blue-600 w-14 text-right">{formatCurrency(total)}</span>
-                      </div>
-                    )
-                  })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Charts row */}
-      <div className="px-4 sm:px-6 pt-3 pb-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {monthlyData.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart2 size={13} className="text-gray-400" />
-              <p className="text-xs font-bold text-gray-500">Maandoverzicht</p>
-            </div>
-            <div className="flex items-end gap-1.5 h-20">
-              {monthlyData.slice(-6).map((d, i) => {
-                const incPct = Math.round((d.income / maxMonthly) * 100)
-                const expPct = Math.round((d.expenses / maxMonthly) * 100)
-                return (
-                  <div key={i} className="flex-1 flex gap-0.5 items-end h-full">
-                    <div className="flex-1 flex flex-col justify-end">
-                      <div className="rounded-t-sm" style={{ height: `${incPct}%`, background: '#10b981', minHeight: incPct > 0 ? 2 : 0 }} title={`Inkomsten: ${formatCurrency(d.income)}`} />
-                    </div>
-                    <div className="flex-1 flex flex-col justify-end">
-                      <div className="rounded-t-sm bg-red-400" style={{ height: `${expPct}%`, minHeight: expPct > 0 ? 2 : 0 }} title={`Uitgaven: ${formatCurrency(d.expenses)}`} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Inkomsten</span>
-              <span className="flex items-center gap-1 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-sm bg-red-400 inline-block" />Uitgaven</span>
-            </div>
-          </div>
-        )}
-        {categoryStats.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart2 size={13} className="text-gray-400" />
-              <p className="text-xs font-bold text-gray-500">Uitgaven per categorie</p>
-            </div>
-            <div className="space-y-2">
-              {categoryStats.slice(0, 5).map(cat => {
-                const maxCat = categoryStats[0]?.total || 1
-                const pct = Math.round((cat.total / maxCat) * 100)
-                const colorClass = CATEGORY_COLORS[cat.category] || 'bg-gray-300'
-                return (
-                  <div key={cat.category} className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-500 w-20 truncate capitalize">{cat.category}</span>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-[10px] font-medium text-gray-500 w-14 text-right">{formatCurrency(cat.total)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Filters */}
-      <div className="px-4 sm:px-6 pt-2 pb-1 flex flex-wrap gap-1.5 flex-shrink-0">
-        <div className="flex gap-1.5">
-          {TYPE_FILTERS.map(f => (
-            <button
-              key={f}
-              onClick={() => setTypeFilter(f)}
-              className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap', typeFilter === f ? 'text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100')}
-              style={typeFilter === f ? { background: GRAD } : {}}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1.5">
-          {ACCOUNT_FILTERS.map(f => (
-            <button
-              key={f}
-              onClick={() => setAccountFilter(f)}
-              className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap border', accountFilter === f ? 'text-white shadow-sm border-transparent' : 'text-gray-400 border-gray-200 hover:text-gray-600 hover:bg-gray-100')}
-              style={accountFilter === f ? { background: GRAD } : {}}
-            >
-              {f === 'Privé' ? '🏠 Privé' : f === 'Zakelijk' ? '💼 Zakelijk' : f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* List */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: '#ec4899 transparent #ec4899 #ec4899' }} />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-12"><p className="text-gray-400 text-sm">Geen items gevonden.</p></div>
-        ) : (
-          <div className="space-y-1 pb-4">
-            {items.map(item => (
-              <div 
-                key={item.id} 
-                className="flex items-center gap-2 p-1.5 sm:p-2 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-all group relative cursor-pointer"
-                onClick={() => setSelectedTransaction(item)}
-              >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white shadow-sm"
-                  style={{ background: GRAD }}
-                >
-                  {item.type === 'inkomst' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setImportMethod('csv')}
+                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'csv' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                  >
+                    CSV
+                  </button>
+                  <button
+                    onClick={() => setImportMethod('ai')}
+                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'ai' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                  >
+                    AI parse
+                  </button>
+                  <select
+                    value={importAccount}
+                    onChange={(event) => setImportAccount(event.target.value)}
+                    className="rounded-full border border-black/5 bg-white px-3.5 py-1.5 text-xs font-medium text-on-surface outline-none"
+                  >
+                    <option value="privé">Prive</option>
+                    <option value="zakelijk">Zakelijk</option>
+                    <option value="spaar-privé">Spaar Prive</option>
+                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
+                  </select>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-[11px] text-gray-700 font-bold truncate">{item.title}</p>
-                    <span className={cn('text-[8px] font-black px-1 py-0.5 rounded-md uppercase tracking-tighter',
-                      item.account === 'zakelijk' ? 'bg-blue-50 text-blue-500' :
-                      item.account === 'spaar-privé' ? 'bg-teal-50 text-teal-600' :
-                      item.account === 'spaar-zakelijk' ? 'bg-indigo-50 text-indigo-600' :
-                      'bg-pink-50 text-pink-500')}>
-                      {item.account === 'zakelijk' ? 'zakelijk' : item.account === 'spaar-privé' ? 'spaar p' : item.account === 'spaar-zakelijk' ? 'spaar z' : 'privé'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[9px] text-gray-400 font-medium capitalize">{item.category}</span>
-                    <span className="text-[9px] text-gray-300">•</span>
-                    <span className="text-[9px] text-gray-400">{formatDate(item.due_date || item.created_at)}</span>
-                    {item.user_notes && (
-                      <>
-                        <span className="text-[9px] text-gray-300">•</span>
-                        <p className="text-[9px] text-pink-400 font-bold truncate flex items-center gap-0.5">
-                          <Sparkles size={7} /> {item.user_notes}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 mr-1">
-                  <span className={cn('text-xs font-black tabular-nums', item.type === 'inkomst' ? 'text-emerald-600' : 'text-gray-800')}>
-                    {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
-                  </span>
-                  
-                  {/* Hover Actions */}
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                    <AIContextButton
-                      type="finance"
-                      title={item.title}
-                      content={`${item.type} • ${formatCurrency(item.amount)} • ${item.category}`}
-                      id={item.id}
-                    />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedTransaction(item) }}
-                      className="p-1 bg-gray-50 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
-                      title="Snel aanpassen"
-                    >
-                      <Pencil size={11} />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); copyItem(item) }}
-                      className="p-1 bg-gray-50 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                      title="Dupliceren"
-                    >
-                      <Copy size={11} />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); deleteItem(item.id) }}
-                      className="p-1 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                      title="Verwijderen"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <TransactionModal
-        isOpen={!!selectedTransaction}
-        onClose={() => setSelectedTransaction(null)}
-        transaction={selectedTransaction}
-        onSave={updateTransaction}
-        onDelete={deleteItem}
-      />
-    </StandardPageLayout>
-  )
-}
-
-function MiniStat({ icon, label, value, positive, negative, prefix }: {
-  icon: React.ReactNode; label: string; value: string; positive?: boolean; negative?: boolean; prefix?: string
-}) {
-  return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 shadow-sm">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className={cn('flex-shrink-0', positive ? 'text-emerald-500' : negative ? 'text-red-400' : 'icon-gradient')}>{icon}</span>
-        <span className="text-[10px] text-gray-400 font-medium truncate">{label}</span>
-      </div>
-      <p className={cn('text-sm sm:text-base font-extrabold', positive ? 'text-emerald-600' : negative ? 'text-red-500' : 'text-gradient')}>
-        {prefix}{value}
-      </p>
-    </div>
-  )
-}
-
-function FinanceAnalysisPanel({
-  analyseResult,
-  showAnalyse,
-  setShowAnalyse,
-  applyingRuleKey,
-  onApplyRule,
-  onUpdateTransaction,
-}: {
-  analyseResult: AnalyseResult
-  showAnalyse: boolean
-  setShowAnalyse: React.Dispatch<React.SetStateAction<boolean>>
-  applyingRuleKey: string | null
-  onApplyRule: (questionKey: string, rulePatch: Record<string, unknown>) => Promise<void>
-  onUpdateTransaction: (id: number, data: Record<string, unknown>) => Promise<void>
-}) {
-  const [notes, setNotes] = useState<Record<string, string>>({})
-  const [savingNoteId, setSavingNoteId] = useState<number | null>(null)
-
-  return (
-    <div className="mx-4 sm:mx-6 mt-3 rounded-3xl border border-violet-100 bg-gradient-to-br from-orange-50 via-pink-50 to-violet-50 overflow-hidden">
-      <button
-        onClick={() => setShowAnalyse(s => !s)}
-        className="w-full flex items-center justify-between px-5 py-4"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ background: GRAD }}>
-            <Sparkles size={13} />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-bold text-gray-800">Financiële Analyse</p>
-            <p className="text-[10px] text-gray-400">
-              {analyseResult.summary.transactionCount} transacties · €{analyseResult.summary.fixedMonthlyCost}/mnd vaste lasten · €{analyseResult.summary.subscriptionMonthlyCost}/mnd abonnementen
-            </p>
-          </div>
-        </div>
-        {showAnalyse ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-      </button>
-
-      {showAnalyse && (
-        <div className="px-5 pb-5 space-y-5">
-          {analyseResult.aiInsights && (
-            <div className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm">
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <Sparkles size={11} className="text-pink-400" />
-                AI Inzichten
-              </p>
-              <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{analyseResult.aiInsights}</p>
-            </div>
-          )}
-
-          {analyseResult.reviewQuestions.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <AlertTriangle size={11} className="text-red-400" />
-                Eerst bevestigen ({analyseResult.reviewQuestions.length})
-              </p>
-              <div className="space-y-2">
-                {analyseResult.reviewQuestions.map(question => (
-                  <div key={question.queueKey} className="rounded-2xl border border-red-100 bg-white/90 p-3 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-700">{question.prompt}</p>
-                        <p className="text-[10px] text-gray-500 mt-1">{question.rationale}</p>
-                      </div>
-                      <span className={cn('px-2 py-1 rounded-full border text-[10px] font-semibold whitespace-nowrap', CONFIDENCE_STYLE[question.confidenceLabel])}>
-                        {confidenceText(question.confidenceLabel)}
-                      </span>
+                <div className="mt-5 space-y-3">
+                  {importMethod === 'csv' ? (
+                    <div className="rounded-[24px] border border-dashed border-outline-variant/40 bg-white/55 px-4 py-6">
+                      <input ref={fileRef} type="file" accept=".csv,.txt,.tsv" onChange={handleFileSelect} className="text-sm text-on-surface" />
                     </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={importText}
+                        onChange={(event) => setImportText(event.target.value)}
+                        placeholder="Plak hier ruwe banktekst of PDF-export"
+                        className="min-h-[180px] w-full resize-none rounded-[24px] border border-black/5 bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                      />
+                      <button
+                        onClick={handleAiParse}
+                        disabled={importLoading || !importText.trim()}
+                        className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                      >
+                        {importLoading ? 'Bezig...' : 'Maak preview'}
+                      </button>
+                    </>
+                  )}
 
-                    <input
-                      type="text"
-                      placeholder="Voeg notitie toe..."
-                      value={notes[question.queueKey] || ''}
-                      onChange={(e) => setNotes(prev => ({ ...prev, [question.queueKey]: e.target.value }))}
-                      className="w-full mt-3 px-3 py-2 text-xs border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-100 bg-white/50"
-                    />
+                  {importError && (
+                    <div className="rounded-[22px] border border-[#e5c6b8] bg-[#fff7eb] px-4 py-3 text-sm text-[#9b6941]">
+                      {importError}
+                    </div>
+                  )}
 
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {question.suggestedActions.map(action => (
+                  {importResult && (
+                    <div className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3 text-sm text-on-surface">
+                      {importResult.imported} van {importResult.total} transacties opgeslagen.
+                    </div>
+                  )}
+
+                  {importPreview && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-on-surface">Preview</p>
                         <button
-                          key={action.label}
-                          onClick={() => onApplyRule(question.queueKey, { ...action.rulePatch, notes: notes[question.queueKey] })}
-                          disabled={applyingRuleKey === question.queueKey}
-                          className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-gray-200 text-gray-600 hover:border-pink-200 hover:text-gray-800 disabled:opacity-60"
+                          onClick={doImport}
+                          disabled={importLoading}
+                          className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                         >
-                          {applyingRuleKey === question.queueKey ? 'Opslaan...' : action.label}
+                          {importLoading ? 'Importeren...' : 'Importeer nu'}
                         </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {importPreview.slice(0, 8).map((row, index) => (
+                          <div key={`${row.description}-${index}`} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-on-surface">{row.description}</p>
+                                <p className="mt-1 text-xs text-on-surface-variant">
+                                  {row.date} | {row.category}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className={cn('text-sm font-bold', row.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
+                                  {row.type === 'inkomst' ? '+' : '-'}{formatCurrency(row.amount)}
+                                </p>
+                                {row.is_duplicate && <p className="mt-1 text-[10px] font-semibold text-on-surface-variant">dubbel</p>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            )}
+
+            {showAdjust && (
+              <Panel tone="accent">
+                <PanelHeader
+                  eyebrow="Kasverschil"
+                  title="Balans corrigeren"
+                  description="Gebruik dit alleen als de echte rekeningstand afwijkt van je geregistreerde transacties."
+                />
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <select
+                    value={adjustForm.account}
+                    onChange={(event) => setAdjustForm((current) => ({ ...current, account: event.target.value }))}
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                  >
+                    <option value="privé">Prive</option>
+                    <option value="zakelijk">Zakelijk</option>
+                    <option value="spaar-privé">Spaar Prive</option>
+                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={adjustForm.actual_balance}
+                    onChange={(event) => setAdjustForm((current) => ({ ...current, actual_balance: event.target.value }))}
+                    placeholder="Werkelijke stand"
+                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={handleAdjust}
+                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  >
+                    Corrigeer
+                  </button>
+                  <button
+                    onClick={() => setShowAdjust(false)}
+                    className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  >
+                    Annuleer
+                  </button>
+                </div>
+              </Panel>
+            )}
+
+            <Panel tone="muted">
+              <PanelHeader
+                eyebrow="Filters"
+                title="Breng ruis terug"
+                description="Financien worden pas bruikbaar als je snel kunt inzoomen op periode, rekening en type."
+                action={
+                  <button
+                    onClick={() => {
+                      setShowAdjust((value) => !value)
+                      setShowAdd(false)
+                      setShowImport(false)
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  >
+                    <RefreshCw size={12} />
+                    Kasverschil
+                  </button>
+                }
+              />
+
+              <div className="mt-5 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {TYPE_FILTERS.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setTypeFilter(item)}
+                      className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', typeFilter === item ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {ACCOUNT_FILTERS.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setAccountFilter(item)}
+                      className={cn('rounded-full border border-black/5 px-3 py-1.5 text-xs font-medium transition-colors', accountFilter === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+
+            <Panel padding="sm">
+              <PanelHeader
+                eyebrow="Transacties"
+                title={`${items.length} regels in beeld`}
+                description="De lijst moet compact, scanbaar en betrouwbaar blijven. Details open je alleen als je ze nodig hebt."
+                className="px-2 pb-2"
+              />
+
+              {loading ? (
+                <div className="flex min-h-[280px] items-center justify-center">
+                  <Loader2 size={22} className="animate-spin text-on-surface-variant" />
+                </div>
+              ) : items.length === 0 ? (
+                <EmptyPanel
+                  title="Geen transacties in deze selectie"
+                  description="Dat kan betekenen dat je filters scherp staan, of dat er voor deze periode gewoon weinig beweging was."
+                />
+              ) : (
+                <div className="mt-2 space-y-1">
+                  {items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelectedTransaction(item)}
+                      className="group block w-full rounded-[24px] px-4 py-3.5 text-left transition-colors hover:bg-surface-container-low"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#202625]" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start gap-2">
+                            <p className="text-sm font-semibold text-on-surface">{item.title}</p>
+                            <ActionPill>{item.category}</ActionPill>
+                            <ActionPill>{accountLabel(item.account)}</ActionPill>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+                            <span>{item.contact_name || item.status}</span>
+                            <span>{item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}</span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
+                            {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
+                          </p>
+                          <div className="mt-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                copyItem(item)
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+                            >
+                              <Copy size={13} />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setEditingItem(item)
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+                            >
+                              <Plus size={13} className="rotate-45" />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                deleteItem(item.id)
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            {analyseResult && (
+              <Panel>
+                <PanelHeader
+                  eyebrow="Analyse"
+                  title="AI financieel beeld"
+                  description="Analyse hoort gericht te zijn op signalen en beslissingen, niet op decoratieve rapportjes."
+                />
+
+                <div className="mt-5 space-y-5">
+                  {analyseResult.aiInsights && (
+                    <div className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                      <p className="text-sm leading-7 text-on-surface">{analyseResult.aiInsights}</p>
+                    </div>
+                  )}
+
+                  <StatStrip stats={[
+                    { label: 'Netto', value: formatCurrency(analyseResult.summary.net) },
+                    { label: 'Terugkerend', value: formatCurrency(analyseResult.summary.recurringMonthlyCost), meta: 'geschat/mnd' },
+                    { label: 'Vaste lasten', value: formatCurrency(analyseResult.summary.fixedMonthlyCost) },
+                    { label: 'Twijfel', value: analyseResult.summary.uncertainRecurringCount, meta: 'merchants' },
+                  ]} />
+
+                  {analyseResult.recurringGroups.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                        Terugkerende patronen
+                      </p>
+                      {analyseResult.recurringGroups.slice(0, 5).map((group, index) => (
+                        <div key={group.merchantKey}>
+                          {index > 0 && <Divider />}
+                          <div className="rounded-lg px-2 py-2.5">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-on-surface">{group.displayName}</p>
+                                <p className="text-xs text-on-surface-variant">{group.recurrenceLabel} | {CONFIDENCE_TEXT[group.confidenceLabel]}</p>
+                              </div>
+                              {group.monthlyEquivalent != null && (
+                                <p className="text-sm font-bold text-on-surface">{formatCurrency(group.monthlyEquivalent)}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {analyseResult.recurringGroups.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <Repeat size={11} className="text-violet-400" />
-                Terugkerende uitgaven ({analyseResult.recurringGroups.length})
-                <span className="ml-auto text-[10px] text-violet-500 font-semibold">
-                  €{analyseResult.summary.recurringMonthlyCost}/mnd betrouwbaar berekend
-                </span>
-              </p>
-              <div className="space-y-1.5">
-                {analyseResult.recurringGroups.slice(0, 8).map(group => (
-                  <div key={group.merchantKey} className="flex items-start gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
-                    <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-                      <Repeat size={11} className="text-violet-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-xs font-semibold text-gray-700 truncate">{group.displayName}</p>
-                        <span className={cn('px-2 py-0.5 rounded-full border text-[10px] font-semibold', CONFIDENCE_STYLE[group.confidenceLabel])}>
-                          {confidenceText(group.confidenceLabel)}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{group.recurrenceLabel} · {group.count}x gezien · laatste: {group.lastSeen}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">{group.explanation}</p>
-                      {group.reviewReason && <p className="text-[10px] text-red-500 mt-1">{group.reviewReason}</p>}
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      {group.monthlyEquivalent != null ? (
-                        <>
-                          <p className="text-xs font-bold text-violet-600">€{group.monthlyEquivalent.toFixed(2)}/mnd</p>
-                          <p className="text-[10px] text-gray-400">{group.monthlyEquivalentLabel}</p>
-                        </>
-                      ) : (
-                        <p className="text-[10px] text-gray-400">nog geen betrouwbare maandomrekening</p>
-                      )}
-                      <p className="text-[10px] text-gray-500 mt-1">€{group.amountPerCharge.toFixed(2)} per keer</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {analyseResult.patterns.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <Eye size={11} className="text-pink-400" />
-                Meest bij uitgegeven
-              </p>
-              <div className="space-y-1.5">
-                {analyseResult.patterns.slice(0, 6).map((pattern, index) => {
-                  const maxSpent = analyseResult.patterns[0]?.totalSpent || 1
-                  const pct = Math.round((pattern.totalSpent / maxSpent) * 100)
-                  return (
-                    <div key={`${pattern.merchant}-${index}`} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2 border border-white">
-                      <span className="text-[10px] text-gray-400 w-4 text-center">{index + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <p className="text-xs font-medium text-gray-700 truncate">{pattern.merchant}</p>
-                          <span className={cn('px-2 py-0.5 rounded-full border text-[10px] font-semibold', CONFIDENCE_STYLE[pattern.confidenceLabel])}>
-                            {confidenceText(pattern.confidenceLabel)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: GRAD }} />
+                  {analyseResult.anomalies.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                        Opvallende afwijkingen
+                      </p>
+                      {analyseResult.anomalies.slice(0, 4).map((anomaly, index) => (
+                        <div key={`${anomaly.title}-${index}`}>
+                          {index > 0 && <Divider />}
+                          <div className="flex items-start justify-between gap-3 rounded-lg px-2 py-2.5">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-on-surface">{anomaly.title}</p>
+                              <p className="text-xs text-on-surface-variant">{anomaly.reason}</p>
+                            </div>
+                            <p className="text-sm font-bold text-[#9b6941]">{formatCurrency(anomaly.amount)}</p>
                           </div>
-                          <span className="text-[10px] text-gray-400">{pattern.visits}x</span>
                         </div>
-                      </div>
-                      <p className="text-xs font-bold text-gray-800 ml-2 flex-shrink-0">€{pattern.totalSpent.toFixed(0)}</p>
+                      ))}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {analyseResult.trends.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <BarChart2 size={11} className="text-orange-400" />
-                Maandtrend
-              </p>
-              <div className="space-y-1.5">
-                {analyseResult.trends.slice(-4).map(trend => (
-                  <div key={trend.month} className="flex items-center gap-3 bg-white/80 rounded-xl px-3 py-2.5 border border-white">
-                    <span className="text-[10px] font-medium text-gray-500 w-14 flex-shrink-0">{trend.month}</span>
-                    <div className="flex-1 flex gap-2 text-[10px]">
-                      <span className="text-emerald-600 font-semibold">+€{trend.income.toFixed(0)}</span>
-                      <span className="text-red-400">-€{trend.expenses.toFixed(0)}</span>
+                  {analyseResult.reviewQuestions.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
+                        Nog te bevestigen
+                      </p>
+                      {analyseResult.reviewQuestions.slice(0, 4).map((question) => (
+                        <div key={question.queueKey} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                          <p className="text-sm font-semibold text-on-surface">{question.merchantLabel}</p>
+                          <p className="mt-2 text-xs leading-5 text-on-surface-variant">{question.prompt}</p>
+                          <p className="mt-2 text-xs leading-5 text-on-surface-variant">{question.rationale}</p>
+                        </div>
+                      ))}
                     </div>
-                    <span className={cn('text-xs font-bold flex-shrink-0', trend.net >= 0 ? 'text-emerald-600' : 'text-red-500')}>
-                      {trend.net >= 0 ? '+' : ''}€{trend.net.toFixed(0)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
+              </Panel>
+            )}
+          </div>
 
-          {analyseResult.anomalies.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1.5">
-                <AlertTriangle size={11} className="text-amber-400" />
-                Opvallende transacties ({analyseResult.anomalies.length})
-              </p>
-              <div className="space-y-1.5">
-                {analyseResult.anomalies.map(anomaly => {
-                  const colors = { high: 'bg-red-50 border-red-100 text-red-600', medium: 'bg-amber-50 border-amber-100 text-amber-600', low: 'bg-gray-50 border-gray-100 text-gray-500' }
-                  const noteKey = anomaly.id ? `anomaly-${anomaly.id}` : `anomaly-${anomaly.title}-${anomaly.date}`
+          <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+            <Panel tone="accent">
+              <PanelHeader
+                eyebrow="Samenvatting"
+                title="Wat je geld nu zegt"
+                description="Een goede finance-rail vertelt meteen waar de spanning zit."
+              />
+
+              <div className="mt-5 space-y-3">
+                {aiSummary ? (
+                  <p className="text-sm leading-7 text-on-surface">{aiSummary}</p>
+                ) : (
+                  <EmptyPanel
+                    title="Nog geen AI samenvatting"
+                    description="De pagina werkt zonder AI, maar een goede samenvatting helpt sneller de juiste financiele vraag te stellen."
+                  />
+                )}
+              </div>
+            </Panel>
+
+            <Panel>
+              <PanelHeader
+                eyebrow="Rekeningen"
+                title="Balansen"
+                description="Geregistreerde en werkelijke stand moeten hier naast elkaar leesbaar zijn."
+              />
+
+              <div className="mt-4">
+                {[
+                  { account: 'privé', calc: stats?.total_balance_prive || 0 },
+                  { account: 'zakelijk', calc: stats?.total_balance_zakelijk || 0 },
+                ].map((entry, index) => {
+                  const actual = balances.find((balance) => balance.account === entry.account)
+                  const diff = actual ? actual.balance - entry.calc : null
                   return (
-                    <div key={`${anomaly.title}-${anomaly.date}-${anomaly.amount}`} className={`flex flex-col gap-2 rounded-xl px-3 py-2.5 border ${colors[anomaly.severity]}`}>
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate">{anomaly.title}</p>
-                          <p className="text-[10px] opacity-70">{anomaly.reason}</p>
+                    <div key={entry.account}>
+                      {index > 0 && <Divider />}
+                      <div className="flex items-center justify-between rounded-lg px-2 py-2.5">
+                        <div>
+                          <p className="text-sm font-semibold text-on-surface">{accountLabel(entry.account)}</p>
+                          <p className="text-xs text-on-surface-variant">
+                            Berekend {formatCurrency(entry.calc)}{actual ? ` | Werkelijk ${formatCurrency(actual.balance)}` : ''}
+                          </p>
                         </div>
-                        <span className="text-xs font-bold flex-shrink-0">{formatCurrency(anomaly.amount)}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Verklaring (bijv. wat was dit?)"
-                          value={notes[noteKey] || ''}
-                          onChange={(e) => setNotes(prev => ({ ...prev, [noteKey]: e.target.value }))}
-                          className="flex-1 px-2.5 py-1.5 text-[10px] border border-black/5 rounded-lg focus:outline-none bg-white/40 placeholder:text-black/30"
-                        />
-                        {anomaly.id && (
-                          <button
-                            onClick={async () => {
-                              setSavingNoteId(anomaly.id!)
-                              await onUpdateTransaction(anomaly.id!, { user_notes: notes[noteKey], user_verified: true })
-                              setSavingNoteId(null)
-                            }}
-                            disabled={savingNoteId === anomaly.id || !notes[noteKey]}
-                            className="px-3 py-1.5 rounded-lg bg-white/60 text-[10px] font-bold hover:bg-white/80 transition-colors disabled:opacity-50 whitespace-nowrap"
-                          >
-                            {savingNoteId === anomaly.id ? 'Bezig...' : 'Opslaan'}
-                          </button>
+                        {diff !== null && (
+                          <ActionPill className={Math.abs(diff) > 0.01 ? 'text-[#9b6941]' : ''}>
+                            {diff === 0 ? 'OK' : `${diff > 0 ? '+' : ''}${formatCurrency(diff)}`}
+                          </ActionPill>
                         )}
                       </div>
                     </div>
                   )
                 })}
               </div>
-            </div>
-          )}
+            </Panel>
+
+            <Panel tone="muted">
+              <PanelHeader
+                eyebrow="Uitgaven"
+                title="Topcategorieen"
+                description="Welke categorieen vreten in deze periode het meeste weg?"
+              />
+
+              <div className="mt-4">
+                {categoryStats.length === 0 ? (
+                  <EmptyPanel title="Nog geen categoriedata" description="Zodra er genoeg uitgaven in beeld zijn, zie je hier direct waar het zwaartepunt ligt." />
+                ) : (
+                  categoryStats.map((category, index) => (
+                    <div key={category.category}>
+                      {index > 0 && <Divider />}
+                      <div className="flex items-center justify-between rounded-lg px-2 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-on-surface">{category.category}</p>
+                          <p className="text-xs text-on-surface-variant">{category.count} transacties</p>
+                        </div>
+                        <p className="text-sm font-bold text-on-surface">{formatCurrency(category.total)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Panel>
+
+            <Panel>
+              <PanelHeader
+                eyebrow="Trend"
+                title="Laatste maanden"
+                description="Snel zien of inkomen en uitgaven structureel uit elkaar gaan lopen."
+              />
+
+              <div className="mt-4">
+                {monthlyData.length === 0 ? (
+                  <EmptyPanel title="Nog geen maandtrend" description="Vanaf meerdere maanden data wordt dit een bruikbaarder stuurinstrument." />
+                ) : (
+                  monthlyData.slice(-6).map((month, index) => (
+                    <div key={month.month}>
+                      {index > 0 && <Divider />}
+                      <div className="rounded-lg px-2 py-2.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-on-surface">{month.month}</p>
+                          <p className="text-xs font-semibold text-on-surface-variant">
+                            {formatCurrency(month.income - month.expenses)}
+                          </p>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          <div>
+                            <div className="mb-1 flex items-center justify-between text-[10px] text-on-surface-variant">
+                              <span>Inkomsten</span>
+                              <span>{formatCurrency(month.income)}</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+                              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(month.income / maxMonthly) * 100}%` }} />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="mb-1 flex items-center justify-between text-[10px] text-on-surface-variant">
+                              <span>Uitgaven</span>
+                              <span>{formatCurrency(month.expenses)}</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+                              <div className="h-full rounded-full bg-[#a55a2c]" style={{ width: `${(month.expenses / maxMonthly) * 100}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Panel>
+          </div>
         </div>
-      )}
-    </div>
+      </PageShell>
+
+      <TransactionModal
+        isOpen={!!selectedTransaction}
+        transaction={selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        onSave={updateTransaction}
+        onDelete={async (id: number) => {
+          await deleteItem(id)
+          setSelectedTransaction(null)
+        }}
+      />
+    </>
   )
 }
