@@ -23,6 +23,7 @@ const ALT_AUTH_API_PATHS = new Set([
   '/api/telegram/setup',
   '/api/telegram/deep-sync',
   '/api/ai/sync',
+  '/api/admin/fix-import-constraint',
 ])
 
 function applySecurityHeaders(response: NextResponse) {
