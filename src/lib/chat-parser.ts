@@ -1,4 +1,4 @@
-import { addDays, addWeeks, format, isValid, nextFriday, nextMonday } from 'date-fns'
+import { addDays, addWeeks, format, isValid } from 'date-fns'
 
 export type Intent =
   | 'todo_add'
@@ -69,6 +69,28 @@ function normalize(text: string): string {
 export function extractDate(text: string): string | undefined {
   const lower = normalize(text)
   const today = new Date()
+  const weekdayMap: Record<string, number> = {
+    zondag: 0,
+    maandag: 1,
+    dinsdag: 2,
+    woensdag: 3,
+    donderdag: 4,
+    vrijdag: 5,
+    zaterdag: 6,
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  }
+
+  const nextWeekday = (targetDay: number) => {
+    const currentDay = today.getDay()
+    const diff = (targetDay - currentDay + 7) % 7 || 7
+    return addDays(today, diff)
+  }
 
   const patterns: Array<[RegExp, (m?: RegExpMatchArray) => Date]> = [
     [/\b(vandaag|today)\b/, () => today],
@@ -76,8 +98,7 @@ export function extractDate(text: string): string | undefined {
     [/\b(overmorgen)\b/, () => addDays(today, 2)],
     [/\b(volgende week|next week|deze week)\b/, () => addWeeks(today, 1)],
     [/\b(volgende maand|next month)\b/, () => addDays(today, 30)],
-    [/\b(maandag|monday)\b/, () => nextMonday(today)],
-    [/\b(vrijdag|friday)\b/, () => nextFriday(today)],
+    [/\b(maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/, (m?: RegExpMatchArray) => nextWeekday(weekdayMap[m?.[1] || 'maandag'])],
     [/\bover (\d+) dagen?\b/, (m?: RegExpMatchArray) => addDays(today, parseInt(m?.[1] || '1', 10))],
     [/\bover (\d+) weken?\b/, (m?: RegExpMatchArray) => addWeeks(today, parseInt(m?.[1] || '1', 10))],
     [/\beinde (van de )?maand\b/, () => new Date(today.getFullYear(), today.getMonth() + 1, 0)],
@@ -135,7 +156,7 @@ function stripLeadingCommand(text: string, patterns: RegExp[]): string {
 
 function cleanTodoTitle(text: string): string {
   return stripLeadingCommand(text, [
-    /\b(zet in todo|voeg toe aan todo|add to todo|todo:|herinner me om|remind me to|maak een todo voor|maak todo|nieuwe taak|taak:|task:)\b/gi,
+    /\b(zet in todo|voeg toe aan todo|add to todo|todo:|herinner me(?:\s+\w+){0,3}\s+om|remind me(?:\s+\w+){0,3}\s+to|maak een todo voor|maak todo|nieuwe taak|taak:|task:)\b/gi,
     /\b(urgent|asap|dringend|hoog prioriteit|lage prioriteit|morgen|vandaag|overmorgen|volgende week|volgende maand|deze week)\b/gi,
     /\bover \d+ (dagen?|weken?)\b/gi,
     /\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g,
@@ -162,6 +183,7 @@ function cleanEventTitle(text: string): string {
     /\b(zet in agenda|agenda|event|plan in|gepland|vergadering|meeting|afspraak|deadline|herinnering)\b/gi,
     /\b(vandaag|morgen|overmorgen|deze week|volgende week|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\b/gi,
     /\b\d{1,2}:\d{2}\b/g,
+    /\bom\b/gi,
     /^[:\-\s]+/g,
   ]).replace(/^[:\-\s]+/, '').trim()
 }
@@ -282,7 +304,7 @@ export function parseIntent(input: string): ParsedIntent {
   }
 
   if (
-    /\b(zet in todo|voeg toe aan todo|todo:|add to todo|herinner me om|remind me to|maak.{0,15}todo|nieuwe taak|new task|taak:|task:)\b/i.test(text) ||
+    /\b(zet in todo|voeg toe aan todo|todo:|add to todo|herinner me(?:\s+\w+){0,3}\s+om|remind me(?:\s+\w+){0,3}\s+to|maak.{0,15}todo|nieuwe taak|new task|taak:|task:)\b/i.test(text) ||
     /^todo:?\s+/i.test(text)
   ) {
     const title = cleanTodoTitle(text)

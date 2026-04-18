@@ -47,6 +47,93 @@ interface PendingPayload {
   aiActions?: AIAction[]
 }
 
+async function buildDeterministicListResponse(intent: ReturnType<typeof parseIntent>): Promise<ChatResult | null> {
+  if (intent.intent === 'todo_list') {
+    const filter = String(intent.params.filter || 'open').toLowerCase()
+    const conditions = ['t.completed = 0']
+    const label = filter === 'today' || filter === 'vandaag'
+      ? 'vandaag'
+      : filter === 'deze week' || filter === 'week'
+        ? 'deze week'
+        : filter === 'overdue' || filter === 'te laat'
+          ? 'te laat'
+          : 'open'
+
+    if (filter === 'today' || filter === 'vandaag') {
+      conditions.push('t.due_date::date = CURRENT_DATE')
+    } else if (filter === 'deze week' || filter === 'week') {
+      conditions.push("t.due_date::date <= CURRENT_DATE + INTERVAL '7 days'")
+    } else if (filter === 'overdue' || filter === 'te laat') {
+      conditions.push('t.due_date::date < CURRENT_DATE')
+    } else if (filter === 'completed' || filter === 'afgerond') {
+      conditions.length = 0
+      conditions.push('t.completed = 1')
+    }
+
+    const todos = await query<{ id: number; title: string; priority: string; due_date?: string | null }>(`
+      SELECT t.id, t.title, t.priority, TO_CHAR(t.due_date, 'YYYY-MM-DD') as due_date
+      FROM todos t
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY
+        CASE t.priority WHEN 'hoog' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+        t.due_date ASC NULLS LAST,
+        t.created_at DESC
+      LIMIT 20
+    `).catch(() => [])
+
+    const reply = todos.length === 0
+      ? 'Geen open todos gevonden.'
+      : `Open todos (${label}):\n${todos.map(todo => `• ${todo.title}${todo.due_date ? ` (${todo.due_date})` : ''}`).join('\n')}`
+
+    return {
+      reply,
+      actions: [{ type: 'todo_listed', data: todos }],
+      parserType: 'deterministic',
+      confidence: Math.max(intent.confidence, 0.9),
+      intent: intent.intent,
+    }
+  }
+
+  if (intent.intent === 'event_list') {
+    const filter = String(intent.params.filter || 'deze week').toLowerCase()
+    let startSql = 'CURRENT_DATE'
+    let endSql = "CURRENT_DATE + INTERVAL '7 days'"
+    let label = 'deze week'
+
+    if (filter === 'vandaag' || filter === 'today') {
+      startSql = 'CURRENT_DATE'
+      endSql = 'CURRENT_DATE'
+      label = 'vandaag'
+    } else if (filter === 'morgen' || filter === 'tomorrow') {
+      startSql = "CURRENT_DATE + INTERVAL '1 day'"
+      endSql = "CURRENT_DATE + INTERVAL '1 day'"
+      label = 'morgen'
+    }
+
+    const events = await query<{ id: number; title: string; date: string; time?: string | null; type?: string }>(`
+      SELECT id, title, TO_CHAR(date, 'YYYY-MM-DD') as date, time, type
+      FROM events
+      WHERE date BETWEEN ${startSql} AND ${endSql}
+      ORDER BY date ASC, time ASC NULLS LAST, created_at ASC
+      LIMIT 20
+    `).catch(() => [])
+
+    const reply = events.length === 0
+      ? 'Geen agenda-items gevonden.'
+      : `Agenda ${label}:\n${events.map(event => `• ${event.date}${event.time ? ` ${event.time}` : ''}: ${event.title}`).join('\n')}`
+
+    return {
+      reply,
+      actions: [{ type: 'events_listed', data: events }],
+      parserType: 'deterministic',
+      confidence: Math.max(intent.confidence, 0.9),
+      intent: intent.intent,
+    }
+  }
+
+  return null
+}
+
 function buildFallbackActionsFromIntent(intent: ReturnType<typeof parseIntent>, rawMessage: string): AIAction[] {
   if (intent.intent === 'grocery_add') {
     const rawTitle = String(intent.params.title || rawMessage)
@@ -452,6 +539,18 @@ export async function processChatMessage(request: ChatRequest): Promise<ChatResu
         confidence: deterministicIntent.confidence,
         intent: deterministicIntent.intent,
       }
+      await logAndStoreResponse(userContent, result)
+      return result
+    }
+  }
+
+  if (
+    aiResult.actions.length === 0 &&
+    ['todo_list', 'event_list'].includes(deterministicIntent.intent) &&
+    deterministicIntent.confidence >= 0.85
+  ) {
+    const result = await buildDeterministicListResponse(deterministicIntent)
+    if (result) {
       await logAndStoreResponse(userContent, result)
       return result
     }
