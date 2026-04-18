@@ -22,6 +22,7 @@ const ALT_AUTH_API_PATHS = new Set([
   '/api/notifications/send-telegram',
   '/api/telegram/setup',
   '/api/telegram/deep-sync',
+  '/api/ai/sync',
 ])
 
 function applySecurityHeaders(response: NextResponse) {
