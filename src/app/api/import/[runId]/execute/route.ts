@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (run.status === 'executing') {
     return NextResponse.json({ error: 'Run wordt al uitgevoerd' }, { status: 409 })
   }
-  if (run.status === 'completed') {
+  if (run.status === 'done' || run.status === 'completed') {
     return NextResponse.json({ error: 'Run is al afgerond' }, { status: 409 })
   }
 

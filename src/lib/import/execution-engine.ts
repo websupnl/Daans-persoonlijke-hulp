@@ -71,10 +71,10 @@ async function executeProject(c: Candidate): Promise<{ entityId: number }> {
 
   // Create new project
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO projects (title, status, description, import_run_id, created_at, updated_at)
-     VALUES ($1, 'actief', $2, $3, NOW(), NOW())
+    `INSERT INTO projects (title, status, description, created_at, updated_at)
+     VALUES ($1, 'actief', $2, NOW(), NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 500), c.import_run_id]
+    [title, c.normalized_text.slice(0, 500)]
   )
   if (!row?.id) throw new Error('Project niet aangemaakt (geen ID)')
 
@@ -93,8 +93,8 @@ async function executeMemory(c: Candidate): Promise<{ entityId: number }> {
   // Update if matched
   if (c.suggested_action === 'update' && c.matched_entity_id) {
     await execute(
-      `UPDATE memory_log SET value = $2, last_reinforced_at = NOW(), import_run_id = $3 WHERE id = $1`,
-      [c.matched_entity_id, value, c.import_run_id]
+      `UPDATE memory_log SET value = $2, last_reinforced_at = NOW() WHERE id = $1`,
+      [c.matched_entity_id, value]
     )
     const verify = await queryOne<{ id: number }>('SELECT id FROM memory_log WHERE id = $1', [c.matched_entity_id])
     if (!verify) throw new Error('Verificatie mislukt na updaten memory')
@@ -108,17 +108,17 @@ async function executeMemory(c: Candidate): Promise<{ entityId: number }> {
   )
   if (existing?.id) {
     await execute(
-      `UPDATE memory_log SET value = $2, last_reinforced_at = NOW(), import_run_id = $3 WHERE id = $1`,
-      [existing.id, value, c.import_run_id]
+      `UPDATE memory_log SET value = $2, last_reinforced_at = NOW() WHERE id = $1`,
+      [existing.id, value]
     )
     return { entityId: existing.id }
   }
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO memory_log (key, value, import_run_id, created_at, last_reinforced_at)
-     VALUES ($1, $2, $3, NOW(), NOW())
+    `INSERT INTO memory_log (key, value, created_at, last_reinforced_at)
+     VALUES ($1, $2, NOW(), NOW())
      RETURNING id`,
-    [key, value, c.import_run_id]
+    [key, value]
   )
   if (!row?.id) throw new Error('Memory niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM memory_log WHERE id = $1', [row.id])
@@ -132,8 +132,8 @@ async function executeIdea(c: Candidate): Promise<{ entityId: number }> {
   // Merge = update existing idea description
   if (c.suggested_action === 'merge' && c.matched_entity_id) {
     await execute(
-      `UPDATE ideas SET description = COALESCE(description || E'\n\n' || $2, $2), updated_at = NOW(), import_run_id = $3 WHERE id = $1`,
-      [c.matched_entity_id, c.normalized_text.slice(0, 500), c.import_run_id]
+      `UPDATE ideas SET refined_summary = COALESCE(refined_summary || E'\n\n' || $2, $2), updated_at = NOW() WHERE id = $1`,
+      [c.matched_entity_id, c.normalized_text.slice(0, 500)]
     )
     const verify = await queryOne<{ id: number }>('SELECT id FROM ideas WHERE id = $1', [c.matched_entity_id])
     if (!verify) throw new Error('Verificatie mislukt na mergen idee')
@@ -141,10 +141,10 @@ async function executeIdea(c: Candidate): Promise<{ entityId: number }> {
   }
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO ideas (title, description, status, import_run_id, created_at, updated_at)
-     VALUES ($1, $2, 'nieuw', $3, NOW(), NOW())
+    `INSERT INTO ideas (title, raw_input, status, created_at, updated_at)
+     VALUES ($1, $2, 'nieuw', NOW(), NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 500), c.import_run_id]
+    [title, c.normalized_text.slice(0, 500)]
   )
   if (!row?.id) throw new Error('Idee niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM ideas WHERE id = $1', [row.id])
@@ -161,10 +161,10 @@ async function executeTodo(c: Candidate): Promise<{ entityId: number }> {
   }
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO todos (title, description, completed, import_run_id, created_at)
-     VALUES ($1, $2, 0, $3, NOW())
+    `INSERT INTO todos (title, description, completed, priority, category, created_at)
+     VALUES ($1, $2, 0, 'medium', 'overig', NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 500), c.import_run_id]
+    [title, c.normalized_text.slice(0, 500)]
   )
   if (!row?.id) throw new Error('Todo niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM todos WHERE id = $1', [row.id])
@@ -178,7 +178,7 @@ async function executeJournal(c: Candidate): Promise<{ entityId: number }> {
 
   // Check if a journal entry for this date already exists
   const existing = await queryOne<{ id: number; content: string }>(
-    `SELECT id, content FROM journal_entries WHERE DATE(entry_date) = $1 LIMIT 1`,
+    `SELECT id, content FROM journal_entries WHERE date = $1 LIMIT 1`,
     [entryDate]
   )
 
@@ -186,8 +186,8 @@ async function executeJournal(c: Candidate): Promise<{ entityId: number }> {
     // Append to existing entry
     const appended = existing.content + '\n\n---\n\n' + c.normalized_text.slice(0, 2000)
     await execute(
-      `UPDATE journal_entries SET content = $2, import_run_id = $3 WHERE id = $1`,
-      [existing.id, appended, c.import_run_id]
+      `UPDATE journal_entries SET content = $2, updated_at = NOW() WHERE id = $1`,
+      [existing.id, appended]
     )
     const verify = await queryOne<{ id: number }>('SELECT id FROM journal_entries WHERE id = $1', [existing.id])
     if (!verify) throw new Error('Verificatie mislukt na updaten journal')
@@ -196,10 +196,10 @@ async function executeJournal(c: Candidate): Promise<{ entityId: number }> {
 
   const title = deriveTitle(c)
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO journal_entries (title, content, entry_date, mood, import_run_id, created_at)
-     VALUES ($1, $2, $3, NULL, $4, NOW())
+    `INSERT INTO journal_entries (date, content, created_at)
+     VALUES ($1, $2, NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 5000), entryDate, c.import_run_id]
+    [entryDate, c.normalized_text.slice(0, 5000)]
   )
   if (!row?.id) throw new Error('Journal entry niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM journal_entries WHERE id = $1', [row.id])
@@ -212,10 +212,10 @@ async function executeWorklog(c: Candidate): Promise<{ entityId: number }> {
   const logDate = new Date().toISOString().split('T')[0]
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO work_logs (title, description, log_date, hours, import_run_id, created_at)
-     VALUES ($1, $2, $3, NULL, $4, NOW())
+    `INSERT INTO work_logs (title, description, date, source, created_at)
+     VALUES ($1, $2, $3, 'import', NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 1000), logDate, c.import_run_id]
+    [title, c.normalized_text.slice(0, 1000), logDate]
   )
   if (!row?.id) throw new Error('Werklog niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM work_logs WHERE id = $1', [row.id])
@@ -227,11 +227,6 @@ async function executeContact(c: Candidate): Promise<{ entityId: number }> {
   const name = deriveTitle(c)
 
   if (c.suggested_action === 'merge' && c.matched_entity_id) {
-    // Already exists, mark as seen via import
-    await execute(
-      `UPDATE contacts SET import_run_id = $2 WHERE id = $1`,
-      [c.matched_entity_id, c.import_run_id]
-    )
     return { entityId: c.matched_entity_id }
   }
 
@@ -243,10 +238,10 @@ async function executeContact(c: Candidate): Promise<{ entityId: number }> {
   if (existing?.id) return { entityId: existing.id }
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO contacts (name, notes, import_run_id, created_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO contacts (name, notes, type, created_at)
+     VALUES ($1, $2, 'persoon', NOW())
      RETURNING id`,
-    [name, c.normalized_text.slice(0, 500), c.import_run_id]
+    [name, c.normalized_text.slice(0, 500)]
   )
   if (!row?.id) throw new Error('Contact niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM contacts WHERE id = $1', [row.id])
@@ -259,10 +254,10 @@ async function executeEvent(c: Candidate): Promise<{ entityId: number }> {
   const eventDate = new Date().toISOString().split('T')[0]
 
   const row = await queryOne<{ id: number }>(
-    `INSERT INTO events (title, description, date, import_run_id, created_at)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO events (title, description, date, type, created_at)
+     VALUES ($1, $2, $3, 'algemeen', NOW())
      RETURNING id`,
-    [title, c.normalized_text.slice(0, 500), eventDate, c.import_run_id]
+    [title, c.normalized_text.slice(0, 500), eventDate]
   )
   if (!row?.id) throw new Error('Event niet aangemaakt (geen ID)')
   const verify = await queryOne<{ id: number }>('SELECT id FROM events WHERE id = $1', [row.id])
@@ -361,7 +356,7 @@ export async function runExecution(runId: number): Promise<{
          accepted_count = $3,
          completed_at = NOW()
      WHERE id = $1`,
-    [runId, failed === 0 ? 'completed' : 'completed_with_errors', succeeded]
+    [runId, failed === 0 ? 'done' : 'error', succeeded]
   )
 
   console.log(`[Execution] Run ${runId}: ${succeeded} ok, ${failed} failed`)
