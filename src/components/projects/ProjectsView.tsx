@@ -171,6 +171,7 @@ export default function ProjectsView() {
                         </div>
                       )}
                     </div>
+                  </div>
 
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex items-center gap-1.5 text-gray-400">
