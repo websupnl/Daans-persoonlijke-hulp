@@ -571,6 +571,18 @@ export async function initSchema(): Promise<void> {
       last_result JSONB DEFAULT '{}',
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- Telegram multi-step flow state (guided module flows)
+    CREATE TABLE IF NOT EXISTS telegram_flow_state (
+      id SERIAL PRIMARY KEY,
+      session_id TEXT UNIQUE NOT NULL,
+      flow_type TEXT NOT NULL,
+      step INT NOT NULL DEFAULT 1,
+      data JSONB NOT NULL DEFAULT '{}',
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 minutes',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `)
 }
 
