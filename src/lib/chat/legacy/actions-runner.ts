@@ -92,7 +92,7 @@ export async function executeChatActions(
         case 'todo_complete': {
           const todo = await queryOne<{ id: number; title: string }>('SELECT id, title FROM todos WHERE id = $1 LIMIT 1', [action.payload.id])
           if (!todo) break
-          await execute('UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [todo.id])
+          await execute('UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [todo.id])
           stored.push({ type: 'todo_completed', data: { id: todo.id, title: todo.title } })
           break
         }
@@ -212,7 +212,7 @@ export async function executeChatActions(
           // Look for an open todo that matches this worklog title
           const relatedTodo = await queryOne<{ id: number; title: string }>(`
             SELECT id, title FROM todos 
-            WHERE completed = 0 
+            WHERE completed = 0::smallint 
             AND (
               title ILIKE $1 
               OR $2 ILIKE '%' || title || '%'
@@ -221,7 +221,7 @@ export async function executeChatActions(
           `, [action.payload.title, action.payload.title])
 
           if (relatedTodo) {
-            await execute('UPDATE todos SET completed = 1, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
+            await execute('UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
             stored.push({ type: 'todo_completed', data: { id: relatedTodo.id, title: relatedTodo.title } })
             
             await logActivity({

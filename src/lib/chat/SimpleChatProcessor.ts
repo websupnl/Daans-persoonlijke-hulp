@@ -128,7 +128,7 @@ async function executeTodoAdd(params: { title: string }): Promise<ActionResult> 
   // Execute insert
   const result = await execute(`
     INSERT INTO todos (title, completed, priority, category, created_at)
-    VALUES ($1, false, 'medium', 'overig', CURRENT_TIMESTAMP)
+    VALUES ($1, false::smallint, 'medium', 'overig', CURRENT_TIMESTAMP)
     RETURNING id, title, created_at
   `, [params.title])
   
@@ -136,7 +136,7 @@ async function executeTodoAdd(params: { title: string }): Promise<ActionResult> 
   const verification = await queryOne(`
     SELECT id, title, completed 
     FROM todos 
-    WHERE title = $1 AND completed = false 
+    WHERE title = $1 AND completed = false::smallint 
     ORDER BY created_at DESC 
     LIMIT 1
   `, [params.title])
