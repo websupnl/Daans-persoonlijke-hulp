@@ -6,7 +6,7 @@
 
 import { pendingActionManager } from './pending-actions'
 import { chatLogger } from './logger'
-import { correlationTracker } from './correlation'
+import { correlationTracker } from '../correlation'
 
 export interface ConfirmationRequest {
   sessionId: string
