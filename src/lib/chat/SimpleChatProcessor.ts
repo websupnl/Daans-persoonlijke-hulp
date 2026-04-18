@@ -10,7 +10,7 @@
 import { execute, queryOne, query } from '@/lib/db'
 
 export interface ChatIntent {
-  type: 'todo_add' | 'habit_log' | 'finance_expense' | 'finance_income' | 'event_create' | 'query_work' | 'query_agenda' | 'query_todos' | 'unknown'
+  type: 'todo_add' | 'habit_log' | 'habit_time_log' | 'finance_expense' | 'finance_income' | 'event_create' | 'query_work' | 'query_agenda' | 'query_todos' | 'unknown'
   confidence: number
   params: Record<string, any>
   raw: string
@@ -47,18 +47,42 @@ export function parseIntent(message: string): ChatIntent {
     }
   }
   
-  // HABIT patterns - EXCLUDE time logging
-  if (normalized.includes('gewoonte') || normalized.includes('habit')) {
-    // Exclude time logging
-    if (normalized.includes('tijd') || normalized.includes('log de tijd')) {
+  // HABIT patterns
+  if (normalized.includes('gewoont') || normalized.includes('habit')) {
+    // TIME LOGGING patterns
+    if (normalized.includes('slaap') || normalized.includes('slapen') || normalized.includes('uur') || 
+        normalized.includes('tijd') || normalized.includes('om') || 
+        (normalized.includes('ging') && normalized.includes('slaap'))) {
+      
+      // Extract time from sleep logs
+      const timeMatch = message.match(/(\d{1,2})\s*(?:uur|pm|am|ochtend|middag|avond|nacht)/i)
+      const habitName = 'slaap'
+      const loggedTime = timeMatch?.[1] || '3'
+      
       return {
-        type: 'unknown',
-        confidence: 0.8,
-        params: {},
+        type: 'habit_time_log',
+        confidence: 0.9,
+        params: { 
+          habit_name: habitName,
+          logged_time: `${loggedTime}:00`,
+          note: message.includes('vannacht') ? 'Vannacht' : 'Tijd gelogd'
+        },
         raw: message
       }
     }
     
+    // HABIT CREATION patterns
+    if (normalized.includes('zet') || normalized.includes('voeg') || normalized.includes('toe')) {
+      const habitMatch = message.match(/(?:zet|voeg|toe)\s+(?:dit\s+)?(?:in\s+)?(?:de\s+)?(?:gewoontes?|habits?)\s*:?\s*(.+)/i)
+      return {
+        type: 'habit_log',
+        confidence: 0.9,
+        params: { habit_name: habitMatch?.[1]?.trim() || 'Nieuwe gewoonte' },
+        raw: message
+      }
+    }
+    
+    // DEFAULT HABIT LOG
     const habitMatch = message.match(/(?:gewoonte|habit)\s+(.+)/i)
     return {
       type: 'habit_log',
@@ -129,6 +153,8 @@ export async function executeAction(intent: ChatIntent): Promise<ActionResult> {
         return await executeTodoAdd(intent.params as { title: string })
       case 'habit_log':
         return await executeHabitLog(intent.params as { habit_name: string })
+      case 'habit_time_log':
+        return await executeHabitTimeLog(intent.params as { habit_name: string; logged_time: string; note?: string })
       case 'finance_expense':
         return await executeFinanceExpense(intent.params as { amount: number; title: string })
       case 'query_work':
@@ -247,6 +273,67 @@ async function executeHabitLog(params: { habit_name: string }): Promise<ActionRe
   }
   
   console.log('[SimpleChat] Habit verified:', verification)
+  
+  return {
+    success: true,
+    data: { habit, log: verification },
+    verified: true
+  }
+}
+
+/**
+ * Habit Time Log met verification (voor slaap, etc.)
+ */
+async function executeHabitTimeLog(params: { habit_name: string; logged_time: string; note?: string }): Promise<ActionResult> {
+  console.log('[SimpleChat] Logging habit time:', params.habit_name, params.logged_time)
+  
+  // Find or create habit
+  let habit = await queryOne(`
+    SELECT id, name FROM habits 
+    WHERE name ILIKE $1 AND active = 1 
+    LIMIT 1
+  `, [`%${params.habit_name}%`])
+  
+  if (!habit) {
+    // Create new habit
+    habit = await queryOne(`
+      INSERT INTO habits (name, frequency, target, active, created_at)
+      VALUES ($1, 'dagelijks', 1, true, CURRENT_TIMESTAMP)
+      RETURNING id, name
+    `, [params.habit_name])
+    
+    if (!habit) {
+      return {
+        success: false,
+        error: 'Habit creation failed',
+        verified: false
+      }
+    }
+  }
+  
+  // Log habit event with time in note
+  await execute(`
+    INSERT INTO habit_logs (habit_id, logged_date, note)
+    VALUES ($1, CURRENT_DATE, $2)
+    ON CONFLICT(habit_id, logged_date) DO UPDATE SET note = COALESCE(EXCLUDED.note, habit_logs.note)
+  `, [habit.id, `${params.note || 'Tijd gelogd'}: ${params.logged_time}`])
+  
+  // Verify log was created with correct time
+  const verification = await queryOne(`
+    SELECT id, habit_id, logged_date, note 
+    FROM habit_logs 
+    WHERE habit_id = $1 AND logged_date = CURRENT_DATE AND note ILIKE $2
+  `, [habit.id, `%${params.logged_time}%`])
+  
+  if (!verification) {
+    return {
+      success: false,
+      error: 'Habit time log verification failed',
+      verified: false
+    }
+  }
+  
+  console.log('[SimpleChat] Habit time verified:', verification)
   
   return {
     success: true,
@@ -465,6 +552,13 @@ export function generateResponse(intent: ChatIntent, results: ActionResult[]): C
     case 'habit_log':
       return {
         message: `Gewoonte "${intent.params.habit_name}" is gelogd!`,
+        success: true,
+        actions: results
+      }
+      
+    case 'habit_time_log':
+      return {
+        message: `Slaapgewoonte gelogd om ${intent.params.logged_time}!`,
         success: true,
         actions: results
       }
