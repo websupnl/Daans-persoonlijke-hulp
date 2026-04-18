@@ -268,7 +268,7 @@ export default function ImportReviewView({ runId }: { runId: number }) {
       ) : candidates.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <p className="text-lg">Geen items</p>
-          <p className="text-sm mt-1">Geen kandidaten met status "{statusFilter}" gevonden.</p>
+          <p className="text-sm mt-1">Geen kandidaten met status &quot;{statusFilter}&quot; gevonden.</p>
         </div>
       ) : (
         <div className="space-y-3">
