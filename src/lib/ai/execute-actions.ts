@@ -37,9 +37,13 @@ export async function executeActions(
 ): Promise<ActionResult[]> {
   const results: ActionResult[] = []
 
+  console.log(`[executeActions] Starting execution of ${actions.length} actions:`, actions.map(a => a.type))
+
   for (const action of actions) {
     try {
+      console.log(`[executeActions] Executing action:`, action.type, action.payload)
       const result = await executeSingleAction(action)
+      console.log(`[executeActions] Action result:`, result)
       results.push(result)
     } catch (err) {
       console.error(`[executeActions] Error executing ${action.type}:`, err)
@@ -51,12 +55,15 @@ export async function executeActions(
     }
   }
 
+  console.log(`[executeActions] Final results:`, results)
   return results
 }
 
 async function executeSingleAction(
   action: AIAction
 ): Promise<ActionResult> {
+  console.log(`[executeSingleAction] Starting action execution for:`, action.type, action.payload)
+  
   switch (action.type) {
     case 'todo_create': {
       const { title, description, priority, due_date, category, project_name } = action.payload
@@ -64,13 +71,19 @@ async function executeSingleAction(
       if (!project_id && project_name) {
         project_id = (await resolveOrCreateProject(project_name)) ?? undefined
       }
+      
+      console.log(`[executeSingleAction] About to insert todo:`, { title, description, priority, due_date, category, project_id })
+      
       const row = await queryOne<{ id: number }>(`
         INSERT INTO todos (title, description, priority, due_date, category, project_id)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
       `, [title, description ?? null, priority ?? 'medium', due_date ?? null, category ?? 'overig', project_id ?? null])
       
+      console.log(`[executeSingleAction] Todo insert result:`, row)
+      
       if (row?.id) {
+        console.log(`[executeSingleAction] Logging activity for todo ID:`, row.id)
         await logActivity({
           entityType: 'todo',
           entityId: row.id,
