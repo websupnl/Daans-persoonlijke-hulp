@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, Pin, FileText, Trash2, Sparkles, ArrowRight } from 'lucide-react'
 import { formatRelative, cn } from '@/lib/utils'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Note {
   id: number
@@ -236,12 +237,15 @@ function NoteCard({ note, onDelete }: { note: Note; onDelete: (id: number, e: Re
       )}
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 flex-1 text-sm font-bold text-gray-700">{note.title}</h3>
-        <button
-          onClick={(e) => onDelete(note.id, e)}
-          className="ml-1 p-0.5 text-gray-300 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100"
-        >
-          <Trash2 size={12} />
-        </button>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
+          <AIContextButton type="note" title={note.title} content={note.content_text?.slice(0, 200)} id={note.id} />
+          <button
+            onClick={(e) => onDelete(note.id, e)}
+            className="p-0.5 text-gray-300 hover:text-red-400 transition-all"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
 
       <p className="mb-4 line-clamp-4 min-h-[64px] text-xs leading-relaxed text-gray-400">

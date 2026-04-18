@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatAction } from '@/lib/chat/types'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface WorkLog {
   id: number
@@ -609,9 +610,17 @@ export default function WorklogsView() {
                               {log.context}
                             </span>
                             <span className="text-sm font-extrabold text-gradient">{formatDuration(actualDur)}</span>
-                            <button onClick={() => handleDelete(log.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                              <AIContextButton
+                                type="worklog"
+                                title={log.title}
+                                content={log.description}
+                                id={log.id}
+                              />
+                              <button onClick={() => handleDelete(log.id)} className="text-gray-300 hover:text-red-400 transition-all p-1">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )

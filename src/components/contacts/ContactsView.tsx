@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Search, Users, Mail, Phone, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Contact {
   id: number
@@ -146,9 +147,17 @@ export default function ContactsView() {
                 <p className={cn('text-xs font-semibold truncate', selected === c.id ? 'text-gradient' : 'text-gray-700')}>{c.name}</p>
                 <p className="text-[10px] text-gray-400 truncate">{c.company || c.email || c.type}</p>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); deleteContact(c.id) }} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                <Trash2 size={11} />
-              </button>
+              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                <AIContextButton
+                  type="contact"
+                  title={c.name}
+                  content={[c.company, c.email, c.type].filter(Boolean).join(' • ')}
+                  id={c.id}
+                />
+                <button onClick={(e) => { e.stopPropagation(); deleteContact(c.id) }} className="text-gray-300 hover:text-red-400 transition-all p-1">
+                  <Trash2 size={11} />
+                </button>
+              </div>
             </div>
           ))}
         </div>

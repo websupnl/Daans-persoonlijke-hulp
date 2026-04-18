@@ -5,6 +5,7 @@ import { format, subDays } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles, Send, LineChart, Lightbulb, BarChart3, TrendingUp, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface JournalEntry {
   id?: number
@@ -210,6 +211,14 @@ export default function JournalView() {
               </h2>
               {isToday && <span className="text-[10px] font-semibold text-pink-400">Vandaag</span>}
             </div>
+            {entry?.id && (
+              <AIContextButton
+                type="journal"
+                title={`Dagboek ${date}`}
+                content={entry.content?.slice(0, 300)}
+                id={entry.id}
+              />
+            )}
             <button onClick={() => navigate(1)} disabled={isToday} className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30">
               <ChevronRight size={16} />
             </button>

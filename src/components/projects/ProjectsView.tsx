@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, FolderOpen, CheckSquare, FileText, Clock, Timer } from 'lucide-react'
 import { cn, PROJECT_COLORS } from '@/lib/utils'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Project {
   id: number
@@ -154,13 +155,22 @@ export default function ProjectsView() {
                         {project.description && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{project.description}</p>}
                       </div>
                     </div>
-                    {isTimerRunning && (
-                      <div className="flex items-center gap-1 text-green-500 flex-shrink-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                        <span className="text-[10px] font-bold">{fmtMinutes(activeTimer.elapsed_minutes)}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="opacity-0 group-hover:opacity-100 transition-all">
+                        <AIContextButton
+                          type="project"
+                          title={project.title}
+                          content={project.description}
+                          id={project.id}
+                        />
                       </div>
-                    )}
-                  </div>
+                      {isTimerRunning && (
+                        <div className="flex items-center gap-1 text-green-500">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                          <span className="text-[10px] font-bold">{fmtMinutes(activeTimer.elapsed_minutes)}</span>
+                        </div>
+                      )}
+                    </div>
 
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex items-center gap-1.5 text-gray-400">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Brain, Lightbulb, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Idea {
   id: number
@@ -151,17 +152,22 @@ export default function IdeasView() {
               </div>
             ) : (
               ideas.map((idea) => (
-                <button
+                <div
                   key={idea.id}
-                  onClick={() => { setSelectedId(idea.id); setShowModal(true) }}
                   className={cn(
-                    'block w-full rounded-3xl border p-4 text-left shadow-sm transition-all',
+                    'group relative rounded-3xl border p-4 text-left shadow-sm transition-all cursor-pointer',
                     selectedId === idea.id ? 'border-pink-200 bg-white shadow-md' : 'border-gray-200 bg-white hover:border-pink-100'
                   )}
+                  onClick={() => { setSelectedId(idea.id); setShowModal(true) }}
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-sm font-bold text-gray-700">{idea.title}</p>
-                    <span className="text-xs font-black text-gradient">{idea.score}</span>
+                    <p className="line-clamp-2 text-sm font-bold text-gray-700 flex-1">{idea.title}</p>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="opacity-0 group-hover:opacity-100 transition-all" onClick={e => e.stopPropagation()}>
+                        <AIContextButton type="idea" title={idea.title} id={idea.id} />
+                      </div>
+                      <span className="text-xs font-black text-gradient">{idea.score}</span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', VERDICT_COLORS[idea.verdict])}>
@@ -169,7 +175,7 @@ export default function IdeasView() {
                     </span>
                     <span className="text-[10px] text-gray-400">{STATUS_LABELS[idea.status]}</span>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>

@@ -8,6 +8,7 @@ import { nl } from 'date-fns/locale'
 import TransactionModal from './TransactionModal'
 import StandardPageLayout, { Section, StatsGrid, MainWithSidebar } from '@/components/layout/StandardPageLayout'
 import { StatsCard, LightCard, CompactListItem } from '@/components/ui/DesignSystem'
+import AIContextButton from '@/components/ai/AIContextButton'
 
 interface FinanceItem {
   id: number
@@ -1111,7 +1112,13 @@ export default function FinanceView() {
                   
                   {/* Hover Actions */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                    <button 
+                    <AIContextButton
+                      type="finance"
+                      title={item.title}
+                      content={`${item.type} • ${formatCurrency(item.amount)} • ${item.category}`}
+                      id={item.id}
+                    />
+                    <button
                       onClick={(e) => { e.stopPropagation(); setSelectedTransaction(item) }}
                       className="p-1 bg-gray-50 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-lg transition-all"
                       title="Snel aanpassen"
