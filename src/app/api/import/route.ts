@@ -41,15 +41,14 @@ export async function POST(req: NextRequest) {
 
   const run = await queryOne<{ id: number }>(
     `INSERT INTO import_runs
-       (raw_input, normalized_input, source_type, source_label, raw_length, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, 'pending', NOW())
+       (raw_input, normalized_input, source_type, source_label, status, created_at)
+     VALUES ($1, $2, $3, $4, 'pending', NOW())
      RETURNING id`,
     [
       rawInput.slice(0, 200_000),
       normalized.normalized,
       normalized.sourceType,
       normalized.sourceLabel,
-      normalized.rawLength,
     ]
   )
 
