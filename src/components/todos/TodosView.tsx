@@ -14,7 +14,7 @@ import {
 import { cn, formatDate, isOverdue } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
-import { PriorityDot } from '@/components/ui/Card'
+import { PriorityDot } from '@/components/ui/card'
 import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Todo {

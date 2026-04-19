@@ -8,12 +8,12 @@ import {
   Receipt, ShoppingCart, Sparkles, TriangleAlert, Zap,
 } from 'lucide-react'
 import { formatCurrency, formatRelative, isOverdue } from '@/lib/utils'
-import { Tag, PriorityDot } from '@/components/ui/Card'
+import { Tag, PriorityDot } from '@/components/ui/card'
 import {
   AICard, EmptyPanel, MetricTile,
   Panel, PanelHeader, SectionHeader,
 } from '@/components/ui/Panel'
-import { LinkButton } from '@/components/ui/Button'
+import { LinkButton } from '@/components/ui/button'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

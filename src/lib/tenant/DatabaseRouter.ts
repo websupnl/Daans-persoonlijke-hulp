@@ -1,4 +1,4 @@
-import { Pool } from 'pg'
+import { Pool } from '@neondatabase/serverless'
 import { TenantManager, Tenant } from './TenantManager'
 
 export class DatabaseRouter {
