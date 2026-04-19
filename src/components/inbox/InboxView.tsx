@@ -77,7 +77,7 @@ export default function InboxView() {
       subtitle={`${pendingCount} onverwerkt.`}
     >
       <StatStrip stats={[
-        { label: 'Onverwerkt', value: pendingCount, accent: pendingCount > 0 ? 'orange' : undefined },
+        { label: 'Onverwerkt', value: pendingCount, accent: pendingCount > 0 ? 'amber' : undefined },
         { label: 'Verwerkt', value: processedCount, accent: 'green' },
         { label: 'Totaal', value: items.length },
       ]} />

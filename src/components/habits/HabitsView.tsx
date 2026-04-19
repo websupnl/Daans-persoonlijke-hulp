@@ -89,7 +89,7 @@ export default function HabitsView() {
     >
       <StatStrip stats={[
         { label: 'Consistency', value: `${consistency}%`, meta: 'vandaag' },
-        { label: 'Beste streak', value: topStreak, meta: 'dagen', accent: 'orange' },
+        { label: 'Beste streak', value: topStreak, meta: 'dagen', accent: 'amber' },
         { label: 'Gedaan vandaag', value: `${completedToday}/${habits.length}`, meta: 'gewoontes' },
       ]} />
 

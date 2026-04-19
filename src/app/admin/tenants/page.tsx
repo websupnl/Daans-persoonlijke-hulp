@@ -252,7 +252,7 @@ export default function TenantsPage() {
                   <li>Maak een nieuwe PostgreSQL database aan</li>
                   <li>Creeer een Telegram bot via @BotFather</li>
                   <li>Vind het Telegram User ID via @userinfobot</li>
-                  <li>Vul het formulier in en klik op "Maak Tenant Aan"</li>
+                  <li>Vul het formulier in en klik op &quot;Maak Tenant Aan&quot;</li>
                 </ul>
               </AlertDescription>
             </Alert>
