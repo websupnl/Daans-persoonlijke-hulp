@@ -1,7 +1,8 @@
 // Multi-Tenant System Exports
 export { TenantManager } from './TenantManager'
 export { DatabaseRouter } from './DatabaseRouter'
-export { TenantContextManager, TenantContext } from './TenantContext'
+export { TenantContextManager } from './TenantContext'
+export type { TenantContext } from './TenantContext'
 export { TelegramBotManager } from './TelegramBotManager'
 
 export type { Tenant, User } from './TenantManager'
