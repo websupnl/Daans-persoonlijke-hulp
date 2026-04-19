@@ -210,9 +210,14 @@ export class TelegramBotManager {
    * Process chat message with tenant context
    */
   private async processChatMessage(message: string, context: any): Promise<any> {
-    // Import chat processor dynamically to avoid circular dependencies
-    const { processChatMessage } = await import('../chat/SimpleChatProcessor')
-    return await processChatMessage(message)
+    const { parseCommandWithAI } = await import('../ai/parse-command')
+    const { executeActions } = await import('../ai/execute-actions')
+    const { generateAIResponse } = await import('../ai/generate-response')
+    const aiResult = await parseCommandWithAI(message)
+    if (!aiResult) return { reply: 'Kon het bericht niet verwerken.', message: 'Kon het bericht niet verwerken.', actions: [] }
+    const actionResults = aiResult.requires_confirmation ? [] : await executeActions(aiResult.actions)
+    const reply = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
+    return { reply, message: reply, actions: actionResults }
   }
 
   /**

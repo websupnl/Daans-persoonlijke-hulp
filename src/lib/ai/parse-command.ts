@@ -102,23 +102,41 @@ Summary voorbeelden:
 
 export async function parseCommandWithAI(
   userMessage: string,
-  sessionKey?: string
+  sessionKey?: string,
+  image?: { base64: string; mimeType: string }
 ): Promise<AICommandResult | null> {
   const ctx = await buildContext(7, sessionKey)
   const contextString = formatContextForPrompt(ctx)
 
-  const systemPrompt = `${BASE_SYSTEM_PROMPT}
+  // Detect new user (very little context available)
+  const isNewUser = ctx.memories.length === 0 && ctx.recentTodos.length === 0 && ctx.recentActivity.length === 0
+  const newUserNote = isNewUser
+    ? '\n\nLET OP: Dit is een nieuwe gebruiker met weinig of geen data. Wees verwelkomend, stel geen vragen over historische data die er niet is, en help de gebruiker op weg.'
+    : ''
+
+  const systemPrompt = `${BASE_SYSTEM_PROMPT}${newUserNote}
 
 Huidig irritatieniveau: ${ctx.irritationLevel}/10`
 
   const client = getOpenAIClient()
 
+  // Bouw user content op — met of zonder afbeelding
+  const userContent: any[] = [
+    { type: 'text', text: `CONTEXT:\n${contextString}\n\nBERICHT:\n"${userMessage}"` },
+  ]
+  if (image) {
+    userContent.push({
+      type: 'image_url',
+      image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: 'high' },
+    })
+  }
+
   try {
     const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: image ? 'gpt-4o' : 'gpt-4o-mini', // Vision vereist gpt-4o
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `CONTEXT:\n${contextString}\n\nBERICHT:\n"${userMessage}"` },
+        { role: 'user', content: image ? userContent : userContent[0].text },
       ],
       temperature: 0.1,
       max_tokens: 1500,
