@@ -1,21 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
-  Bot,
-  Bug,
-  ChevronDown,
-  ChevronUp,
-  Clock3,
-  Database,
-  MessageSquareText,
-  Send,
-  Sparkles,
-  User,
+  Send, Paperclip, CheckSquare, BookOpen, Euro, Lightbulb,
+  X, ChevronDown, ChevronUp, AlertCircle, RotateCcw,
 } from 'lucide-react'
 import { cn, formatMarkdown, formatRelative } from '@/lib/utils'
-import { ActionPill, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MessageMeta {
   parser?: string
@@ -24,171 +16,359 @@ interface MessageMeta {
   actionsCount?: number
 }
 
+interface ActionRecord {
+  type: string
+  payload?: Record<string, unknown>
+}
+
 interface Message {
   id: number
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system-action' | 'error'
   content: string
   created_at: string
-  actions?: unknown[]
+  actions?: ActionRecord[]
   meta?: MessageMeta
+  systemAction?: {
+    icon: 'task' | 'memory' | 'finance' | 'diary' | 'check'
+    title: string
+    detail?: string
+  }
+  undone?: boolean
 }
 
-interface LogEntry {
-  timestamp: string
-  message: string
-  intent: string
-  parser: string
-  confidence: number
-  actionsCount: number
-  response: string
-}
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const QUICK_COMMANDS = [
+const QUICK_ACTIONS = [
+  { icon: CheckSquare, label: 'Voeg taak toe',    prompt: 'Maak een taak: ' },
+  { icon: Euro,        label: 'Boek uitgave',      prompt: 'Boek uitgave: ' },
+  { icon: BookOpen,    label: 'Dagboek entry',     prompt: 'Schrijf in dagboek: ' },
+  { icon: Lightbulb,   label: 'Analyseer patroon', prompt: 'Analyseer mijn ' },
+]
+
+const EXAMPLE_COMMANDS = [
   'Toon open todos',
-  'Toon agenda deze week',
-  'Herinner me morgen om Amy te appen',
-  'Boodschappen: melk, brood en kaas',
+  'Agenda deze week',
+  'Boodschappen: melk, brood, kaas',
   'Hoeveel gewerkt vandaag?',
   'Toon mijn financiën',
+  'Herinner me morgen om Amy te appen',
 ]
 
-const CAPABILITIES = [
-  'Agenda, todo’s en boodschappen vastleggen',
-  'Lijsten en overzichten ophalen uit de echte database',
-  'Snel context terugvinden uit projecten, notities en werklog',
-  'Acties uitvoeren zonder dat je door losse modules hoeft te klikken',
-]
+const ACTION_ICONS: Record<string, string> = {
+  task:    '✓',
+  memory:  '💾',
+  finance: '€',
+  diary:   '📔',
+  check:   '✓',
+}
+
+// ── Subcomponents ─────────────────────────────────────────────────────────────
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-end gap-2 animate-fade-in">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient text-white text-xs font-bold select-none">
+        ✦
+      </div>
+      <div className="chat-bubble-ai inline-flex items-center gap-1.5 py-3 px-4">
+        {[0, 1, 2].map(i => (
+          <span
+            key={i}
+            className="h-2 w-2 rounded-full bg-on-surface-variant animate-thinking"
+            style={{ animationDelay: `${i * 0.16}s` }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function UserBubble({ message }: { message: Message }) {
+  return (
+    <div className="flex items-end justify-end gap-2 animate-fade-in">
+      <div>
+        <div className="chat-bubble-user">
+          <p className="text-[14px] leading-relaxed">{message.content}</p>
+        </div>
+        <p className="mt-1 text-right text-[10px] text-on-surface-variant/60">
+          {formatRelative(message.created_at)}
+        </p>
+      </div>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container border border-outline-variant text-[11px] font-bold text-on-surface select-none mb-5">
+        D
+      </div>
+    </div>
+  )
+}
+
+function AIBubble({ message }: { message: Message }) {
+  const [metaOpen, setMetaOpen] = useState(false)
+  const hasMeta = message.meta && (message.meta.actionsCount ?? 0) > 0
+
+  return (
+    <div className="flex items-end gap-2 animate-fade-in">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient text-white text-xs font-bold select-none mb-5">
+        ✦
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="chat-bubble-ai">
+          <div
+            className="chat-content text-[14px]"
+            dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content) }}
+          />
+        </div>
+        <div className="mt-1 flex items-center gap-2 flex-wrap">
+          <p className="text-[10px] text-on-surface-variant/60">
+            {formatRelative(message.created_at)}
+            {message.meta?.parser && ` · ${message.meta.parser}`}
+          </p>
+          {hasMeta && (
+            <button
+              onClick={() => setMetaOpen(v => !v)}
+              className="inline-flex items-center gap-1 text-[10px] text-on-surface-variant/60 hover:text-on-surface-variant transition-colors"
+            >
+              {message.meta!.actionsCount} actie(s)
+              {metaOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            </button>
+          )}
+        </div>
+
+        {metaOpen && message.meta && (
+          <div className="mt-2 rounded-md border border-outline-variant bg-surface-container-low px-3 py-2 text-[11px] text-on-surface-variant space-y-1 animate-fade-in">
+            {message.meta.intent && (
+              <p><span className="font-medium text-on-surface">Intent:</span> {message.meta.intent}</p>
+            )}
+            {message.meta.parser && (
+              <p><span className="font-medium text-on-surface">Parser:</span> {message.meta.parser}</p>
+            )}
+            {typeof message.meta.confidence === 'number' && message.meta.confidence > 0 && (
+              <p><span className="font-medium text-on-surface">Zekerheid:</span> {Math.round(message.meta.confidence * 100)}%</p>
+            )}
+            {typeof message.meta.actionsCount === 'number' && (
+              <p><span className="font-medium text-on-surface">Acties:</span> {message.meta.actionsCount}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SystemActionBubble({
+  message,
+  onUndo,
+}: {
+  message: Message
+  onUndo?: (id: number) => void
+}) {
+  const [dismissed, setDismissed] = useState(false)
+  const action = message.systemAction
+
+  if (dismissed || message.undone || !action) return null
+
+  return (
+    <div className="flex justify-center my-1 animate-scale-in">
+      <div className="chat-bubble-system flex items-center gap-2.5 w-auto">
+        <span className="text-ai-purple text-base leading-none shrink-0">
+          {ACTION_ICONS[action.icon] ?? '✓'}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-on-surface">{action.title}</p>
+          {action.detail && (
+            <p className="text-[11px] text-on-surface-variant mt-0.5">{action.detail}</p>
+          )}
+        </div>
+        {onUndo && (
+          <button
+            onClick={() => {
+              onUndo(message.id)
+              setDismissed(true)
+            }}
+            className="shrink-0 text-[11px] font-medium text-accent hover:text-accent-hover transition-colors whitespace-nowrap ml-1"
+          >
+            Ongedaan
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ErrorBubble({ message }: { message: Message }) {
+  return (
+    <div className="flex items-start gap-2 animate-fade-in">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger-bg text-danger">
+        <AlertCircle size={14} />
+      </div>
+      <div className="chat-bubble-error">
+        <p className="text-[13px] font-medium text-danger">Er ging iets mis</p>
+        <p className="mt-0.5 text-[12px] text-on-surface-variant">{message.content}</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function ChatView() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [input, setInput]       = useState('')
+  const [loading, setLoading]   = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
-  const [showLog, setShowLog] = useState(false)
-  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [showExamples, setShowExamples] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef  = useRef<HTMLTextAreaElement>(null)
+  const inputAreaRef = useRef<HTMLDivElement>(null)
 
+  // Load history
   useEffect(() => {
     fetch('/api/chat')
-      .then((response) => response.json())
-      .then((payload) => {
-        if (payload.data?.length) {
-          setMessages(
-            payload.data.map((message: Message) => ({
-              ...message,
-              meta: (message.actions?.length ?? 0) > 0
-                ? { actionsCount: message.actions?.length ?? 0 }
-                : undefined,
-            }))
-          )
+      .then(r => r.json())
+      .then(p => {
+        if (p.data?.length) {
+          setMessages(p.data.map((m: Message) => ({
+            ...m,
+            meta: (m.actions?.length ?? 0) > 0
+              ? { actionsCount: m.actions?.length ?? 0 }
+              : undefined,
+          })))
+          setShowExamples(false)
         } else {
-          setMessages([
-            {
-              id: 0,
-              role: 'assistant',
-              content: 'Ik help je om acties echt uit te voeren, context terug te vinden en overzicht te houden. Geef me gewoon je opdracht in normaal Nederlands.',
-              created_at: new Date().toISOString(),
-            },
-          ])
+          setMessages([{
+            id: 0,
+            role: 'assistant',
+            content: 'Goedemorgen, Daan. Ik help je om acties uit te voeren, context terug te vinden en overzicht te houden. Geef me gewoon je opdracht in normaal Nederlands.',
+            created_at: new Date().toISOString(),
+          }])
         }
       })
       .finally(() => setInitialLoad(false))
   }, [])
 
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  async function sendMessage(text?: string) {
-    const message = (text || input).trim()
-    if (!message || loading) return
+  // Auto-resize textarea
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    e.target.style.height = 'auto'
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`
+  }, [])
 
-    const userMessage: Message = {
-      id: Date.now(),
-      role: 'user',
-      content: message,
+  async function sendMessage(text?: string) {
+    const msg = (text ?? input).trim()
+    if (!msg || loading) return
+
+    setInput('')
+    setShowExamples(false)
+    if (inputRef.current) inputRef.current.style.height = 'auto'
+
+    const userMsg: Message = {
+      id:         Date.now(),
+      role:       'user',
+      content:    msg,
       created_at: new Date().toISOString(),
     }
-
-    setMessages((previous) => [...previous, userMessage])
-    setInput('')
+    setMessages(prev => [...prev, userMsg])
     setLoading(true)
 
-    const requestTime = new Date().toLocaleTimeString('nl-NL')
-
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
+      const res  = await fetch('/api/chat', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body:    JSON.stringify({ message: msg }),
       })
-      const payload = await response.json()
+      const data = await res.json()
+
       const meta: MessageMeta = {
-        parser: payload.debug?.parserType ?? payload.parser ?? '?',
-        intent: payload.debug?.intent ?? payload.intent ?? '?',
-        confidence: payload.debug?.confidence ?? payload.confidence ?? 0,
-        actionsCount: payload.actions?.length ?? 0,
+        parser:       data.debug?.parserType ?? data.parser,
+        intent:       data.debug?.intent     ?? data.intent,
+        confidence:   data.debug?.confidence ?? data.confidence ?? 0,
+        actionsCount: data.actions?.length   ?? 0,
       }
 
-      const assistantMessage: Message = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: payload.response || payload.message || 'Er ging iets mis.',
+      // Detect system actions from response
+      const systemActions = detectSystemActions(msg, data)
+
+      const aiMsg: Message = {
+        id:         Date.now() + 1,
+        role:       'assistant',
+        content:    data.response || data.message || 'Klaar.',
         created_at: new Date().toISOString(),
         meta,
+        actions:    data.actions,
       }
 
-      setMessages((previous) => [...previous, assistantMessage])
-      setLogs((previous) => [
-        {
-          timestamp: requestTime,
-          message,
-          intent: meta.intent ?? '?',
-          parser: meta.parser ?? '?',
-          confidence: meta.confidence ?? 0,
-          actionsCount: meta.actionsCount ?? 0,
-          response: payload.response ?? '',
-        },
-        ...previous,
-      ].slice(0, 20))
+      const newMessages: Message[] = [aiMsg]
+
+      // Prepend system action bubbles if detected
+      if (systemActions) {
+        newMessages.unshift({
+          id:           Date.now() + 2,
+          role:         'system-action',
+          content:      '',
+          created_at:   new Date().toISOString(),
+          systemAction: systemActions,
+        })
+      }
+
+      setMessages(prev => [...prev, ...newMessages])
     } catch {
-      setMessages((previous) => [
-        ...previous,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: 'Er ging iets mis in de chat. Probeer het opnieuw.',
-          created_at: new Date().toISOString(),
-          meta: { parser: 'error', intent: 'unknown', confidence: 0, actionsCount: 0 },
-        },
-      ])
+      setMessages(prev => [...prev, {
+        id:         Date.now() + 1,
+        role:       'error',
+        content:    'De verbinding met de server is verbroken. Probeer het opnieuw.',
+        created_at: new Date().toISOString(),
+      }])
     } finally {
       setLoading(false)
-      inputRef.current?.focus()
+      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
 
-  function handleKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
+  function detectSystemActions(userInput: string, response: unknown): Message['systemAction'] | null {
+    const input   = userInput.toLowerCase()
+    const actions = (response as { actions?: ActionRecord[] }).actions ?? []
+    const count   = actions.length
+
+    if (count === 0) return null
+
+    // Detect action type from intent or input keywords
+    if (input.includes('taak') || input.includes('todo') || input.includes('herinner')) {
+      return { icon: 'task', title: 'Taak aangemaakt', detail: userInput.length > 60 ? userInput.slice(0, 60) + '…' : userInput }
+    }
+    if (input.includes('dagboek') || input.includes('journal')) {
+      return { icon: 'diary', title: 'Dagboek entry opgeslagen', detail: 'Succesvol vastgelegd' }
+    }
+    if (input.includes('uitgave') || input.includes('betaald') || input.includes('euro') || input.includes('€')) {
+      return { icon: 'finance', title: 'Uitgave geboekt', detail: `${count} item(s) verwerkt` }
+    }
+    if (count > 0) {
+      return { icon: 'check', title: `${count} actie(s) uitgevoerd`, detail: 'Via AI assistent' }
+    }
+    return null
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
       sendMessage()
     }
   }
 
-  const lastEngineRun = logs[0]
+  function handleUndo(id: number) {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, undone: true } : m))
+  }
 
   if (initialLoad) {
     return (
-      <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-5">
-            <Panel tone="accent" padding="lg" className="min-h-[170px] animate-pulse" />
-            <Panel className="min-h-[640px] animate-pulse" />
-          </div>
-          <div className="space-y-5">
-            <Panel className="min-h-[220px] animate-pulse" />
-            <Panel className="min-h-[220px] animate-pulse" />
+      <div className="flex h-[calc(100dvh-72px)] md:h-dvh flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gradient animate-pulse" />
+            <p className="text-[13px] text-on-surface-variant">Chat laden...</p>
           </div>
         </div>
       </div>
@@ -196,326 +376,158 @@ export default function ChatView() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
-          <Panel tone="accent" padding="lg">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-3xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ActionPill>Chat als command center</ActionPill>
-                  <ActionPill>{messages.length} berichten in context</ActionPill>
-                </div>
-                <h1 className="mt-4 text-3xl font-headline font-extrabold tracking-tight text-on-surface sm:text-[2.35rem]">
-                  Praat met je systeem, niet met een losse widget
-                </h1>
-                <p className="mt-3 text-base leading-7 text-on-surface-variant">
-                  Deze chat moet betrouwbaar aanvoelen: duidelijk wat hij begrijpt, wat hij uitvoert en wat er echt uit de database komt. Geen magische zwarte doos.
-                </p>
-              </div>
+    <div className="flex h-[calc(100dvh-72px)] md:h-dvh flex-col bg-background">
 
-              <div className="rounded-[24px] border border-black/5 bg-white/75 p-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
-                  Laatste engine-run
-                </p>
-                {lastEngineRun ? (
-                  <>
-                    <p className="mt-2 text-sm font-semibold text-on-surface">
-                      {lastEngineRun.intent}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-                      Parser {lastEngineRun.parser} • {(lastEngineRun.confidence * 100).toFixed(0)}% zekerheid • {lastEngineRun.actionsCount} actie(s)
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                    Nog geen engine-run in deze sessie. Stuur een opdracht om het systeem direct te testen.
-                  </p>
-                )}
-              </div>
+      {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-outline-variant bg-white px-4 py-3 md:px-6 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient text-white text-xs font-bold select-none">
+            ✦
+          </div>
+          <div>
+            <p className="text-[13px] font-semibold text-on-surface">Daan AI</p>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-success ai-pulse-dot" />
+              <p className="text-[10px] text-on-surface-variant">Actief</p>
             </div>
-          </Panel>
+          </div>
+        </div>
 
-          <Panel padding="sm" className="flex min-h-[680px] flex-col overflow-hidden">
-            <div className="border-b border-black/5 px-3 pb-3 pt-2 sm:px-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
-                    Gesprek
-                  </p>
-                  <p className="mt-1 text-sm text-on-surface-variant">
-                    Enter verstuurt, Shift+Enter maakt een nieuwe regel.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {QUICK_COMMANDS.slice(0, 3).map((command) => (
-                    <button
-                      key={command}
-                      onClick={() => sendMessage(command)}
-                      className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
-                    >
-                      {command}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+        <div className="flex items-center gap-2">
+          <span className="hidden sm:block text-[11px] text-on-surface-variant">
+            {messages.filter(m => m.role !== 'system-action').length} berichten
+          </span>
+          <button
+            onClick={() => {
+              setMessages([{
+                id:         Date.now(),
+                role:       'assistant',
+                content:    'Nieuw gesprek gestart. Wat kan ik voor je doen?',
+                created_at: new Date().toISOString(),
+              }])
+              setShowExamples(true)
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-outline-variant bg-white px-2.5 py-1.5 text-[12px] font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          >
+            <RotateCcw size={12} />
+            Nieuw
+          </button>
+        </div>
+      </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-3 py-4 sm:px-4">
-              {messages.length === 0 ? (
-                <EmptyPanel
-                  title="Nog geen gesprek gestart"
-                  description="Gebruik de chat om iets uit te voeren, terug te vinden of slim samen te vatten. Dit moet de snelste ingang van de app zijn."
-                />
-              ) : (
-                messages.map((message) => {
-                  const isAssistant = message.role === 'assistant'
-                  return (
-                    <div
-                      key={message.id}
-                      className={cn('flex gap-3', isAssistant ? 'justify-start' : 'justify-end')}
-                    >
-                      {isAssistant && (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#202625] text-white">
-                          <Bot size={16} />
-                        </div>
-                      )}
+      {/* ── MESSAGES ───────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[760px] px-4 py-6 space-y-4 md:px-6">
 
-                      <div className={cn('max-w-[92%] sm:max-w-[78%]', !isAssistant && 'order-first')}>
-                        <div className="mb-2 flex items-center gap-2 text-[11px] text-on-surface-variant">
-                          <span className="font-semibold text-on-surface">
-                            {isAssistant ? 'Assistent' : 'Jij'}
-                          </span>
-                          <span>{formatRelative(message.created_at)}</span>
-                        </div>
-
-                        <div
-                          className={cn(
-                            'rounded-[26px] border px-4 py-3.5 text-sm leading-7 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] sm:px-5',
-                            isAssistant
-                              ? 'border-black/5 bg-white text-on-surface'
-                              : 'border-[#202625] bg-[#202625] text-white'
-                          )}
-                        >
-                          {isAssistant ? (
-                            <div
-                              className="chat-content"
-                              dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content) }}
-                            />
-                          ) : (
-                            message.content
-                          )}
-                        </div>
-
-                        {message.meta && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {message.meta.parser && <ActionPill>{message.meta.parser}</ActionPill>}
-                            {message.meta.intent && <ActionPill>{message.meta.intent}</ActionPill>}
-                            {typeof message.meta.actionsCount === 'number' && (
-                              <ActionPill>{message.meta.actionsCount} actie(s)</ActionPill>
-                            )}
-                            {typeof message.meta.confidence === 'number' && message.meta.confidence > 0 && (
-                              <ActionPill>{Math.round(message.meta.confidence * 100)}% zeker</ActionPill>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {!isAssistant && (
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-black/5 bg-surface-container-low text-on-surface">
-                          <User size={16} />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })
-              )}
-
-              {loading && (
-                <div className="flex gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#202625] text-white">
-                    <Bot size={16} />
-                  </div>
-                  <div className="rounded-[26px] border border-black/5 bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]">
-                    <div className="flex gap-1.5">
-                      {[0, 1, 2].map((index) => (
-                        <span
-                          key={index}
-                          className="h-2 w-2 rounded-full bg-[#202625] opacity-40 animate-pulse-soft"
-                          style={{ animationDelay: `${index * 0.15}s` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={bottomRef} />
-            </div>
-
-            <div className="border-t border-black/5 px-3 py-3 sm:px-4">
-              <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-                {QUICK_COMMANDS.map((command) => (
+          {/* Welcome / examples */}
+          {showExamples && messages.length <= 1 && (
+            <div className="rounded-xl border border-outline-variant bg-white p-5 animate-fade-in">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant/60 mb-3">
+                Snelle opdrachten
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {EXAMPLE_COMMANDS.map(cmd => (
                   <button
-                    key={command}
-                    onClick={() => sendMessage(command)}
-                    className="whitespace-nowrap rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                    key={cmd}
+                    onClick={() => sendMessage(cmd)}
+                    className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-2 text-left text-[12px] font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
                   >
-                    {command}
+                    {cmd}
                   </button>
                 ))}
               </div>
-
-              <div className="rounded-[28px] border border-black/5 bg-surface-container-low p-2 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.24)]">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Bijvoorbeeld: zet morgen 14:30 tandarts in agenda"
-                    rows={1}
-                    className="min-h-[46px] flex-1 resize-none bg-transparent px-3 py-2 text-[15px] text-on-surface outline-none placeholder:text-on-surface-variant"
-                    style={{ maxHeight: '168px' }}
-                  />
-                  <button
-                    onClick={() => sendMessage()}
-                    disabled={!input.trim() || loading}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#202625] text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
-                  >
-                    <Send size={16} />
-                  </button>
-                </div>
-              </div>
             </div>
-          </Panel>
+          )}
+
+          {/* Messages */}
+          {messages.map(message => {
+            if (message.role === 'user') {
+              return <UserBubble key={message.id} message={message} />
+            }
+            if (message.role === 'system-action') {
+              return <SystemActionBubble key={message.id} message={message} onUndo={handleUndo} />
+            }
+            if (message.role === 'error') {
+              return <ErrorBubble key={message.id} message={message} />
+            }
+            return <AIBubble key={message.id} message={message} />
+          })}
+
+          {/* Typing indicator */}
+          {loading && <TypingIndicator />}
+
+          <div ref={bottomRef} className="h-2" />
         </div>
+      </div>
 
-        <div className="space-y-5">
-          <Panel>
-            <PanelHeader
-              eyebrow="Snelle opdrachten"
-              title="Wat je hier direct moet kunnen"
-              description="De chat is pas goed als je zonder nadenken iets kunt vragen en meteen weet wat er is gebeurd."
-            />
-
-            <div className="mt-5 space-y-2.5">
-              {CAPABILITIES.map((capability) => (
-                <div key={capability} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3 text-sm text-on-surface">
-                  {capability}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/agenda" className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low">
-                Agenda
-              </Link>
-              <Link href="/todos" className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low">
-                Todo’s
-              </Link>
-              <Link href="/memory" className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low">
-                Memory
-              </Link>
-            </div>
-          </Panel>
-
-          <Panel>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">
-                  Engine
-                </p>
-                <h2 className="mt-1 text-lg font-headline font-extrabold text-on-surface">
-                  Vertrouwen en debug
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-on-surface-variant">
-                  Debug-info hoort beschikbaar te zijn, maar mag de kernchat niet vervuilen.
-                </p>
-              </div>
+      {/* ── INPUT AREA ─────────────────────────────────────────────────────── */}
+      <div
+        ref={inputAreaRef}
+        className="shrink-0 border-t border-outline-variant bg-white px-4 py-3 md:px-6"
+      >
+        {/* Quick action pills — show when input is empty */}
+        {!input && !loading && (
+          <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-0.5 hide-scrollbar">
+            {QUICK_ACTIONS.map(({ icon: Icon, label, prompt }) => (
               <button
-                onClick={() => setShowLog((value) => !value)}
-                className="inline-flex items-center gap-1 rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                key={label}
+                onClick={() => {
+                  setInput(prompt)
+                  setTimeout(() => inputRef.current?.focus(), 0)
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-[12px] font-medium text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface whitespace-nowrap"
               >
-                <Bug size={13} />
-                {showLog ? 'Verberg' : 'Toon'}
-                {showLog ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                <Icon size={12} />
+                {label}
               </button>
-            </div>
+            ))}
+          </div>
+        )}
 
-            <div className="mt-5 rounded-[24px] border border-black/5 bg-white/70 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-on-surface">
-                <Database size={15} />
-                Laatste status
-              </div>
-              {lastEngineRun ? (
-                <div className="mt-3 space-y-2 text-sm text-on-surface-variant">
-                  <p><span className="font-semibold text-on-surface">Intent:</span> {lastEngineRun.intent}</p>
-                  <p><span className="font-semibold text-on-surface">Parser:</span> {lastEngineRun.parser}</p>
-                  <p><span className="font-semibold text-on-surface">Acties:</span> {lastEngineRun.actionsCount}</p>
-                </div>
-              ) : (
-                <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-                  Nog geen debugdata in deze sessie. Dat is prima, maar zodra je test wil je hier snel kunnen checken of er echt acties liepen.
-                </p>
-              )}
-            </div>
+        {/* Input box */}
+        <div className={cn(
+          'flex items-end gap-2 rounded-xl border bg-surface-container-low px-4 py-2 transition-all duration-150',
+          input ? 'border-accent shadow-focus' : 'border-outline-variant'
+        )}>
+          {/* Attachment */}
+          <button
+            className="mb-1 text-on-surface-variant/50 transition-colors hover:text-on-surface-variant"
+            title="Bestand uploaden"
+            onClick={() => {/* TODO: file upload */}}
+          >
+            <Paperclip size={17} />
+          </button>
 
-            {showLog && (
-              <div className="mt-4 space-y-3">
-                {logs.length === 0 ? (
-                  <EmptyPanel
-                    title="Nog geen logregels"
-                    description="Stuur een paar testopdrachten. Hier zie je dan direct welke parser draaide, met hoeveel vertrouwen en hoeveel acties eruit kwamen."
-                  />
-                ) : (
-                  logs.map((log, index) => (
-                    <div key={`${log.timestamp}-${index}`} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
-                      <div className="flex items-center gap-2 text-[11px] text-on-surface-variant">
-                        <Clock3 size={12} />
-                        <span>{log.timestamp}</span>
-                      </div>
-                      <p className="mt-2 text-sm font-semibold text-on-surface">{log.intent}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        Parser {log.parser} • {(log.confidence * 100).toFixed(0)}% • {log.actionsCount} actie(s)
-                      </p>
-                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-on-surface-variant">
-                        {log.message}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
+          {/* Textarea */}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Schrijf een bericht… (Enter verstuurt, Shift+Enter = nieuwe regel)"
+            rows={1}
+            className="flex-1 resize-none bg-transparent py-1.5 text-[14px] text-on-surface outline-none placeholder:text-on-surface-variant/50 leading-relaxed"
+            style={{ maxHeight: '160px', minHeight: '28px' }}
+          />
+
+          {/* Send */}
+          <button
+            onClick={() => sendMessage()}
+            disabled={!input.trim() || loading}
+            className={cn(
+              'mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150',
+              input.trim() && !loading
+                ? 'bg-accent text-white hover:bg-accent-hover shadow-sm'
+                : 'bg-surface-container text-on-surface-variant/40 cursor-not-allowed'
             )}
-          </Panel>
-
-          <Panel tone="muted">
-            <PanelHeader
-              eyebrow="Productkoppeling"
-              title="Chat moet niet los staan"
-              description="De chat hoort als ingang van het hele systeem te voelen, niet als een apart speeltje."
-            />
-
-            <div className="mt-5 space-y-3 text-sm leading-6 text-on-surface-variant">
-              <p>
-                Als deze chat iets aanmaakt, moet het daarna meteen terug te vinden zijn in agenda, todo’s of boodschappen.
-              </p>
-              <p>
-                Als hij een lijst toont, moet die uit de echte data komen en niet uit een verzonnen tekstlaag.
-              </p>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <ActionPill>
-                <MessageSquareText size={12} className="mr-1.5" />
-                Eén ingang
-              </ActionPill>
-              <ActionPill>
-                <Sparkles size={12} className="mr-1.5" />
-                Slim maar controleerbaar
-              </ActionPill>
-            </div>
-          </Panel>
+          >
+            <Send size={15} />
+          </button>
         </div>
+
+        <p className="mt-2 text-center text-[10px] text-on-surface-variant/40">
+          AI kan fouten maken — controleer altijd belangrijke informatie
+        </p>
       </div>
     </div>
   )

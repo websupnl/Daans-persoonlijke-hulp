@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nl" className="dark">
+    <html lang="nl">
       <body className="antialiased">
         {children}
       </body>

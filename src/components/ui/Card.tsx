@@ -1,6 +1,30 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
+// ── Shadcn-compatible exports (used by admin pages) ───────────────────────────
+
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('rounded-xl border border-outline-variant bg-white shadow-sm', className)}>
+      {children}
+    </div>
+  )
+}
+export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('p-5 pb-0', className)}>{children}</div>
+}
+export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return <h3 className={cn('text-[15px] font-semibold text-on-surface', className)}>{children}</h3>
+}
+export function CardDescription({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn('mt-1 text-[13px] text-on-surface-variant', className)}>{children}</p>
+}
+export function CardContent({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('p-5', className)}>{children}</div>
+}
+
+// ── CardLow ───────────────────────────────────────────────────────────────────
+
 interface CardProps {
   children: ReactNode
   className?: string
@@ -8,30 +32,12 @@ interface CardProps {
   compact?: boolean
 }
 
-/** Card — main container, used sparingly for elevated content blocks */
-export function Card({ children, className, onClick, compact }: CardProps) {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        'overflow-hidden rounded-xl border border-black/5 bg-white',
-        compact ? 'p-3' : 'p-4',
-        onClick && 'cursor-pointer transition-colors duration-150 hover:bg-surface-container-lowest',
-        className
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
-/** CardLow — secondary card for nested content */
 export function CardLow({ children, className, onClick, compact }: CardProps) {
   return (
     <div
       onClick={onClick}
       className={cn(
-        'overflow-hidden rounded-lg border border-black/5 bg-surface-container-low',
+        'overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low',
         compact ? 'p-3' : 'p-4',
         onClick && 'cursor-pointer transition-colors duration-150 hover:bg-surface-container',
         className
@@ -42,7 +48,8 @@ export function CardLow({ children, className, onClick, compact }: CardProps) {
   )
 }
 
-/** Row — clean list item. Use instead of CardLow for repeating list items. */
+// ── Row ───────────────────────────────────────────────────────────────────────
+
 export function Row({
   children,
   className,
@@ -69,7 +76,8 @@ export function Row({
   )
 }
 
-/** StatChip — compact metric bubble */
+// ── StatChip ──────────────────────────────────────────────────────────────────
+
 export function StatChip({
   label,
   value,
@@ -80,21 +88,21 @@ export function StatChip({
   label: string
   value: string | number
   sub?: string
-  accent?: 'orange' | 'pink' | 'violet' | 'green' | 'red'
+  accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber'
   className?: string
 }) {
-  const accentClass = {
-    orange: 'text-orange-500',
-    pink: 'text-pink-500',
-    violet: 'text-violet-500',
-    green: 'text-emerald-500',
-    red: 'text-red-500',
-  }[accent ?? 'pink'] ?? 'text-on-surface'
+  const accentClass: Record<string, string> = {
+    blue:   'text-accent',
+    violet: 'text-ai-purple',
+    green:  'text-success',
+    red:    'text-danger',
+    amber:  'text-warning',
+  }
 
   return (
-    <div className={cn('rounded-lg border border-black/5 bg-white px-3 py-2.5', className)}>
+    <div className={cn('rounded-lg border border-outline-variant bg-white px-3 py-2.5', className)}>
       <p className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/60">{label}</p>
-      <p className={cn('mt-0.5 text-xl font-headline font-extrabold leading-none', accentClass)}>
+      <p className={cn('mt-0.5 text-xl font-bold leading-none', accentClass[accent ?? ''] ?? 'text-on-surface')}>
         {value}
       </p>
       {sub && <p className="mt-0.5 text-[10px] text-on-surface-variant">{sub}</p>}
@@ -102,24 +110,26 @@ export function StatChip({
   )
 }
 
-/** Tag / pill */
+// ── Tag ───────────────────────────────────────────────────────────────────────
+
 export function Tag({
   children,
   color,
   className,
 }: {
   children: ReactNode
-  color?: 'orange' | 'pink' | 'violet' | 'green' | 'red' | 'gray' | 'blue'
+  color?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'gray' | 'orange' | 'pink'
   className?: string
 }) {
-  const colors = {
+  const colors: Record<string, string> = {
     orange: 'bg-orange-50 text-orange-600',
-    pink: 'bg-pink-50 text-pink-600',
-    violet: 'bg-violet-50 text-violet-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    red: 'bg-red-50 text-red-600',
-    gray: 'bg-surface-container text-on-surface-variant',
-    blue: 'bg-blue-50 text-blue-600',
+    pink:   'bg-pink-50 text-pink-600',
+    violet: 'bg-ai-purple-bg text-ai-purple',
+    blue:   'bg-accent-light text-accent',
+    green:  'bg-success-bg text-success',
+    red:    'bg-danger-bg text-danger',
+    amber:  'bg-warning-bg text-warning',
+    gray:   'bg-surface-container text-on-surface-variant',
   }
 
   return (
@@ -133,12 +143,18 @@ export function Tag({
   )
 }
 
-/** Priority dot */
+// ── PriorityDot ───────────────────────────────────────────────────────────────
+
 export function PriorityDot({ priority }: { priority: 'hoog' | 'medium' | 'laag' | string }) {
   const colors: Record<string, string> = {
-    hoog: 'bg-red-400',
-    medium: 'bg-amber-400',
-    laag: 'bg-emerald-400',
+    hoog:   'bg-danger',
+    medium: 'bg-warning',
+    laag:   'bg-success',
   }
-  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', colors[priority] ?? 'bg-outline-variant')} />
+  return (
+    <span className={cn(
+      'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+      colors[priority] ?? 'bg-outline-variant'
+    )} />
+  )
 }

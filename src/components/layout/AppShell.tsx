@@ -8,28 +8,34 @@ import BottomNav from './BottomNav'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const isChat = pathname === '/chat'
 
   return (
     <div className="min-h-dvh bg-background text-on-surface">
       {/* Desktop sidebar */}
       <Sidebar />
 
-      {/* Main content area */}
-      <main className="min-h-dvh min-w-0 pb-[92px] md:ml-[var(--sidebar-width)] md:pb-0">
-        <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.72),_rgba(246,243,237,1)_42%)]">
+      {/* Main content */}
+      <main className={[
+        'min-h-dvh min-w-0',
+        'pb-[72px] md:pb-0',
+        'md:ml-[var(--sidebar-width)]',
+      ].join(' ')}>
+        <div className="min-h-dvh">
           {children}
         </div>
       </main>
 
-      {/* Mobile bottom nav — hidden on md+ */}
+      {/* Mobile bottom nav */}
       <BottomNav />
 
-      {pathname !== '/chat' && (
+      {/* Desktop: floating Chat button — only when not already on chat */}
+      {!isChat && (
         <Link
           href="/chat"
-          className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full border border-black/5 bg-[#202625] px-4 py-3 text-sm font-semibold text-white shadow-[0_24px_50px_-28px_rgba(18,22,21,0.46)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#2a3230] md:flex"
+          className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-xl md:flex focus-visible:shadow-focus"
         >
-          <span className="h-2 w-2 rounded-full bg-[#d8a26e]" />
+          <span className="h-2 w-2 rounded-full bg-white/60 ai-pulse-dot" />
           <MessageSquare size={16} />
           Chat
         </Link>

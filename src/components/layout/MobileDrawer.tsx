@@ -7,54 +7,48 @@ import {
   X, LayoutDashboard, MessageSquare, CheckSquare, FileText,
   Users, Euro, Activity, BookOpen, FolderOpen, Clock,
   Inbox, CalendarDays, Lightbulb, Brain, Search, History, Sparkles,
-  HelpCircle, ShoppingCart, Upload
+  ShoppingCart, Upload, Settings
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const DRAWER_GROUPS = [
   {
-    label: 'Overzicht',
+    label: 'Dagelijks',
     items: [
-      { href: '/',       label: 'Dashboard',  icon: LayoutDashboard },
-      { href: '/agenda', label: 'Agenda',      icon: CalendarDays },
-      { href: '/search', label: 'Zoeken',      icon: Search },
+      { href: '/',        label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/chat',    label: 'Chat',       icon: MessageSquare },
+      { href: '/journal', label: 'Dagboek',    icon: BookOpen },
     ],
   },
   {
-    label: 'Werk',
+    label: 'Bijhouden',
     items: [
-      { href: '/todos',    label: "Todo's",    icon: CheckSquare },
-      { href: '/projects', label: 'Projecten', icon: FolderOpen },
-      { href: '/worklogs', label: 'Werklog',   icon: Clock },
-      { href: '/notes',    label: 'Notities',  icon: FileText },
-      { href: '/ideas',    label: 'Ideeën',    icon: Lightbulb },
+      { href: '/todos',   label: 'Taken',     icon: CheckSquare },
+      { href: '/finance', label: 'Financiën', icon: Euro },
+      { href: '/memory',  label: 'Geheugen',  icon: Brain },
     ],
   },
   {
-    label: 'Financieel',
+    label: 'Intelligentie',
     items: [
-      { href: '/finance',  label: 'Financiën',  icon: Euro },
-      { href: '/contacts', label: 'Contacten',  icon: Users },
+      { href: '/patterns', label: 'Inzichten', icon: Sparkles },
     ],
   },
   {
-    label: 'Persoonlijk',
+    label: 'Meer',
     items: [
-      { href: '/journal',   label: 'Dagboek',     icon: BookOpen },
-      { href: '/habits',    label: 'Gewoontes',   icon: Activity },
-      { href: '/groceries', label: 'Boodschappen',icon: ShoppingCart },
-    ],
-  },
-  {
-    label: 'AI & Tools',
-    items: [
-      { href: '/chat',     label: 'Chat',        icon: MessageSquare },
-      { href: '/patterns', label: 'Patronen',    icon: Brain },
-      { href: '/memory',   label: 'Memory',      icon: Sparkles },
-      { href: '/inbox',    label: 'Inbox',       icon: Inbox },
-      { href: '/import',   label: 'Importeren',  icon: Upload },
-      { href: '/timeline', label: 'Timeline',    icon: History },
-      { href: '/uitleg',   label: 'Hoe werkt het?', icon: HelpCircle },
+      { href: '/notes',     label: 'Notities',     icon: FileText },
+      { href: '/projects',  label: 'Projecten',    icon: FolderOpen },
+      { href: '/worklogs',  label: 'Werklog',      icon: Clock },
+      { href: '/habits',    label: 'Gewoontes',    icon: Activity },
+      { href: '/contacts',  label: 'Contacten',    icon: Users },
+      { href: '/agenda',    label: 'Agenda',       icon: CalendarDays },
+      { href: '/ideas',     label: 'Ideeën',       icon: Lightbulb },
+      { href: '/groceries', label: 'Boodschappen', icon: ShoppingCart },
+      { href: '/inbox',     label: 'Inbox',        icon: Inbox },
+      { href: '/search',    label: 'Zoeken',       icon: Search },
+      { href: '/timeline',  label: 'Timeline',     icon: History },
+      { href: '/import',    label: 'Importeren',   icon: Upload },
     ],
   },
 ]
@@ -72,39 +66,45 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
   return (
     <div className="fixed inset-0 z-[60] md:hidden">
       {/* Backdrop */}
-      <div className="absolute inset-0 glass-dark" onClick={onClose} />
+      <div
+        className="absolute inset-0 glass-dark"
+        onClick={onClose}
+      />
 
       {/* Sheet */}
-      <div className="absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-[32px] border-t border-black/5 bg-surface-container-lowest animate-slide-up">
+      <div className="absolute inset-x-0 bottom-0 max-h-[88dvh] flex flex-col rounded-t-2xl bg-white animate-slide-up">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-outline-variant opacity-40" />
+          <div className="w-8 h-1 rounded-full bg-surface-container-high" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-[0_16px_32px_-18px_rgba(90,103,123,0.4)]" style={{ background: 'var(--gradient)' }}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white bg-gradient">
               D
             </div>
             <div>
-              <p className="text-sm font-headline font-bold text-on-surface leading-tight">Daan</p>
+              <p className="text-[13px] font-semibold text-on-surface leading-tight">Daan</p>
               <p className="text-[11px] text-on-surface-variant leading-tight">Persoonlijke cockpit</p>
             </div>
           </div>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container text-on-surface-variant transition-colors hover:bg-surface-container-high">
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          >
             <X size={16} />
           </button>
         </div>
 
         {/* Nav groups */}
-        <nav className="flex-1 overflow-y-auto px-4 pb-8 space-y-5">
+        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           {DRAWER_GROUPS.map(group => (
             <div key={group.label}>
-            <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/70">
-              {group.label}
-            </p>
-            <div className="space-y-0.5">
+              <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant/60">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href || (href !== '/' && pathname.startsWith(href))
                   return (
@@ -113,18 +113,14 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
                       href={href}
                       onClick={onClose}
                       className={cn(
-                        'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all',
+                        'flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-all',
                         active
-                          ? 'bg-brand-subtle shadow-[0_18px_40px_-32px_rgba(90,103,123,0.24)]'
-                          : 'hover:bg-surface-container-low'
+                          ? 'bg-accent-light text-accent font-semibold'
+                          : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface font-medium'
                       )}
                     >
-                      <span className={cn(active ? 'text-on-surface' : 'text-on-surface-variant')}>
-                        <Icon size={16} strokeWidth={active ? 2.2 : 1.6} />
-                      </span>
-                      <span className={cn('font-medium', active ? 'text-on-surface' : 'text-on-surface-variant')}>
-                        {label}
-                      </span>
+                      <Icon size={15} strokeWidth={active ? 2.2 : 1.7} />
+                      <span>{label}</span>
                     </Link>
                   )
                 })}
@@ -132,6 +128,9 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
             </div>
           ))}
         </nav>
+
+        {/* Safe area bottom */}
+        <div className="h-[calc(env(safe-area-inset-bottom)+1rem)]" />
       </div>
     </div>
   )
