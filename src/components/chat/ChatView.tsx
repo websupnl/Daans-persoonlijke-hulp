@@ -384,11 +384,17 @@ export default function ChatView() {
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
+        // Verwerk alle complete SSE events (gescheiden door \n\n)
+        let boundary = buffer.indexOf('\n\n')
+        while (boundary !== -1) {
+          const event = buffer.slice(0, boundary)
+          buffer = buffer.slice(boundary + 2)
+          boundary = buffer.indexOf('\n\n')
+
+          const line = event.split('\n').find(l => l.startsWith('data: '))
+          if (!line) continue
+
           try {
             const data = JSON.parse(line.slice(6))
 

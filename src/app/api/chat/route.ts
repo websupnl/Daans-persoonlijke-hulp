@@ -105,17 +105,28 @@ export async function POST(req: NextRequest) {
         // 5. Genereer response tekst
         const responseText = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
 
-        // 6. Sla AI response op
+        // 6. Sla AI response op (zonder session_key — kolom bestaat niet)
         await execute(
-          `INSERT INTO chat_messages (role, content, actions, session_key) VALUES ('assistant', $1, $2, $3)`,
-          [responseText, JSON.stringify(debugInfo), sessionKey || null]
+          `INSERT INTO chat_messages (role, content, actions) VALUES ('assistant', $1, $2)`,
+          [responseText, JSON.stringify(debugInfo)]
         ).catch(console.error)
 
-        // 7. Stream tekst woord voor woord
-        const words = responseText.split(' ')
-        for (const word of words) {
-          send({ type: 'text', text: word + ' ' })
-          await new Promise(r => setTimeout(r, 25))
+        // 7. Stream tekst woord voor woord via OpenAI streaming
+        const client = (await import('@/lib/ai/openai-client')).getOpenAIClient()
+        const streamResponse = await client.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'Je bent Daan\'s persoonlijke assistent. Geef een korte, natuurlijke Nederlandse bevestiging van wat je zojuist hebt gedaan. Max 2 zinnen. Geen lijst, geen opsomming.' },
+            { role: 'user', content: responseText },
+          ],
+          stream: true,
+          max_tokens: 200,
+          temperature: 0.7,
+        })
+
+        for await (const chunk of streamResponse) {
+          const text = chunk.choices[0]?.delta?.content ?? ''
+          if (text) send({ type: 'text', text })
         }
 
         // 8. Klaar — stuur actie-samenvatting mee
@@ -139,8 +150,9 @@ export async function POST(req: NextRequest) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no', // Vercel/nginx: disable response buffering
     },
   })
 }

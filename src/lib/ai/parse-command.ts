@@ -149,7 +149,7 @@ Huidig irritatieniveau: ${ctx.irritationLevel}/10`
     const parsed = JSON.parse(raw)
     let validated = AICommandResultSchema.safeParse(parsed)
 
-    // Resilient fallback: strip unknown action types instead of crashing everything
+    // Resilient fallback: strip unknown/invalid actions instead of crashing
     if (!validated.success && Array.isArray(parsed.actions)) {
       const KNOWN_TYPES = new Set([
         'todo_create','todo_update','todo_delete','todo_delete_many','todo_complete',
@@ -159,7 +159,12 @@ Huidig irritatieniveau: ${ctx.irritationLevel}/10`
         'daily_plan_request','weekly_plan_request','timer_start','timer_stop',
         'grocery_create','grocery_list',
       ])
-      const stripped = parsed.actions.filter((a: any) => KNOWN_TYPES.has(a?.type))
+      // Strip unknown types AND actions with missing/non-object payload
+      const stripped = parsed.actions.filter((a: any) =>
+        KNOWN_TYPES.has(a?.type) && a?.payload !== undefined && typeof a?.payload === 'object'
+      )
+      // Ensure every action has at least an empty payload object
+      parsed.actions = stripped.map((a: any) => ({ ...a, payload: a.payload ?? {} }))
       if (stripped.length !== parsed.actions.length) {
         const unknown = parsed.actions.filter((a: any) => !KNOWN_TYPES.has(a?.type)).map((a: any) => a?.type)
         console.warn('[parseCommandWithAI] Stripped unknown action types:', unknown)
