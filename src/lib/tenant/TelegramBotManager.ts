@@ -211,15 +211,8 @@ export class TelegramBotManager {
    */
   private async processChatMessage(message: string, context: any): Promise<any> {
     // Import chat processor dynamically to avoid circular dependencies
-    const { SimpleChatProcessor } = await import('../chat/SimpleChatProcessor')
-    const processor = new SimpleChatProcessor()
-
-    // Process message with tenant-specific database connection
-    return await processor.processChatMessage(message, {
-      tenant_id: context.tenant.id,
-      user_id: context.user?.id,
-      database: context.database
-    })
+    const { processChatMessage } = await import('../chat/SimpleChatProcessor')
+    return await processChatMessage(message)
   }
 
   /**

@@ -50,7 +50,7 @@ export class TenantManager {
       this.tenantCache.set(tenantId, tenant)
     }
 
-    return tenant || null
+    return tenant ?? null
   }
 
   /**
@@ -82,7 +82,7 @@ export class TenantManager {
       this.userCache.set(cacheKey, user)
     }
 
-    return user || null
+    return user ?? null
   }
 
   /**

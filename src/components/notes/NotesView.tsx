@@ -90,7 +90,7 @@ export default function NotesView() {
       actions={
         <button
           onClick={() => createNote()}
-          className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={15} />
           Nieuwe note
@@ -117,14 +117,14 @@ export default function NotesView() {
               value={quickNote}
               onChange={(event) => setQuickNote(event.target.value)}
               placeholder="Dump hier snel een idee, call note, losse gedachte of projectinzicht..."
-              className="mt-5 min-h-[180px] w-full resize-none rounded-[24px] border border-black/5 bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+              className="mt-5 min-h-[180px] w-full resize-none rounded-xl border border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
             />
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 onClick={saveQuickNote}
                 disabled={!quickNote.trim() || savingQuick}
-                className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
               >
                 <ArrowRight size={15} />
                 {savingQuick ? 'Bezig...' : 'Open in editor'}
@@ -140,7 +140,7 @@ export default function NotesView() {
               description="Niet alleen tekstmatch, maar desnoods ook slimmere AI-zoekmodus."
             />
 
-            <div className="mt-5 rounded-[24px] border border-black/5 bg-surface-container-low px-4 py-3">
+            <div className="mt-5 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3">
               <div className="flex items-center gap-2">
                 <Search size={16} className="text-on-surface-variant" />
                 <input
@@ -153,7 +153,7 @@ export default function NotesView() {
                   onClick={() => setSmartSearch((value) => !value)}
                   className={cn(
                     'rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors',
-                    smartSearch ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-high'
+                    smartSearch ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-high'
                   )}
                 >
                   AI
@@ -185,7 +185,7 @@ export default function NotesView() {
                   <button
                     key={note.id}
                     onClick={() => router.push(`/notes/${note.id}`)}
-                    className="block w-full rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5 text-left transition-colors hover:bg-white"
+                    className="block w-full rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5 text-left transition-colors hover:bg-white"
                   >
                     <p className="truncate text-sm font-semibold text-on-surface">{note.title}</p>
                     <p className="mt-1 text-xs text-on-surface-variant">{formatRelative(note.updated_at)}</p>
@@ -257,7 +257,7 @@ function NoteCard({
   return (
     <div
       onClick={() => router.push(`/notes/${note.id}`)}
-      className="group relative block rounded-[26px] border border-black/5 bg-white p-4 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low"
+      className="group relative block rounded-xl border border-outline-variant bg-white p-4 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low"
     >
       {note.pinned && (
         <div className="absolute right-4 top-4">
@@ -290,7 +290,7 @@ function NoteCard({
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-black/5 pt-4">
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant pt-4">
         <span className="text-xs text-on-surface-variant">{formatRelative(note.updated_at)}</span>
         {note.project_title && (
           <span

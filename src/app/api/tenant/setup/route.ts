@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
 
 async function initializeTenantDatabase(tenantId: string, databaseUrl: string) {
   // Import database schema initialization
+  const { Pool } = await import('@neondatabase/serverless')
   const pool = new Pool({ connectionString: databaseUrl })
 
   // Read schema file and execute

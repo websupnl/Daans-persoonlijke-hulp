@@ -85,7 +85,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
         <Panel tone="accent" className="xl:sticky xl:top-8 xl:self-start">
           <PanelHeader eyebrow="Toevoegen" title="Wat heb je nodig?" />
           <form onSubmit={addItem} className="mt-4 space-y-2.5">
-            <div className="flex items-center gap-2 rounded-lg border border-black/5 bg-white px-3.5 py-2.5">
+            <div className="flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5">
               <Apple size={14} className="shrink-0 text-on-surface-variant" />
               <input
                 type="text"
@@ -98,14 +98,14 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
             <input
               type="text"
               placeholder="Aantal (bijv. 1 pak)"
-              className="w-full rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+              className="w-full rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
               value={newItemQuantity}
               onChange={(e) => setNewItemQuantity(e.target.value)}
             />
             <button
               type="submit"
               disabled={adding || !newItemTitle.trim()}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus size={14} />
               {adding ? 'Bezig...' : 'Toevoegen'}

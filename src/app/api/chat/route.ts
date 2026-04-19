@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantContextManager } from '@/lib/tenant/TenantContext'
-import { SimpleChatProcessor } from '@/lib/chat/SimpleChatProcessor'
+import { processChatMessage } from '@/lib/chat/SimpleChatProcessor'
 
 export async function GET(req: NextRequest) {
   try {
@@ -50,25 +50,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No tenant context found' }, { status: 401 })
     }
 
-    // Process message with tenant-specific chat processor
-    const processor = new SimpleChatProcessor()
-    const result = await processor.processChatMessage(message.trim(), {
-      tenant_id: context.tenant.id,
-      user_id: context.user?.id,
-      database: context.database,
-      sessionKey
-    })
+    // Process message with chat processor
+    const result = await processChatMessage(message.trim())
 
     return NextResponse.json({
-      response: result.reply,
-      success: true,
+      response: result.message,
+      success: result.success,
       actions: result.actions,
       debug: {
-        parserType: result.parserType,
-        confidence: result.confidence,
-        intent: result.intent,
+        ...(result.debug ?? {}),
         tenant_id: context.tenant.id,
-        user_id: context.user?.id
+        user_id: context.user?.id,
       },
     })
   } catch (err: any) {

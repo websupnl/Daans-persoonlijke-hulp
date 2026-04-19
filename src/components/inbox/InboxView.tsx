@@ -94,12 +94,12 @@ export default function InboxView() {
                 value={newText}
                 onChange={(event) => setNewText(event.target.value)}
                 placeholder="Snel iets vastleggen: idee, follow-up, losse taak, belofte, notitie..."
-                className="min-h-[160px] w-full resize-none rounded-lg border border-black/5 bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="min-h-[160px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
               />
               <button
                 type="submit"
                 disabled={!newText.trim() || saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus size={13} />
                 {saving ? 'Opslaan...' : 'Voeg toe aan inbox'}
@@ -112,13 +112,13 @@ export default function InboxView() {
             <div className="mt-3 flex gap-1.5">
               <button
                 onClick={() => setFilter('pending')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'pending' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'pending' ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
               >
                 Onverwerkt
               </button>
               <button
                 onClick={() => setFilter('all')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'}`}
               >
                 Alles
               </button>
@@ -164,14 +164,14 @@ export default function InboxView() {
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
                             onClick={() => handleTriage(item)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant transition-colors hover:bg-surface-container-low"
                             title="AI triage"
                           >
                             <Sparkles size={13} />
                           </button>
                           <button
                             onClick={() => handleProcess(item.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#202625] text-white transition-colors hover:bg-[#2a3230]"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white transition-colors hover:bg-[#2a3230]"
                             title="Markeer als verwerkt"
                           >
                             <Check size={13} />
@@ -181,7 +181,7 @@ export default function InboxView() {
                     </div>
 
                     {triage[item.id] && (
-                      <div className="mt-3 rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3">
+                      <div className="mt-3 rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">AI voorstel</p>
                         <div className="mt-2 space-y-1 text-sm leading-6 text-on-surface">
                           <p><span className="font-semibold">Type:</span> {String(triage[item.id].type || 'onbekend')}</p>

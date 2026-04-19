@@ -93,7 +93,7 @@ export default function ProjectsView() {
       actions={
         <button
           onClick={() => setShowAdd((value) => !value)}
-          className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={15} />
           Nieuw project
@@ -119,7 +119,7 @@ export default function ProjectsView() {
                   activeTimer.project_id ? (
                     <button
                       onClick={() => router.push(`/projects/${activeTimer.project_id}`)}
-                      className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                      className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                     >
                       Open project
                     </button>
@@ -147,13 +147,13 @@ export default function ProjectsView() {
                   onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                   onKeyDown={(event) => event.key === 'Enter' && addProject()}
                   placeholder="Projectnaam"
-                  className="w-full rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
                 <textarea
                   value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                   placeholder="Korte beschrijving"
-                  className="min-h-[120px] w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="min-h-[120px] w-full resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Kleur</p>
@@ -173,13 +173,13 @@ export default function ProjectsView() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={addProject}
-                  className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                 >
                   Opslaan
                 </button>
                 <button
                   onClick={() => setShowAdd(false)}
-                  className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                 >
                   Annuleer
                 </button>
@@ -197,7 +197,7 @@ export default function ProjectsView() {
             {loading ? (
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="min-h-[220px] rounded-[24px] border border-black/5 bg-surface-container-low animate-pulse" />
+                  <div key={index} className="min-h-[220px] rounded-xl border border-outline-variant bg-surface-container-low animate-pulse" />
                 ))}
               </div>
             ) : projects.length === 0 ? (
@@ -217,7 +217,7 @@ export default function ProjectsView() {
                       key={project.id}
                       onClick={() => router.push(`/projects/${project.id}`)}
                       className={cn(
-                        'group rounded-[26px] border border-black/5 bg-white p-5 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low',
+                        'group rounded-xl border border-outline-variant bg-white p-5 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low',
                         timerRunning && 'ring-1 ring-[#202625]'
                       )}
                     >
@@ -240,15 +240,15 @@ export default function ProjectsView() {
                       </div>
 
                       <div className="mt-5 grid grid-cols-3 gap-2">
-                        <div className="rounded-[20px] border border-black/5 bg-surface-container-low px-3 py-3">
+                        <div className="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-3">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Open</p>
                           <p className="mt-2 text-lg font-headline font-extrabold text-on-surface">{project.open_todos}</p>
                         </div>
-                        <div className="rounded-[20px] border border-black/5 bg-surface-container-low px-3 py-3">
+                        <div className="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-3">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Notities</p>
                           <p className="mt-2 text-lg font-headline font-extrabold text-on-surface">{project.note_count}</p>
                         </div>
-                        <div className="rounded-[20px] border border-black/5 bg-surface-container-low px-3 py-3">
+                        <div className="rounded-xl border border-outline-variant bg-surface-container-low px-3 py-3">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Klaar</p>
                           <p className="mt-2 text-lg font-headline font-extrabold text-on-surface">{progress}%</p>
                         </div>
@@ -269,7 +269,7 @@ export default function ProjectsView() {
                           value={project.status}
                           onClick={(event) => event.stopPropagation()}
                           onChange={(event) => updateStatus(event, project.id)}
-                          className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface outline-none"
+                          className="rounded-full border border-outline-variant bg-white px-3 py-1.5 text-xs font-medium text-on-surface outline-none"
                         >
                           {Object.entries(STATUS_LABELS).map(([value, label]) => (
                             <option key={value} value={value}>
@@ -303,7 +303,7 @@ export default function ProjectsView() {
 
             <div className="mt-5 space-y-3">
               {activeProjects.slice(0, 5).map((project) => (
-                <div key={project.id} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                <div key={project.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
                   <p className="truncate text-sm font-semibold text-on-surface">{project.title}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                     <span>{project.open_todos} open taken</span>

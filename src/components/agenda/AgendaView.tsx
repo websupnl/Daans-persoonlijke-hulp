@@ -121,25 +121,25 @@ export default function AgendaView() {
         <>
           <button
             onClick={() => { const next = addDays(weekStart, -7); setWeekStart(next); setSelectedDay(next) }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
           >
             <ChevronLeft size={15} />
           </button>
           <button
             onClick={() => { const today = startOfWeek(new Date(), { weekStartsOn: 1 }); setWeekStart(today); setSelectedDay(new Date()) }}
-            className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
             Vandaag
           </button>
           <button
             onClick={() => { const next = addDays(weekStart, 7); setWeekStart(next); setSelectedDay(next) }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
           >
             <ChevronRight size={15} />
           </button>
           <button
             onClick={() => { setForm((c) => ({ ...c, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd((v) => !v) }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
           >
             <Plus size={14} />
             Nieuw item
@@ -160,29 +160,29 @@ export default function AgendaView() {
             eyebrow="Nieuw agenda-item"
             title="Snel iets plannen"
             action={
-              <button onClick={() => setShowAdd(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low">
+              <button onClick={() => setShowAdd(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low">
                 <X size={13} />
               </button>
             }
           />
           <div className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-            <input value={form.title} onChange={(e) => setForm((c) => ({ ...c, title: e.target.value }))} placeholder="Titel" className="xl:col-span-2 rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-            <input type="date" value={form.date} onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
-            <input type="time" value={form.time} onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))} className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
-            <select value={form.type} onChange={(e) => setForm((c) => ({ ...c, type: e.target.value }))} className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
+            <input value={form.title} onChange={(e) => setForm((c) => ({ ...c, title: e.target.value }))} placeholder="Titel" className="xl:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+            <input type="date" value={form.date} onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
+            <input type="time" value={form.time} onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
+            <select value={form.type} onChange={(e) => setForm((c) => ({ ...c, type: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
               {Object.entries(TYPE_CONFIG).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
             </select>
-            <select value={form.recurring} onChange={(e) => setForm((c) => ({ ...c, recurring: e.target.value }))} className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
+            <select value={form.recurring} onChange={(e) => setForm((c) => ({ ...c, recurring: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
               <option value="">Niet herhalend</option>
               <option value="dagelijks">Dagelijks</option>
               <option value="wekelijks">Wekelijks</option>
               <option value="maandelijks">Maandelijks</option>
             </select>
-            <input value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Omschrijving" className="md:col-span-2 rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+            <input value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Omschrijving" className="md:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={saveEvent} className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">Opslaan</button>
-            <button onClick={() => setShowAdd(false)} className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low">Annuleer</button>
+            <button onClick={saveEvent} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">Opslaan</button>
+            <button onClick={() => setShowAdd(false)} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low">Annuleer</button>
           </div>
         </Panel>
       )}
@@ -214,8 +214,8 @@ export default function AgendaView() {
                     className={cn(
                       'rounded-xl border px-3 py-3 text-left transition-colors duration-150',
                       isSelected
-                        ? 'border-[#202625] bg-[#202625] text-white'
-                        : 'border-black/5 bg-surface-container-low hover:bg-surface-container',
+                        ? 'border-[#202625] bg-accent text-white'
+                        : 'border-outline-variant bg-surface-container-low hover:bg-surface-container',
                       past && !isSelected && 'opacity-60'
                     )}
                   >
@@ -286,7 +286,7 @@ export default function AgendaView() {
                   action={
                     <button
                       onClick={() => { setForm((c) => ({ ...c, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd(true) }}
-                      className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                      className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                     >
                       Voeg item toe
                     </button>

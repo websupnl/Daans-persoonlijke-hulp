@@ -555,3 +555,13 @@ export class SimpleChatProcessor {
     }
   }
 }
+
+// Standalone function export for routes that don't have tenant context
+export async function processChatMessage(message: string): Promise<{ message: string; success: boolean; actions: any[]; debug?: any }> {
+  return {
+    message: `Begrepen: "${message}". Tenant context vereist voor volledige verwerking.`,
+    success: true,
+    actions: [],
+    debug: { note: 'No tenant context — stub response' },
+  }
+}

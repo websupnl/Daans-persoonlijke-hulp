@@ -116,7 +116,7 @@ export default function PatternsClient() {
         <button
           onClick={runAnalysis}
           disabled={analyzing}
-          className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+          className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
         >
           <RefreshCcw size={15} className={analyzing ? 'animate-spin' : ''} />
           {analyzing ? 'Analyseren...' : 'Nu analyseren'}
@@ -146,7 +146,7 @@ export default function PatternsClient() {
                   onClick={() => setActiveTab(tab)}
                   className={cn(
                     'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                    activeTab === tab ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
+                    activeTab === tab ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
                   )}
                 >
                   {tab === 'confirmed' && 'Bevestigd'}
@@ -228,7 +228,7 @@ export default function PatternsClient() {
                       />
                     ) : (
                       openQuestions.map((question) => (
-                        <div key={question.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                        <div key={question.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
@@ -264,7 +264,7 @@ export default function PatternsClient() {
                       />
                     ) : (
                       opportunities.map((pattern) => (
-                        <div key={pattern.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                        <div key={pattern.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
                           <div className="flex items-start gap-3">
                             <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-on-surface">
                               <Sparkles size={16} />
@@ -340,7 +340,7 @@ export default function PatternsClient() {
                 />
               ) : (
                 moduleSpread.slice(0, 6).map(([module, count]) => (
-                  <div key={module} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                  <div key={module} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-on-surface">{module}</p>
                       <ActionPill>{count}</ActionPill>
@@ -366,7 +366,7 @@ function PatternCard({
   onDismiss?: () => void
 }) {
   return (
-    <div className="rounded-[26px] border border-black/5 bg-white px-4 py-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]">
+    <div className="rounded-xl border border-outline-variant bg-white px-4 py-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -390,13 +390,13 @@ function PatternCard({
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={onConfirm}
-            className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
           >
             Klopt
           </button>
           <button
             onClick={onDismiss}
-            className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
             Niet waar
           </button>
@@ -414,14 +414,14 @@ function SignalBlock({
   items: Array<{ label: string; value: string }>
 }) {
   return (
-    <div className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+    <div className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
       <p className="text-sm font-semibold text-on-surface">{title}</p>
       <div className="mt-4 space-y-3">
         {items.length === 0 ? (
           <p className="text-sm text-on-surface-variant">Nog geen data</p>
         ) : (
           items.map((item, index) => (
-            <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-[18px] bg-surface-container-low px-3 py-2.5">
+            <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-low px-3 py-2.5">
               <p className="truncate text-sm text-on-surface">{item.label}</p>
               <span className="text-xs font-medium text-on-surface-variant">{item.value}</span>
             </div>

@@ -107,7 +107,7 @@ export default function IdeasView() {
       actions={
         <button
           onClick={() => { if (ideas[0]) { setSelectedId(ideas[0].id); setShowModal(true) } }}
-          className="inline-flex items-center gap-2 rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
+          className="inline-flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
         >
           <Brain size={14} />
           Details
@@ -128,13 +128,13 @@ export default function IdeasView() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Bijv: lokale leadmachine voor thuisbatterijen met offerteflow + AI opvolging..."
-              className="mt-4 min-h-[140px] w-full resize-none rounded-lg border border-black/5 bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+              className="mt-4 min-h-[140px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
             />
             <div className="mt-3">
               <button
                 onClick={createIdea}
                 disabled={!input.trim() || saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Sparkles size={13} />
                 {saving ? 'Analyseren...' : 'Opslaan en analyseren'}
@@ -201,7 +201,7 @@ export default function IdeasView() {
           <div className="relative h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-surface-container-lowest p-6 shadow-xl sm:h-auto sm:max-h-[85vh] sm:rounded-2xl">
             <button
               onClick={() => setShowModal(false)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
             >
               <X size={15} />
             </button>
@@ -256,7 +256,7 @@ function IdeaDetail({
           </div>
           <button
             onClick={() => onDelete(idea.id)}
-            className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-red-50 hover:text-red-600"
           >
             <Trash2 size={11} />
             Verwijderen
@@ -270,7 +270,7 @@ function IdeaDetail({
             <textarea
               value={idea.raw_input}
               onChange={(e) => onUpdate(idea.id, { raw_input: e.target.value })}
-              className="min-h-[100px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
           </FieldPanel>
 
@@ -278,7 +278,7 @@ function IdeaDetail({
             <textarea
               value={idea.refined_summary || ''}
               onChange={(e) => onUpdate(idea.id, { refined_summary: e.target.value })}
-              className="min-h-[120px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[120px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
           </FieldPanel>
 
@@ -286,7 +286,7 @@ function IdeaDetail({
             <textarea
               value={idea.market_gap || ''}
               onChange={(e) => onUpdate(idea.id, { market_gap: e.target.value })}
-              className="min-h-[100px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
             />
           </FieldPanel>
 
@@ -301,7 +301,7 @@ function IdeaDetail({
                     next[index] = e.target.value
                     onUpdate(idea.id, { next_steps: next })
                   }}
-                  className="w-full rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
                 />
               ))}
             </div>
@@ -313,7 +313,7 @@ function IdeaDetail({
             <select
               value={idea.status}
               onChange={(e) => onUpdate(idea.id, { status: e.target.value as Idea['status'] })}
-              className="w-full rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>{STATUS_LABELS[status]}</option>
