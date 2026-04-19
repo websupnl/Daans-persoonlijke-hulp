@@ -14,7 +14,7 @@ import {
 import { cn, formatDate, isOverdue } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
-import { PriorityDot } from '@/components/ui/Card'
+import { PriorityDot } from '@/components/ui/card'
 import AIContextButton from '@/components/ai/AIContextButton'
 
 interface Todo {
@@ -196,7 +196,7 @@ export default function TodosView() {
     >
       <StatStrip stats={[
         { label: 'Open', value: openTodos.length },
-        { label: 'Vandaag', value: todayTodos.length, accent: todayTodos.length > 0 ? 'orange' : undefined },
+        { label: 'Vandaag', value: todayTodos.length, accent: todayTodos.length > 0 ? 'amber' : undefined },
         { label: 'Te laat', value: overdueTodos.length, accent: overdueTodos.length > 0 ? 'red' : undefined },
         { label: 'Afgerond', value: completedTodos.length, accent: 'green' },
       ]} />

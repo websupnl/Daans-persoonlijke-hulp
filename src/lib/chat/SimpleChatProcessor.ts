@@ -264,14 +264,14 @@ export class SimpleChatProcessor {
   private async executeTodoAdd(params: { title: string }, db: any): Promise<ActionResult> {
     const result = await db.query(`
       INSERT INTO todos (title, completed, priority, category, created_at)
-      VALUES ($1, 0, 'medium', 'overig', CURRENT_TIMESTAMP)
+      VALUES ($1, false, 'medium', 'overig', CURRENT_TIMESTAMP)
       RETURNING id, title, created_at
     `, [params.title]);
     
     const verification = await db.queryOne(`
       SELECT id, title, completed 
       FROM todos 
-      WHERE title = $1 AND completed = 0
+      WHERE title = $1 AND completed = false
       ORDER BY created_at DESC 
       LIMIT 1
     `, [params.title]);
@@ -286,14 +286,14 @@ export class SimpleChatProcessor {
   private async executeHabitLog(params: { habit_name: string }, db: any): Promise<ActionResult> {
     let habit = await db.queryOne(`
       SELECT id, name FROM habits 
-      WHERE name ILIKE $1 AND active = 1 
+      WHERE name ILIKE $1 AND active = true 
       LIMIT 1
     `, [`%${params.habit_name}%`]);
     
     if (!habit) {
       habit = await db.queryOne(`
-        INSERT INTO habits (name, frequency, target, active, created_at)
-        VALUES ($1, 'dagelijks', 1, 1, CURRENT_TIMESTAMP)
+        INSERT INTO habits (name, target_frequency, frequency_unit, active, created_at)
+        VALUES ($1, 1, 'dagelijks', true, CURRENT_TIMESTAMP)
         RETURNING id, name
       `, [params.habit_name]);
     }
@@ -320,14 +320,14 @@ export class SimpleChatProcessor {
   private async executeHabitTimeLog(params: { habit_name: string; logged_time: string; note?: string }, db: any): Promise<ActionResult> {
     let habit = await db.queryOne(`
       SELECT id, name FROM habits 
-      WHERE name ILIKE $1 AND active = 1 
+      WHERE name ILIKE $1 AND active = true 
       LIMIT 1
     `, [`%${params.habit_name}%`]);
     
     if (!habit) {
       habit = await db.queryOne(`
-        INSERT INTO habits (name, frequency, target, active, created_at)
-        VALUES ($1, 'dagelijks', 1, 1, CURRENT_TIMESTAMP)
+        INSERT INTO habits (name, target_frequency, frequency_unit, active, created_at)
+        VALUES ($1, 1, 'dagelijks', true, CURRENT_TIMESTAMP)
         RETURNING id, name
       `, [params.habit_name]);
     }
@@ -415,7 +415,7 @@ export class SimpleChatProcessor {
     const todos = await db.query(`
       SELECT id, title, priority, created_at
       FROM todos 
-      WHERE completed = 0 
+      WHERE completed = false 
       ORDER BY created_at DESC
       LIMIT 20
     `);

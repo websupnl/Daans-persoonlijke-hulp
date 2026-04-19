@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { ChatAction } from '@/lib/chat/types'
 import AIContextButton from '@/components/ai/AIContextButton'
 import PageShell from '@/components/ui/PageShell'
-import { EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
 interface WorkLog {
   id: number

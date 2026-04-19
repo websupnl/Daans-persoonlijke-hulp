@@ -547,7 +547,7 @@ export default function FinanceView() {
           { label: 'Netto', value: formatCurrency(net), meta: `${formatCurrency(stats?.month_income || 0)} in / ${formatCurrency(stats?.month_expenses || 0)} uit`, accent: net >= 0 ? 'green' : 'red' },
           { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties' },
           { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen' },
-          { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'orange' : undefined },
+          { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'amber' : undefined },
         ]} />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">

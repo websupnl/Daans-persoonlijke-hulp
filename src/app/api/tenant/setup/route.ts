@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { TenantManager } from '@/lib/tenant/TenantManager'
 import { DatabaseRouter } from '@/lib/tenant/DatabaseRouter'
 import { TelegramBotManager } from '@/lib/tenant/TelegramBotManager'
+import { Pool } from '@neondatabase/serverless'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,7 +70,6 @@ export async function POST(req: NextRequest) {
 
 async function initializeTenantDatabase(tenantId: string, databaseUrl: string) {
   // Import database schema initialization
-  const { Pool } = require('pg')
   const pool = new Pool({ connectionString: databaseUrl })
 
   // Read schema file and execute
@@ -256,6 +256,26 @@ async function initializeTenantDatabase(tenantId: string, databaseUrl: string) {
       action VARCHAR(50) NOT NULL,
       title VARCHAR(255),
       summary TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Chat messages table
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      role VARCHAR(20) NOT NULL,
+      content TEXT NOT NULL,
+      actions JSONB DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Conversation log table
+    CREATE TABLE IF NOT EXISTS conversation_log (
+      id SERIAL PRIMARY KEY,
+      user_message TEXT,
+      assistant_message TEXT,
+      parser_type VARCHAR(50),
+      confidence DECIMAL(3,2),
+      actions JSONB DEFAULT '[]',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 

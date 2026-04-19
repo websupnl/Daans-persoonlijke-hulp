@@ -313,7 +313,7 @@ export class TelegramBotManager {
   async getBotStatuses(): Promise<Record<string, boolean>> {
     const statuses: Record<string, boolean> = {}
 
-    for (const [tenantId, config] of this.botConfigs) {
+    for (const [tenantId, config] of Array.from(this.botConfigs.entries())) {
       try {
         const apiUrl = `https://api.telegram.org/bot${config.token}/getMe`
         const response = await fetch(apiUrl)
