@@ -651,6 +651,86 @@ export async function initSchema(): Promise<void> {
     ALTER TABLE ideas ADD COLUMN IF NOT EXISTS import_run_id INT;
     ALTER TABLE todos ADD COLUMN IF NOT EXISTS import_run_id INT;
     ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS import_run_id INT;
+
+    -- ── CENTRAAL CONTEXT SYSTEEM ─────────────────────────────────────────────
+
+    -- Gestructureerde gebruikersfacts met labels (centrale kennislaag voor AI)
+    -- Elk feit heeft een gestandaardiseerd label zodat AI efficient kan opzoeken
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id SERIAL PRIMARY KEY,
+      label TEXT NOT NULL UNIQUE,          -- bijv. 'naam', 'leeftijd', 'werk_primair'
+      value TEXT NOT NULL,
+      data_type TEXT NOT NULL DEFAULT 'text'
+        CHECK(data_type IN ('text','number','date','boolean','list')),
+      confidence NUMERIC(4,3) DEFAULT 1.0, -- 0-1, hoe zeker is AI
+      source TEXT DEFAULT 'manual'
+        CHECK(source IN ('manual','chat','ai','import')),
+      category TEXT DEFAULT 'algemeen'
+        CHECK(category IN ('algemeen','werk','gezondheid','financieel','sociaal','doelen','routines','voorkeuren')),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- App-instellingen per gebruiker (key-value store)
+    CREATE TABLE IF NOT EXISTS user_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Notificatie regels — user-configureerbaar
+    CREATE TABLE IF NOT EXISTS notification_rules (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'telegram'
+        CHECK(type IN ('telegram','app')),
+      trigger_type TEXT NOT NULL DEFAULT 'scheduled'
+        CHECK(trigger_type IN ('scheduled','event','threshold')),
+      schedule_hour INT,                   -- 0-23, uur van de dag (voor scheduled)
+      schedule_days TEXT DEFAULT '1,2,3,4,5', -- kommalijst van weekdagen (1=ma, 7=zo)
+      message_template TEXT NOT NULL,      -- met {{variabelen}}
+      enabled BOOLEAN DEFAULT true,
+      last_sent_at TIMESTAMPTZ,
+      last_message_hash TEXT,             -- hash van vorige bericht om herhaling te voorkomen
+      cooldown_hours INT DEFAULT 1,        -- minimale tijd tussen notificaties van dit type
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Gezondheidsmodule — uitbreiding op journal
+    CREATE TABLE IF NOT EXISTS health_logs (
+      id SERIAL PRIMARY KEY,
+      log_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      sleep_start TIMESTAMPTZ,
+      sleep_end TIMESTAMPTZ,
+      sleep_hours NUMERIC(4,2),
+      sleep_quality INT CHECK(sleep_quality BETWEEN 1 AND 5),
+      energy_level INT CHECK(energy_level BETWEEN 1 AND 10),
+      stress_level INT CHECK(stress_level BETWEEN 1 AND 10),
+      pain_score INT CHECK(pain_score BETWEEN 0 AND 10),
+      pain_location TEXT,
+      water_glasses INT DEFAULT 0,
+      symptoms TEXT[],                     -- array van symptomen bijv. {'hoofdpijn','vermoeidheid'}
+      medications TEXT[],
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(log_date)
+    );
+
+    -- Default instellingen seed
+    INSERT INTO user_settings (key, value) VALUES
+      ('debug_mode', 'false'),
+      ('module_gezondheid', 'true'),
+      ('module_groceries', 'true'),
+      ('module_agenda', 'true'),
+      ('module_financien', 'true'),
+      ('notification_morning_hour', '8'),
+      ('notification_enabled', 'true'),
+      ('life_coach_enabled', 'true'),
+      ('onboarding_completed', 'false'),
+      ('theme', 'light')
+    ON CONFLICT (key) DO NOTHING;
   `)
 }
 
