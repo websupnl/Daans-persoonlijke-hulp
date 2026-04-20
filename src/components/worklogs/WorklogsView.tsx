@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatAction } from '@/lib/chat/types'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 interface WorkLog {
   id: number
@@ -274,11 +276,99 @@ export default function WorklogsView() {
 
   const todayStr = new Date().toISOString().split('T')[0]
   const maxStatMinutes = stats.reduce((m, s) => Math.max(m, s.total_minutes), 1)
+  const recentLogs = logs.slice(0, 8)
+  const searchActions = useMemo<Action[]>(() => {
+    const baseActions: Action[] = [
+      {
+        id: 'new-log',
+        label: 'Nieuw werklog',
+        description: 'Open handmatig formulier',
+        icon: <Plus className="h-4 w-4 text-emerald-600" />,
+        end: 'Actie',
+      },
+      {
+        id: 'ai-log',
+        label: 'AI-invoer openen',
+        description: 'Snel in natuurlijke taal toevoegen',
+        icon: <Brain className="h-4 w-4 text-violet-600" />,
+        end: 'Actie',
+      },
+      {
+        id: 'timer-log',
+        label: isRunning ? 'Ga naar lopende timer' : 'Timer starten',
+        description: isRunning ? 'Open timerblok rechts' : 'Focussessie registreren',
+        icon: <Zap className="h-4 w-4 text-amber-600" />,
+        end: 'Timer',
+      },
+      {
+        id: 'stats-log',
+        label: 'Bekijk tijdverdeling',
+        description: 'Spring naar contextstatistieken',
+        icon: <BarChart3 className="h-4 w-4 text-sky-600" />,
+        end: 'Stats',
+      },
+    ]
+
+    const logActions: Action[] = recentLogs.map((log) => ({
+      id: `log-${log.id}`,
+      label: log.title,
+      description: `${log.context} · ${formatDuration(log.actual_duration_minutes || log.duration_minutes)}`,
+      icon: <Clock className="h-4 w-4 text-on-surface-variant" />,
+      end: 'Werklog',
+    }))
+
+    return [...baseActions, ...logActions]
+  }, [isRunning, recentLogs])
+
+  const handleSearchAction = useCallback((action: Action) => {
+    if (action.id === 'new-log') {
+      setShowForm(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    if (action.id === 'ai-log') {
+      document.getElementById('worklog-ai-input')?.focus()
+      return
+    }
+
+    if (action.id === 'timer-log') {
+      document.getElementById('worklog-timer-title')?.focus()
+      return
+    }
+
+    if (action.id === 'stats-log') {
+      document.getElementById('worklog-stats-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    if (!action.id.startsWith('log-')) return
+
+    const selectedLog = logs.find((log) => action.id === `log-${log.id}`)
+    if (!selectedLog) return
+
+    setForm({
+      title: selectedLog.title,
+      duration_minutes: String(selectedLog.actual_duration_minutes || selectedLog.duration_minutes || ''),
+      context: selectedLog.context,
+      description: selectedLog.description ?? '',
+    })
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [logs])
 
   return (
     <PageShell
       title="Werklog"
       subtitle="Tijdregistratie en werkactiviteit. Zie precies waar je tijd naartoe gaat."
+      desktopSearch={
+        <ActionSearchBar
+          actions={searchActions}
+          onActionSelect={handleSearchAction}
+          label="Zoek werklogs"
+          placeholder="Nieuw log, timer of recente sessie..."
+        />
+      }
       actions={
         <button
           onClick={() => setShowForm((s) => !s)}
@@ -413,7 +503,7 @@ export default function WorklogsView() {
                         </p>
                         <ActionPill>{formatDuration(total)} totaal</ActionPill>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 lg:hidden">
                         {dayLogs.map((log) => {
                           const actualDur = log.actual_duration_minutes || log.duration_minutes
                           const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
@@ -454,6 +544,75 @@ export default function WorklogsView() {
                           )
                         })}
                       </div>
+                      <div className="hidden lg:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Activiteit</TableHead>
+                              <TableHead>Context</TableHead>
+                              <TableHead>Project</TableHead>
+                              <TableHead>Duur</TableHead>
+                              <TableHead>Signalering</TableHead>
+                              <TableHead className="text-right">Acties</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {dayLogs.map((log) => {
+                              const actualDur = log.actual_duration_minutes || log.duration_minutes
+                              const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
+
+                              return (
+                                <TableRow key={log.id}>
+                                  <TableCell className="whitespace-normal">
+                                    <div className="flex items-start gap-3">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-sm">
+                                        {log.type ? (TYPE_ICONS[log.type] ?? <Clock size={14} className="text-on-surface-variant" />) : <Clock size={14} className="text-on-surface-variant" />}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-on-surface">{log.title}</p>
+                                        {log.description && <p className="mt-1 text-xs leading-5 text-on-surface-variant">{log.description}</p>}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold', CONTEXT_PILLS[log.context] ?? 'bg-surface-container text-on-surface-variant')}>
+                                      {log.context}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-on-surface-variant">
+                                    {log.project_title || 'Geen project'}
+                                  </TableCell>
+                                  <TableCell className="font-semibold text-on-surface">
+                                    {formatDuration(actualDur)}
+                                  </TableCell>
+                                  <TableCell className="whitespace-normal text-xs">
+                                    {hasDeviation ? (
+                                      <span className="text-amber-600">
+                                        Verwacht {formatDuration(log.expected_duration_minutes)}, werd {formatDuration(actualDur)}
+                                      </span>
+                                    ) : log.interruptions ? (
+                                      <span className="text-red-500">{log.interruptions}</span>
+                                    ) : (
+                                      <span className="text-on-surface-variant">Geen</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <AIContextButton type="worklog" title={log.title} content={log.description} id={log.id} />
+                                      <button
+                                        onClick={() => handleDelete(log.id)}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-[#a55a2c]"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </Panel>
                   )
                 })}
@@ -485,6 +644,7 @@ export default function WorklogsView() {
             ) : (
               <div className="mt-4 space-y-3">
                 <input
+                  id="worklog-timer-title"
                   value={timerTitle}
                   onChange={(e) => setTimerTitle(e.target.value)}
                   placeholder="Beschrijving (optioneel)"
@@ -515,6 +675,7 @@ export default function WorklogsView() {
             <PanelHeader eyebrow="AI invoer" title="Snel toevoegen" description='"2u aan Prime Animals", "Van 19:00 tot 21:30 Sjoeli"' />
             <div className="mt-4 flex gap-2">
               <input
+                id="worklog-ai-input"
                 value={aiText}
                 onChange={(e) => setAiText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiInputEnhanced()}
@@ -562,23 +723,25 @@ export default function WorklogsView() {
           </Panel>
 
           {stats.length > 0 && (
-            <Panel tone="muted">
-              <PanelHeader eyebrow="Tijdverdeling" title="Per context" />
-              <div className="mt-4 space-y-3">
-                {stats.map((s) => {
-                  const pct = Math.round((s.total_minutes / maxStatMinutes) * 100)
-                  return (
-                    <div key={s.context} className="flex items-center gap-3">
-                      <span className="w-14 text-xs text-on-surface-variant">{s.context}</span>
-                      <div className="flex-1 h-2 overflow-hidden rounded-full bg-surface-container">
-                        <div className={cn('h-full rounded-full transition-all duration-500', CONTEXT_BAR[s.context] ?? 'bg-accent')} style={{ width: `${pct}%` }} />
+            <div id="worklog-stats-panel">
+              <Panel tone="muted">
+                <PanelHeader eyebrow="Tijdverdeling" title="Per context" />
+                <div className="mt-4 space-y-3">
+                  {stats.map((s) => {
+                    const pct = Math.round((s.total_minutes / maxStatMinutes) * 100)
+                    return (
+                      <div key={s.context} className="flex items-center gap-3">
+                        <span className="w-14 text-xs text-on-surface-variant">{s.context}</span>
+                        <div className="flex-1 h-2 overflow-hidden rounded-full bg-surface-container">
+                          <div className={cn('h-full rounded-full transition-all duration-500', CONTEXT_BAR[s.context] ?? 'bg-accent')} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="w-14 text-right text-xs font-bold text-on-surface">{formatDuration(s.total_minutes)}</span>
                       </div>
-                      <span className="w-14 text-right text-xs font-bold text-on-surface">{formatDuration(s.total_minutes)}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </Panel>
+                    )
+                  })}
+                </div>
+              </Panel>
+            </div>
           )}
         </div>
       </div>

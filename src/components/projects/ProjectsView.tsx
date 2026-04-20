@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Project {
   id: number
@@ -86,6 +88,11 @@ export default function ProjectsView() {
   const activeProjects = projects.filter((project) => project.status === 'actief')
   const completedProjects = projects.filter((project) => project.status === 'afgerond')
   const pausedProjects = projects.filter((project) => project.status === 'on-hold')
+  const projectGroups = [
+    { key: 'actief', label: 'Actief', items: activeProjects },
+    { key: 'on-hold', label: 'On hold', items: pausedProjects },
+    { key: 'afgerond', label: 'Afgerond', items: completedProjects },
+  ] as const
 
   return (
     <PageShell
@@ -209,8 +216,28 @@ export default function ProjectsView() {
                 />
               </div>
             ) : (
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {projects.map((project) => {
+              <Tabs defaultValue="actief" className="mt-5">
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList>
+                    {projectGroups.map((group) => (
+                      <TabsTrigger key={group.key} value={group.key}>
+                        {group.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+
+                {projectGroups.map((group) => (
+                  <TabsContent key={group.key} value={group.key}>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {group.items.length === 0 ? (
+                        <EmptyPanel
+                          title={`Geen ${group.label.toLowerCase()} projecten`}
+                          description="Deze lane is nu leeg."
+                          className="md:col-span-2"
+                        />
+                      ) : group.items.map((project) => {
                   const progress = project.total_todos > 0 ? Math.round(((project.total_todos - project.open_todos) / project.total_todos) * 100) : 0
                   const timerRunning = activeTimer?.project_id === project.id
                   return (
@@ -282,8 +309,11 @@ export default function ProjectsView() {
                       </div>
                     </button>
                   )
-                })}
-              </div>
+                      })}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
             )}
           </Panel>
         </div>

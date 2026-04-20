@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface MemoryItem {
   id: number
@@ -110,6 +112,7 @@ export default function MemoryView() {
   }, [memories])
 
   const highConfidence = memories.filter((memory) => memory.confidence >= 0.8).length
+  const activeTab = showAdd ? 'add' : 'library'
 
   return (
     <PageShell
@@ -148,164 +151,179 @@ export default function MemoryView() {
         </Panel>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
-          <Panel tone="muted">
+      <Tabs value={activeTab} onValueChange={(value) => setShowAdd(value === 'add')}>
+        <ScrollArea className="w-full whitespace-nowrap">
+          <TabsList>
+            <TabsTrigger value="library">Geheugen</TabsTrigger>
+            <TabsTrigger value="about">Uitleg</TabsTrigger>
+            <TabsTrigger value="add">Toevoegen</TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+
+        <TabsContent value="library">
+          <div className="space-y-5">
+            {memories.length === 0 ? (
+              <Panel>
+                <EmptyPanel
+                  title="Nog geen memories opgeslagen"
+                  description="Laat de app je data analyseren of voeg handmatig de eerste structurele feiten toe. Pas daarna gaat dit echt als tweede brein voelen."
+                  action={
+                    <button
+                      onClick={generate}
+                      disabled={generating}
+                      className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                    >
+                      {generating ? 'Bezig...' : 'Analyseer mijn data'}
+                    </button>
+                  }
+                />
+              </Panel>
+            ) : (
+              groupedMemories.map(([memoryCategory, items]) => (
+                <Panel key={memoryCategory}>
+                  <PanelHeader
+                    eyebrow={CATEGORY_LABELS[memoryCategory] ?? memoryCategory}
+                    title={`${items.length} geheugenitems`}
+                    description="Dit zijn de feiten die in deze categorie blijven hangen."
+                  />
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {items.map((memory) => (
+                      <div key={memory.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-on-surface">
+                              {memory.key.replace(/_/g, ' ')}
+                            </p>
+                            <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_ACCENTS[memory.category] ?? CATEGORY_ACCENTS.general}`}>
+                              {CATEGORY_LABELS[memory.category] ?? memory.category}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => remove(memory.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <p className="mt-4 text-sm leading-7 text-on-surface">{memory.value}</p>
+
+                        <div className="mt-4 flex items-center gap-3">
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{ width: `${Math.round(memory.confidence * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-medium text-on-surface-variant">
+                            {Math.round(memory.confidence * 100)}%
+                          </span>
+                        </div>
+
+                        <p className="mt-3 text-xs text-on-surface-variant">
+                          Laatst bevestigd {memory.last_reinforced_at ? formatRelative(memory.last_reinforced_at) : 'onbekend'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="about">
+          <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+            <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
+              <Panel tone="muted">
+                <PanelHeader
+                  eyebrow="Wat dit is"
+                  title="Duurzaam geheugen"
+                  description="Memory moet de feiten bevatten die je assistent structureel nodig heeft: voorkeuren, routines, relaties, zakelijke feiten en terugkerende patronen."
+                />
+
+                <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
+                  <p>Chatgeschiedenis is vluchtig. Memory is het deel dat bewust blijft hangen en later gedrag van de app stuurt.</p>
+                  <p>Als dit goed voelt, vertrouw je sneller op de app omdat je niet steeds dezelfde context hoeft te herhalen.</p>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <ActionPill>Voorkeuren</ActionPill>
+                  <ActionPill>Routines</ActionPill>
+                  <ActionPill>Zakelijke feiten</ActionPill>
+                </div>
+              </Panel>
+
+              <Panel>
+                <PanelHeader
+                  eyebrow="Kwaliteit"
+                  title="Waar je op wilt letten"
+                  description="Te veel rommel hier maakt het systeem onbetrouwbaar. Te weinig maakt het dom."
+                />
+
+                <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
+                  <p>Geen losse trivia. Alleen context die latere acties, antwoorden of prioriteiten echt beter maakt.</p>
+                  <p>Verwijder dingen die verouderd zijn of geen duurzaam nut meer hebben.</p>
+                </div>
+              </Panel>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="add">
+          <Panel tone="accent">
             <PanelHeader
-              eyebrow="Wat dit is"
-              title="Duurzaam geheugen"
-              description="Memory moet de feiten bevatten die je assistent structureel nodig heeft: voorkeuren, routines, relaties, zakelijke feiten en terugkerende patronen."
+              eyebrow="Handmatig toevoegen"
+              title="Nieuwe memory"
+              description="Gebruik dit alleen voor dingen die echt duurzaam relevant zijn."
             />
 
-            <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
-              <p>Chatgeschiedenis is vluchtig. Memory is het deel dat bewust blijft hangen en later gedrag van de app stuurt.</p>
-              <p>Als dit goed voelt, vertrouw je sneller op de app omdat je niet steeds dezelfde context hoeft te herhalen.</p>
+            <div className="mt-5 space-y-3">
+              <input
+                value={keyValue}
+                onChange={(event) => setKeyValue(event.target.value)}
+                placeholder="Sleutel, bijvoorbeeld uurtarief of ochtendroutine"
+                className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+              />
+              <Textarea
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                placeholder="Wat moet het systeem hierover onthouden?"
+                className="min-h-[120px] resize-none rounded-2xl border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
+              />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                  <SelectValue placeholder="Categorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <ActionPill>Voorkeuren</ActionPill>
-              <ActionPill>Routines</ActionPill>
-              <ActionPill>Zakelijke feiten</ActionPill>
+              <button
+                onClick={save}
+                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+              >
+                Opslaan
+              </button>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+              >
+                Annuleer
+              </button>
             </div>
           </Panel>
-
-          {showAdd && (
-            <Panel tone="accent">
-              <PanelHeader
-                eyebrow="Handmatig toevoegen"
-                title="Nieuwe memory"
-                description="Gebruik dit alleen voor dingen die echt duurzaam relevant zijn."
-              />
-
-              <div className="mt-5 space-y-3">
-                <input
-                  value={keyValue}
-                  onChange={(event) => setKeyValue(event.target.value)}
-                  placeholder="Sleutel, bijvoorbeeld uurtarief of ochtendroutine"
-                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                />
-                <Textarea
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                  placeholder="Wat moet het systeem hierover onthouden?"
-                  className="min-h-[120px] resize-none rounded-2xl border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
-                />
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
-                    <SelectValue placeholder="Categorie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  onClick={save}
-                  className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
-                >
-                  Opslaan
-                </button>
-                <button
-                  onClick={() => setShowAdd(false)}
-                  className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
-                >
-                  Annuleer
-                </button>
-              </div>
-            </Panel>
-          )}
-
-          <Panel>
-            <PanelHeader
-              eyebrow="Kwaliteit"
-              title="Waar je op wilt letten"
-              description="Te veel rommel hier maakt het systeem onbetrouwbaar. Te weinig maakt het dom."
-            />
-
-            <div className="mt-5 space-y-3 text-sm leading-7 text-on-surface-variant">
-              <p>Geen losse trivia. Alleen context die latere acties, antwoorden of prioriteiten echt beter maakt.</p>
-              <p>Verwijder dingen die verouderd zijn of geen duurzaam nut meer hebben.</p>
-            </div>
-          </Panel>
-        </div>
-
-        <div className="space-y-5">
-          {memories.length === 0 ? (
-            <Panel>
-              <EmptyPanel
-                title="Nog geen memories opgeslagen"
-                description="Laat de app je data analyseren of voeg handmatig de eerste structurele feiten toe. Pas daarna gaat dit echt als tweede brein voelen."
-                action={
-                  <button
-                    onClick={generate}
-                    disabled={generating}
-                    className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
-                  >
-                    {generating ? 'Bezig...' : 'Analyseer mijn data'}
-                  </button>
-                }
-              />
-            </Panel>
-          ) : (
-            groupedMemories.map(([memoryCategory, items]) => (
-              <Panel key={memoryCategory}>
-                <PanelHeader
-                  eyebrow={CATEGORY_LABELS[memoryCategory] ?? memoryCategory}
-                  title={`${items.length} geheugenitems`}
-                  description="Dit zijn de feiten die in deze categorie blijven hangen."
-                />
-
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {items.map((memory) => (
-                    <div key={memory.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-on-surface">
-                            {memory.key.replace(/_/g, ' ')}
-                          </p>
-                          <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_ACCENTS[memory.category] ?? CATEGORY_ACCENTS.general}`}>
-                            {CATEGORY_LABELS[memory.category] ?? memory.category}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => remove(memory.id)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-
-                      <p className="mt-4 text-sm leading-7 text-on-surface">{memory.value}</p>
-
-                      <div className="mt-4 flex items-center gap-3">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container">
-                          <div
-                            className="h-full rounded-full bg-accent"
-                            style={{ width: `${Math.round(memory.confidence * 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] font-medium text-on-surface-variant">
-                          {Math.round(memory.confidence * 100)}%
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-xs text-on-surface-variant">
-                        Laatst bevestigd {memory.last_reinforced_at ? formatRelative(memory.last_reinforced_at) : 'onbekend'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            ))
-          )}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </PageShell>
   )
 }

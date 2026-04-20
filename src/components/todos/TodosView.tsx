@@ -19,6 +19,8 @@ import { PriorityDot } from '@/components/ui/card'
 import AIContextButton from '@/components/ai/AIContextButton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Todo {
   id: number
@@ -336,35 +338,34 @@ export default function TodosView() {
             />
 
             <div className="mt-5 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {FILTERS.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setFilter(item)}
-                    className={cn(
-                      'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                      filter === item ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
-                    )}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+              <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList>
+                    {FILTERS.map((item) => (
+                      <TabsTrigger key={item} value={item}>{item}</TabsTrigger>
+                    ))}
+                  </TabsList>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </Tabs>
 
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setCategory(item)}
-                    className={cn(
-                      'rounded-full border border-outline-variant px-3 py-1.5 text-xs font-medium transition-colors',
-                      category === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
-                    )}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex gap-2 pb-2">
+                  {CATEGORIES.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setCategory(item)}
+                      className={cn(
+                        'rounded-full border border-outline-variant px-3 py-1.5 text-xs font-medium transition-colors',
+                        category === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
             </div>
           </Panel>
 

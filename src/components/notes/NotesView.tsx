@@ -17,6 +17,8 @@ import {
 import { Textarea } from '@/components/ui/interfaces-textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Note {
   id: number
@@ -250,54 +252,62 @@ export default function NotesView() {
               />
             </Panel>
           ) : (
-            <>
+            <Tabs defaultValue={pinned.length > 0 ? 'pinned' : 'all'}>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <TabsList>
+                  {pinned.length > 0 && <TabsTrigger value="pinned">Vastgezet</TabsTrigger>}
+                  <TabsTrigger value="all">Alles</TabsTrigger>
+                  <TabsTrigger value="recent">Recent</TabsTrigger>
+                </TabsList>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+
               {pinned.length > 0 && (
-                <Panel>
-                  <PanelHeader
-                    eyebrow="Vastgezet"
-                    title="Altijd snel bij de hand"
-                    description="Belangrijke notities bovenaan."
-                  />
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
-                    {pinned.map((note) => (
-                      <NoteCard key={note.id} note={note} onDelete={deleteNote} />
-                    ))}
-                  </div>
-
-                  <div className="mt-5 hidden lg:block" data-slot="frame">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Titel</TableHead>
-                          <TableHead>Project</TableHead>
-                          <TableHead>Bijgewerkt</TableHead>
-                          <TableHead className="text-right">Acties</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pinned.map((note) => (
-                          <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </Panel>
+                <TabsContent value="pinned">
+                  <Panel>
+                    <PanelHeader
+                      eyebrow="Vastgezet"
+                      title="Altijd snel bij de hand"
+                      description="Belangrijke notities bovenaan."
+                    />
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
+                      {pinned.map((note) => (
+                        <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                      ))}
+                    </div>
+                    <div className="mt-5 hidden lg:block" data-slot="frame">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Titel</TableHead>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Bijgewerkt</TableHead>
+                            <TableHead className="text-right">Acties</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pinned.map((note) => (
+                            <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Panel>
+                </TabsContent>
               )}
 
-              <Panel>
-                <PanelHeader
-                  eyebrow={pinned.length > 0 ? 'Overige notities' : 'Alle notities'}
-                  title={pinned.length > 0 ? 'Werknotities en context' : 'Je notities'}
-                  description="Kaarten mogen helpen scannen, maar moeten informatie dragen in plaats van alleen mooi te ogen."
-                />
-
+              <TabsContent value="all">
+                <Panel>
+                  <PanelHeader
+                    eyebrow={pinned.length > 0 ? 'Overige notities' : 'Alle notities'}
+                    title={pinned.length > 0 ? 'Werknotities en context' : 'Je notities'}
+                    description="Kaarten mogen helpen scannen, maar moeten informatie dragen in plaats van alleen mooi te ogen."
+                  />
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
                     {regular.map((note) => (
                       <NoteCard key={note.id} note={note} onDelete={deleteNote} />
                     ))}
                   </div>
-
                   <div className="mt-5 hidden lg:block" data-slot="frame">
                     <Table>
                       <TableHeader>
@@ -317,7 +327,23 @@ export default function NotesView() {
                     </Table>
                   </div>
                 </Panel>
-              </>
+              </TabsContent>
+
+              <TabsContent value="recent">
+                <Panel>
+                  <PanelHeader
+                    eyebrow="Recent"
+                    title="Laatste wijzigingen"
+                    description="Snel terug naar waar je net was."
+                  />
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {recent.map((note) => (
+                      <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                    ))}
+                  </div>
+                </Panel>
+              </TabsContent>
+            </Tabs>
             )}
         </div>
       </div>

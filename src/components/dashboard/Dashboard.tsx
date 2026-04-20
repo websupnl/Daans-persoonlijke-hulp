@@ -18,7 +18,8 @@ import { formatCurrency, formatRelative } from '@/lib/utils'
 import { AICard, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
 import { LinkButton } from '@/components/ui/button'
 import { Tag } from '@/components/ui/card'
-import { DockDemo } from '@/components/ui/dock-two-demo'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface DashboardData {
   stats: {
@@ -170,73 +171,77 @@ export default function Dashboard() {
           </div>
         </AICard>
 
-        <Panel tone="muted">
-          <PanelHeader
-            eyebrow="Snelle navigatie"
-            title="Spring direct naar je hoofdschermen"
-            description="Gebruik de dock voor de schermen waar je het vaakst tussen wisselt."
-          />
-          <div className="mt-4">
-            <DockDemo />
-          </div>
-        </Panel>
+        <Tabs defaultValue="focus">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <TabsList>
+              <TabsTrigger value="focus">Focus</TabsTrigger>
+              <TabsTrigger value="plan">Vandaag</TabsTrigger>
+              <TabsTrigger value="capture">Quick log</TabsTrigger>
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Panel tone="muted">
-            <PanelHeader eyebrow="Focus vandaag" title="Belangrijkste taken" />
-            <div className="mt-4 space-y-3">
-              {data?.urgentTodos.slice(0, 3).map((todo) => (
-                <Link key={todo.id} href="/todos" className="block rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-surface-hover">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-1 h-4 w-4 rounded-full border border-border-strong" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-text-primary">{todo.title}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Tag color="gray">{todo.priority}</Tag>
-                        {todo.due_date && <Tag color="blue">{todo.due_date}</Tag>}
+          <TabsContent value="focus">
+            <Panel tone="muted">
+              <PanelHeader eyebrow="Focus vandaag" title="Belangrijkste taken" />
+              <div className="mt-4 space-y-3">
+                {data?.urgentTodos.slice(0, 3).map((todo) => (
+                  <Link key={todo.id} href="/todos" className="block rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-surface-hover">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-1 h-4 w-4 rounded-full border border-border-strong" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-text-primary">{todo.title}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Tag color="gray">{todo.priority}</Tag>
+                          {todo.due_date && <Tag color="blue">{todo.due_date}</Tag>}
+                        </div>
                       </div>
                     </div>
+                  </Link>
+                ))}
+                {(!data || data.urgentTodos.length === 0) && (
+                  <EmptyPanel title="Geen focustaken" description="Er staat nu niets urgents bovenaan." />
+                )}
+              </div>
+            </Panel>
+          </TabsContent>
+
+          <TabsContent value="plan">
+            <Panel tone="muted">
+              <PanelHeader eyebrow="Agenda" title="Vandaag gepland" />
+              <div className="mt-4 space-y-3">
+                {events.length > 0 ? events.map((event) => (
+                  <div key={event.id} className="rounded-lg bg-surface px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">
+                      {event.time || 'Hele dag'}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-text-primary">{event.title}</p>
                   </div>
-                </Link>
-              ))}
-              {(!data || data.urgentTodos.length === 0) && (
-                <EmptyPanel title="Geen focustaken" description="Er staat nu niets urgents bovenaan." />
-              )}
-            </div>
-          </Panel>
+                )) : (
+                  <EmptyPanel title="Geen afspraken" description="Je agenda is vandaag nog leeg." />
+                )}
+              </div>
+            </Panel>
+          </TabsContent>
 
-          <Panel tone="muted">
-            <PanelHeader eyebrow="Agenda" title="Vandaag gepland" />
-            <div className="mt-4 space-y-3">
-              {events.length > 0 ? events.map((event) => (
-                <div key={event.id} className="rounded-lg bg-surface px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">
-                    {event.time || 'Hele dag'}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-text-primary">{event.title}</p>
-                </div>
-              )) : (
-                <EmptyPanel title="Geen afspraken" description="Je agenda is vandaag nog leeg." />
-              )}
-            </div>
-          </Panel>
-
-          <Panel tone="muted">
-            <PanelHeader eyebrow="Quick log" title="Leg iets vast" />
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {quickLogOptions.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="rounded-lg bg-surface px-4 py-4 transition-colors hover:bg-surface-hover"
-                >
-                  <item.icon size={18} className="text-text-secondary" />
-                  <p className="mt-3 text-sm font-semibold text-text-primary">{item.label}</p>
-                </Link>
-              ))}
-            </div>
-          </Panel>
-        </div>
+          <TabsContent value="capture">
+            <Panel tone="muted">
+              <PanelHeader eyebrow="Quick log" title="Leg iets vast" />
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {quickLogOptions.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-lg bg-surface px-4 py-4 transition-colors hover:bg-surface-hover"
+                  >
+                    <item.icon size={18} className="text-text-secondary" />
+                    <p className="mt-3 text-sm font-semibold text-text-primary">{item.label}</p>
+                  </Link>
+                ))}
+              </div>
+            </Panel>
+          </TabsContent>
+        </Tabs>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Panel>
