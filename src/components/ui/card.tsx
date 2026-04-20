@@ -1,8 +1,6 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// ── Shadcn-compatible exports (used by admin pages) ───────────────────────────
-
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={cn('rounded-xl border border-outline-variant bg-white shadow-sm', className)}>
@@ -22,8 +20,6 @@ export function CardDescription({ children, className }: { children: ReactNode; 
 export function CardContent({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('p-5', className)}>{children}</div>
 }
-
-// ── CardLow ───────────────────────────────────────────────────────────────────
 
 interface CardProps {
   children: ReactNode
@@ -47,8 +43,6 @@ export function CardLow({ children, className, onClick, compact }: CardProps) {
     </div>
   )
 }
-
-// ── Row ───────────────────────────────────────────────────────────────────────
 
 export function Row({
   children,
@@ -75,8 +69,6 @@ export function Row({
     </div>
   )
 }
-
-// ── StatChip ──────────────────────────────────────────────────────────────────
 
 export function StatChip({
   label,
@@ -110,8 +102,6 @@ export function StatChip({
   )
 }
 
-// ── Tag ───────────────────────────────────────────────────────────────────────
-
 export function Tag({
   children,
   color,
@@ -142,8 +132,6 @@ export function Tag({
     </span>
   )
 }
-
-// ── PriorityDot ───────────────────────────────────────────────────────────────
 
 export function PriorityDot({ priority }: { priority: 'hoog' | 'medium' | 'laag' | string }) {
   const colors: Record<string, string> = {

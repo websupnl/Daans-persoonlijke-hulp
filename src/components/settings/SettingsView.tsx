@@ -330,7 +330,7 @@ export default function SettingsView() {
             <SettingRow key={key} label={label} desc={desc} saving={saving === key}>
               <Toggle
                 value={settings[key] as boolean}
-                onChange={v => patchSetting(key, v)}
+                onChange={v => patchSetting(key as string, v)}
               />
             </SettingRow>
           ))}

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Pool } from '@neondatabase/serverless'
 import { TenantManager } from '@/lib/tenant/TenantManager'
 import { DatabaseRouter } from '@/lib/tenant/DatabaseRouter'
 import { TelegramBotManager } from '@/lib/tenant/TelegramBotManager'
-import { Pool } from '@neondatabase/serverless'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,8 +69,6 @@ export async function POST(req: NextRequest) {
 }
 
 async function initializeTenantDatabase(tenantId: string, databaseUrl: string) {
-  // Import database schema initialization
-  const { Pool } = await import('@neondatabase/serverless')
   const pool = new Pool({ connectionString: databaseUrl })
 
   // Read schema file and execute
