@@ -129,6 +129,7 @@ export async function initSchema(): Promise<void> {
       user_notes TEXT,
       needs_review SMALLINT DEFAULT 0,
       question_queue_status TEXT DEFAULT 'none',
+      account TEXT DEFAULT 'privé',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -195,6 +196,7 @@ export async function initSchema(): Promise<void> {
       energy INTEGER CHECK(energy BETWEEN 1 AND 5),
       gratitude TEXT DEFAULT '[]',
       highlights TEXT DEFAULT '',
+      import_run_id INT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -236,6 +238,14 @@ export async function initSchema(): Promise<void> {
       description TEXT,
       duration_minutes INTEGER NOT NULL,
       energy_level INTEGER,
+      category TEXT DEFAULT 'business',
+      type TEXT DEFAULT 'deep_work',
+      expected_duration_minutes INTEGER,
+      actual_duration_minutes INTEGER,
+      interruptions TEXT,
+      billable SMALLINT DEFAULT 0,
+      hourly_rate NUMERIC(8,2),
+      source TEXT DEFAULT 'manual',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -258,6 +268,7 @@ export async function initSchema(): Promise<void> {
       category TEXT NOT NULL DEFAULT 'general',
       confidence NUMERIC(4,3) NOT NULL DEFAULT 0.8,
       source_message_id INTEGER,
+      import_run_id INT,
       last_reinforced_at TIMESTAMPTZ DEFAULT NOW(),
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -290,6 +301,7 @@ export async function initSchema(): Promise<void> {
       market_gap TEXT,
       next_steps TEXT DEFAULT '[]',
       tags TEXT DEFAULT '[]',
+      import_run_id INT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -300,6 +312,7 @@ export async function initSchema(): Promise<void> {
       quantity TEXT,
       category TEXT DEFAULT 'overig',
       completed SMALLINT DEFAULT 0,
+      completed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -325,17 +338,6 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    ALTER TABLE work_logs
-      ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'business',
-      ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'deep_work',
-      ADD COLUMN IF NOT EXISTS expected_duration_minutes INTEGER,
-      ADD COLUMN IF NOT EXISTS actual_duration_minutes INTEGER,
-      ADD COLUMN IF NOT EXISTS interruptions TEXT,
-      ADD COLUMN IF NOT EXISTS billable SMALLINT DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(8,2),
-      ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
-
-    -- Proactive Brain: AI theories about the user (long-term pattern recognition)
     CREATE TABLE IF NOT EXISTS ai_theories (
       id SERIAL PRIMARY KEY,
       category TEXT NOT NULL DEFAULT 'algemeen',
@@ -343,11 +345,15 @@ export async function initSchema(): Promise<void> {
       confidence NUMERIC(4,3) NOT NULL DEFAULT 0.5,
       supporting_data TEXT DEFAULT '[]',
       times_confirmed INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'hypothesis',
+      source_modules TEXT DEFAULT '[]',
+      impact_score NUMERIC(4,2) DEFAULT 0.5,
+      action_potential TEXT,
+      question_asked SMALLINT DEFAULT 0,
       last_updated TIMESTAMPTZ DEFAULT NOW(),
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Proactive Brain: log of all sent proactive messages (prevent spam)
     CREATE TABLE IF NOT EXISTS proactive_log (
       id SERIAL PRIMARY KEY,
       trigger_type TEXT NOT NULL,
@@ -357,7 +363,6 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Proactive Brain: nudge state per topic (track urgency decay)
     CREATE TABLE IF NOT EXISTS nudge_state (
       id SERIAL PRIMARY KEY,
       topic TEXT NOT NULL UNIQUE,
@@ -367,7 +372,6 @@ export async function initSchema(): Promise<void> {
       metadata TEXT DEFAULT '{}'
     );
 
-    -- Journal conversation state: pending follow-up questions
     CREATE TABLE IF NOT EXISTS journal_conversation (
       id SERIAL PRIMARY KEY,
       session_id TEXT NOT NULL UNIQUE,
@@ -407,72 +411,7 @@ export async function initSchema(): Promise<void> {
       last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       blocked_until TIMESTAMPTZ
     );
-  `)
 
-  // Migrations for existing databases
-  await pool.query(`
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
-    ALTER TABLE habits ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1;
-<<<<<<< Updated upstream
-    ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring TEXT;
-  `)
-  await pool.query(`
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subcategory TEXT;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_raw TEXT;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_normalized TEXT;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS category_confidence NUMERIC(4,3);
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_type TEXT DEFAULT 'none';
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_confidence NUMERIC(4,3);
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none';
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS fixed_cost_flag SMALLINT DEFAULT 0;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS essential_flag SMALLINT DEFAULT 0;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS personal_business TEXT DEFAULT 'unknown';
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_verified SMALLINT DEFAULT 0;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_notes TEXT;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS needs_review SMALLINT DEFAULT 0;
-    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS question_queue_status TEXT DEFAULT 'none';
-
-    CREATE TABLE IF NOT EXISTS finance_merchant_rules (
-      id SERIAL PRIMARY KEY,
-      merchant_key TEXT NOT NULL UNIQUE,
-      merchant_label TEXT,
-      category TEXT,
-      subcategory TEXT,
-      merchant_type TEXT,
-      recurrence_type TEXT,
-      subscription_override TEXT,
-      personal_business TEXT,
-      fixed_cost_flag SMALLINT DEFAULT 0,
-      essential_flag SMALLINT DEFAULT 0,
-      notes TEXT,
-      user_verified SMALLINT DEFAULT 1,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS finance_review_queue (
-      id SERIAL PRIMARY KEY,
-      queue_key TEXT NOT NULL UNIQUE,
-      merchant_key TEXT,
-      question_type TEXT NOT NULL,
-      prompt TEXT NOT NULL,
-      rationale TEXT,
-      priority INTEGER DEFAULT 50,
-      confidence TEXT DEFAULT 'low',
-      status TEXT DEFAULT 'pending',
-      context TEXT DEFAULT '{}',
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    -- Pattern Brain: extend ai_theories with status & impact tracking
-    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'hypothesis';
-    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS source_modules TEXT DEFAULT '[]';
-    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS impact_score NUMERIC(4,2) DEFAULT 0.5;
-    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS action_potential TEXT;
-    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS question_asked SMALLINT DEFAULT 0;
-
-    -- Pattern Brain: question queue (cross-module, not just finance)
     CREATE TABLE IF NOT EXISTS pending_questions (
       id SERIAL PRIMARY KEY,
       source_module TEXT NOT NULL DEFAULT 'algemeen',
@@ -490,7 +429,6 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Pattern Brain: daily metric snapshots for trend detection
     CREATE TABLE IF NOT EXISTS pattern_observations (
       id SERIAL PRIMARY KEY,
       obs_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -503,10 +441,9 @@ export async function initSchema(): Promise<void> {
       UNIQUE(obs_date, module, metric_key)
     );
 
-    -- Pattern Brain: user-defined or AI-learned rules
     CREATE TABLE IF NOT EXISTS pattern_rules (
       id SERIAL PRIMARY KEY,
-      rule_type TEXT NOT NULL, -- 'alias', 'category_link', 'habit_trigger'
+      rule_type TEXT NOT NULL,
       pattern TEXT NOT NULL,
       replacement TEXT NOT NULL,
       confidence NUMERIC(4,3) DEFAULT 1.0,
@@ -515,18 +452,6 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Grocery / boodschappenlijst
-    CREATE TABLE IF NOT EXISTS groceries (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      quantity TEXT,
-      category TEXT DEFAULT 'overig',
-      completed SMALLINT DEFAULT 0,
-      completed_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    -- Finance Balances
     CREATE TABLE IF NOT EXISTS finance_balances (
       id SERIAL PRIMARY KEY,
       account TEXT NOT NULL UNIQUE,
@@ -534,7 +459,6 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Active timer: max 1 running timer at a time
     CREATE TABLE IF NOT EXISTS active_timers (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -545,27 +469,6 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS auth_sessions (
-      id SERIAL PRIMARY KEY,
-      token_hash TEXT NOT NULL UNIQUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      idle_expires_at TIMESTAMPTZ NOT NULL,
-      absolute_expires_at TIMESTAMPTZ NOT NULL,
-      revoked_at TIMESTAMPTZ,
-      ip_address TEXT,
-      user_agent TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS auth_login_attempts (
-      key TEXT PRIMARY KEY,
-      attempt_count INTEGER NOT NULL DEFAULT 0,
-      first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      blocked_until TIMESTAMPTZ
-    );
-
-    -- Conversation session state for follow-up context tracking
     CREATE TABLE IF NOT EXISTS conversation_session (
       session_key TEXT PRIMARY KEY,
       last_domain TEXT,
@@ -573,7 +476,6 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Telegram multi-step flow state (guided module flows)
     CREATE TABLE IF NOT EXISTS telegram_flow_state (
       id SERIAL PRIMARY KEY,
       session_id TEXT UNIQUE NOT NULL,
@@ -585,7 +487,6 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    -- Import Engine: bulk import runs
     CREATE TABLE IF NOT EXISTS import_runs (
       id SERIAL PRIMARY KEY,
       source_type TEXT NOT NULL DEFAULT 'paste',
@@ -602,7 +503,6 @@ export async function initSchema(): Promise<void> {
       completed_at TIMESTAMPTZ
     );
 
-    -- Import Engine: per-item candidates (nothing live until accepted)
     CREATE TABLE IF NOT EXISTS import_candidates (
       id SERIAL PRIMARY KEY,
       import_run_id INT NOT NULL REFERENCES import_runs(id) ON DELETE CASCADE,
@@ -631,7 +531,6 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Import Engine: follow-up questions generated after import
     CREATE TABLE IF NOT EXISTS import_followups (
       id SERIAL PRIMARY KEY,
       import_run_id INT NOT NULL REFERENCES import_runs(id) ON DELETE CASCADE,
@@ -645,25 +544,13 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Source tracking on existing tables
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_run_id INT;
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_candidate_id INT;
-    ALTER TABLE memory_log ADD COLUMN IF NOT EXISTS import_run_id INT;
-    ALTER TABLE ideas ADD COLUMN IF NOT EXISTS import_run_id INT;
-    ALTER TABLE todos ADD COLUMN IF NOT EXISTS import_run_id INT;
-    ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS import_run_id INT;
-
-    -- ── CENTRAAL CONTEXT SYSTEEM ─────────────────────────────────────────────
-
-    -- Gestructureerde gebruikersfacts met labels (centrale kennislaag voor AI)
-    -- Elk feit heeft een gestandaardiseerd label zodat AI efficient kan opzoeken
     CREATE TABLE IF NOT EXISTS user_profile (
       id SERIAL PRIMARY KEY,
-      label TEXT NOT NULL UNIQUE,          -- bijv. 'naam', 'leeftijd', 'werk_primair'
+      label TEXT NOT NULL UNIQUE,
       value TEXT NOT NULL,
       data_type TEXT NOT NULL DEFAULT 'text'
         CHECK(data_type IN ('text','number','date','boolean','list')),
-      confidence NUMERIC(4,3) DEFAULT 1.0, -- 0-1, hoe zeker is AI
+      confidence NUMERIC(4,3) DEFAULT 1.0,
       source TEXT DEFAULT 'manual'
         CHECK(source IN ('manual','chat','ai','import')),
       category TEXT DEFAULT 'algemeen'
@@ -672,14 +559,12 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- App-instellingen per gebruiker (key-value store)
     CREATE TABLE IF NOT EXISTS user_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Notificatie regels — user-configureerbaar
     CREATE TABLE IF NOT EXISTS notification_rules (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -687,18 +572,17 @@ export async function initSchema(): Promise<void> {
         CHECK(type IN ('telegram','app')),
       trigger_type TEXT NOT NULL DEFAULT 'scheduled'
         CHECK(trigger_type IN ('scheduled','event','threshold')),
-      schedule_hour INT,                   -- 0-23, uur van de dag (voor scheduled)
-      schedule_days TEXT DEFAULT '1,2,3,4,5', -- kommalijst van weekdagen (1=ma, 7=zo)
-      message_template TEXT NOT NULL,      -- met {{variabelen}}
+      schedule_hour INT,
+      schedule_days TEXT DEFAULT '1,2,3,4,5',
+      message_template TEXT NOT NULL,
       enabled BOOLEAN DEFAULT true,
       last_sent_at TIMESTAMPTZ,
-      last_message_hash TEXT,             -- hash van vorige bericht om herhaling te voorkomen
-      cooldown_hours INT DEFAULT 1,        -- minimale tijd tussen notificaties van dit type
+      last_message_hash TEXT,
+      cooldown_hours INT DEFAULT 1,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Gezondheidsmodule — uitbreiding op journal
     CREATE TABLE IF NOT EXISTS health_logs (
       id SERIAL PRIMARY KEY,
       log_date DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -711,7 +595,7 @@ export async function initSchema(): Promise<void> {
       pain_score INT CHECK(pain_score BETWEEN 0 AND 10),
       pain_location TEXT,
       water_glasses INT DEFAULT 0,
-      symptoms TEXT[],                     -- array van symptomen bijv. {'hoofdpijn','vermoeidheid'}
+      symptoms TEXT[],
       medications TEXT[],
       notes TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -719,7 +603,6 @@ export async function initSchema(): Promise<void> {
       UNIQUE(log_date)
     );
 
-    -- Default instellingen seed
     INSERT INTO user_settings (key, value) VALUES
       ('debug_mode', 'false'),
       ('module_gezondheid', 'true'),
@@ -732,9 +615,50 @@ export async function initSchema(): Promise<void> {
       ('onboarding_completed', 'false'),
       ('theme', 'light')
     ON CONFLICT (key) DO NOTHING;
-=======
-    ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none';
->>>>>>> Stashed changes
+
+    -- Extra columns for existing tables (migrations)
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_run_id INT;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS import_candidate_id INT;
+    
+    ALTER TABLE todos ADD COLUMN IF NOT EXISTS import_run_id INT;
+    
+    ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS import_run_id INT;
+    
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring TEXT;
+
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subcategory TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_raw TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS merchant_normalized TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS category_confidence NUMERIC(4,3);
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_type TEXT DEFAULT 'none';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS recurrence_confidence NUMERIC(4,3);
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'none';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS fixed_cost_flag SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS essential_flag SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS personal_business TEXT DEFAULT 'unknown';
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_verified SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS user_notes TEXT;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS needs_review SMALLINT DEFAULT 0;
+    ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS question_queue_status TEXT DEFAULT 'none';
+
+    ALTER TABLE habits ADD COLUMN IF NOT EXISTS active SMALLINT DEFAULT 1;
+
+    ALTER TABLE work_logs
+      ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'business',
+      ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'deep_work',
+      ADD COLUMN IF NOT EXISTS expected_duration_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS actual_duration_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS interruptions TEXT,
+      ADD COLUMN IF NOT EXISTS billable SMALLINT DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(8,2),
+      ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+    
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'hypothesis';
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS source_modules TEXT DEFAULT '[]';
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS impact_score NUMERIC(4,2) DEFAULT 0.5;
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS action_potential TEXT;
+    ALTER TABLE ai_theories ADD COLUMN IF NOT EXISTS question_asked SMALLINT DEFAULT 0;
   `)
 }
 

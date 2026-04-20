@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { MessageSquare } from 'lucide-react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
-import { AIAssistantCommandCenter } from '@/components/ai/AIAssistantCommandCenter'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -23,7 +22,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <BottomNav />
 
-      <AIAssistantCommandCenter />
+      {!isChat && (
+        <Link
+          href="/chat"
+          className="fixed bottom-[calc(88px+env(safe-area-inset-bottom))] right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
+          title="Chat met AI"
+        >
+          <MessageSquare size={24} />
+        </Link>
+      )}
     </div>
   )
 }

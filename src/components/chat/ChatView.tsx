@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDown, Loader2, RotateCcw } from 'lucide-react'
+import { ArrowDown, Loader2, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { MorphPanel } from '@/components/ui/ai-prompt-box'
-import { ShiningText } from '@/components/ui/shining-text'
 import { cn, formatMarkdown, formatRelative } from '@/lib/utils'
 
 interface DebugAction {
@@ -32,11 +31,11 @@ interface Message {
 }
 
 const actionLabels: Record<string, { label: string; tone: string }> = {
-  todo_create: { label: 'Taak aangemaakt', tone: 'border-l-accent' },
-  grocery_create: { label: 'Boodschap toegevoegd', tone: 'border-l-success' },
-  finance_create_expense: { label: 'Financiele post opgeslagen', tone: 'border-l-warning' },
-  memory_store: { label: 'Geheugen bijgewerkt', tone: 'border-l-ai' },
-  event_create: { label: 'Agenda-item aangemaakt', tone: 'border-l-info' },
+  todo_create: { label: 'Taak aangemaakt', tone: 'text-accent' },
+  grocery_create: { label: 'Boodschap toegevoegd', tone: 'text-success' },
+  finance_create_expense: { label: 'Financiele post opgeslagen', tone: 'text-warning' },
+  memory_store: { label: 'Geheugen bijgewerkt', tone: 'text-ai' },
+  event_create: { label: 'Agenda-item aangemaakt', tone: 'text-info' },
 }
 
 function fileToDataUrl(file: File) {
@@ -51,29 +50,19 @@ function fileToDataUrl(file: File) {
 function ThinkingBubble({ status }: { status: string }) {
   return (
     <div className="animate-fade-in flex gap-3">
-      <div className="bg-gradient mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
         AI
       </div>
-      <div className="chat-bubble-ai">
-        <div className="flex items-center gap-2">
-          {[0, 1, 2].map((index) => (
-            <span
-              key={index}
-              className="animate-thinking h-2 w-2 rounded-full bg-accent"
-              style={{ animationDelay: `${index * 0.15}s` }}
-            />
-          ))}
-          <span className="ml-1">
-            <ShiningText text={status} />
-          </span>
-        </div>
+      <div className="flex items-center gap-2 text-sm text-text-tertiary italic">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>{status}</span>
       </div>
     </div>
   )
 }
 
-function ActionCard({ action }: { action: DebugAction }) {
-  const spec = actionLabels[action.type] ?? { label: action.type, tone: 'border-l-accent' }
+function ActionChip({ action }: { action: DebugAction }) {
+  const spec = actionLabels[action.type] ?? { label: action.type, tone: 'text-accent' }
   const title =
     typeof action.payload?.title === 'string'
       ? action.payload.title
@@ -82,20 +71,14 @@ function ActionCard({ action }: { action: DebugAction }) {
         : spec.label
 
   return (
-    <div className={cn('mt-3 rounded-md border border-border border-l-[3px] bg-surface p-3 shadow-xs', spec.tone)}>
-      <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{spec.label}</p>
-      <p className="mt-1 text-sm font-semibold text-text-primary">{title}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {Object.entries(action.payload ?? {})
-          .filter(([key, value]) => typeof value === 'string' && value && key !== 'title' && key !== 'name')
-          .slice(0, 3)
-          .map(([key, value]) => (
-            <span key={key} className="rounded-pill bg-surface-inset px-2.5 py-1 text-xs text-text-secondary">
-              {key}: {String(value)}
-            </span>
-          ))}
-      </div>
-      {action.result?.error && <p className="mt-2 text-xs text-error">{action.result.error}</p>}
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-text-secondary shadow-xs">
+      {action.result?.success !== false ? (
+        <CheckCircle2 className="h-3 w-3 text-success" />
+      ) : (
+        <AlertCircle className="h-3 w-3 text-error" />
+      )}
+      <span className="font-medium">{spec.label}:</span>
+      <span className="max-w-[200px] truncate">{title}</span>
     </div>
   )
 }
@@ -104,7 +87,7 @@ export default function ChatView() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [loadingStatus, setLoadingStatus] = useState('Interpreteren...')
+  const [loadingStatus, setLoadingStatus] = useState('Aan het nadenken...')
   const [showExamples, setShowExamples] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
   const [showScrollDown, setShowScrollDown] = useState(false)
@@ -184,7 +167,7 @@ export default function ChatView() {
     setInput('')
     setShowExamples(false)
     setLoading(true)
-    setLoadingStatus('Interpreteren...')
+    setLoadingStatus('Aan het nadenken...')
     abortControllerRef.current = new AbortController()
 
     let assistantId: number | null = null
@@ -238,7 +221,7 @@ export default function ChatView() {
             if (data.text?.includes('Acties')) {
               setLoadingStatus('Acties uitvoeren...')
             } else if (data.text?.includes('Denken')) {
-              setLoadingStatus('Interpreteren...')
+              setLoadingStatus('Aan het nadenken...')
             }
           }
 
@@ -311,11 +294,6 @@ export default function ChatView() {
     setShowExamples(true)
   }
 
-  const contextCount = useMemo(() => {
-    const actions = messages.reduce((count, item) => count + (item.debugInfo?.actions?.length ?? 0), 0)
-    return Math.min(actions + 1, 9)
-  }, [messages])
-
   if (initialLoad) {
     return (
       <div className="flex h-[calc(100dvh-72px)] items-center justify-center md:h-dvh">
@@ -326,32 +304,24 @@ export default function ChatView() {
 
   return (
     <div className="flex h-[calc(100dvh-72px)] flex-col bg-background md:h-dvh">
-      <div className="page-shell-header sticky top-0 z-10 flex items-center justify-between px-3 py-3 md:px-6 md:py-4">
+      <div className="page-shell-header sticky top-0 z-10 flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse">
-            AI
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-text-primary">Chat met je AI</p>
-            <p className="hidden text-xs text-text-secondary md:block">De assistent verwerkt acties zichtbaar en direct.</p>
-          </div>
+          <p className="text-sm font-semibold text-text-primary">Chat</p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="rounded-pill bg-accent-subtle px-2.5 py-1 text-[11px] font-medium text-accent md:px-3 md:py-1.5 md:text-xs">
-            {contextCount} context-items
-          </button>
-          <button onClick={resetChat} className="focus-ring rounded-md border border-border bg-surface p-2 text-text-secondary">
+          <button onClick={resetChat} className="focus-ring flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover">
             <RotateCcw size={14} />
+            <span>Wis geschiedenis</span>
           </button>
         </div>
       </div>
 
       <div ref={listRef} onScroll={syncScrollState} className="relative flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[920px] flex-col gap-4 px-4 py-6 md:px-6">
+        <div className="mx-auto flex w-full max-w-[800px] flex-col gap-6 px-4 py-8 md:px-6">
           {showExamples && (
-            <div className="rounded-lg border border-border bg-surface p-5">
-              <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Probeer bijvoorbeeld</p>
+            <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">Probeer bijvoorbeeld</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {[
                   'Zet boodschappen doen in mijn takenlijst',
@@ -361,7 +331,7 @@ export default function ChatView() {
                   <button
                     key={example}
                     onClick={() => setInput(example)}
-                    className="rounded-pill bg-surface-inset px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
+                    className="rounded-full border border-border bg-surface-inset px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover"
                   >
                     {example}
                   </button>
@@ -371,38 +341,44 @@ export default function ChatView() {
           )}
 
           {messages.map((message) => (
-            <div key={message.id} className={cn('animate-fade-in flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
-              {message.role !== 'user' && (
-                <div className="bg-gradient mr-3 mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse md:flex">
-                  AI
-                </div>
-              )}
+            <div key={message.id} className={cn('animate-fade-in flex flex-col gap-2', message.role === 'user' ? 'items-end' : 'items-start')}>
+              <div className={cn('flex gap-3 max-w-[90%] sm:max-w-[85%]', message.role === 'user' && 'flex-row-reverse')}>
+                {message.role !== 'user' && (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">
+                    AI
+                  </div>
+                )}
 
-              <div className={cn('w-full', message.role === 'user' ? 'max-w-[86%] sm:max-w-[72%]' : 'max-w-[92%] sm:max-w-[80%]')}>
-                <div className={message.role === 'user' ? 'chat-bubble-user' : message.role === 'error' ? 'chat-bubble-error' : 'chat-bubble-ai'}>
-                  {message.imageUrl && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={message.imageUrl}
-                      alt={message.imageName ?? 'Upload'}
-                      className="mb-3 max-h-64 w-full rounded-xl object-cover"
-                    />
+                <div className="flex flex-col gap-2">
+                  <div className={message.role === 'user' ? 'chat-bubble-user' : message.role === 'error' ? 'chat-bubble-error' : 'chat-bubble-ai'}>
+                    {message.imageUrl && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={message.imageUrl}
+                        alt={message.imageName ?? 'Upload'}
+                        className="mb-3 max-h-64 w-full rounded-xl object-cover"
+                      />
+                    )}
+
+                    {message.role === 'error' ? (
+                      <p className="text-sm text-error">{message.content}</p>
+                    ) : (
+                      <div className="chat-content prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content || '...') }} />
+                    )}
+                  </div>
+
+                  {message.role === 'assistant' && message.debugInfo?.actions && message.debugInfo.actions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {message.debugInfo.actions.map((action, index) => (
+                        <ActionChip key={`${message.id}-${index}`} action={action} />
+                      ))}
+                    </div>
                   )}
 
-                  {message.role === 'error' ? (
-                    <p className="text-sm text-error">{message.content}</p>
-                  ) : (
-                    <div className="chat-content" dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content || '...') }} />
-                  )}
-
-                  {message.role === 'assistant' && message.debugInfo?.actions?.map((action, index) => (
-                    <ActionCard key={`${message.id}-${index}`} action={action} />
-                  ))}
+                  <p className={cn('text-[10px] text-text-tertiary px-1', message.role === 'user' ? 'text-right' : 'text-left')}>
+                    {formatRelative(message.created_at)}
+                  </p>
                 </div>
-
-                <p className={cn('mt-1 text-xs text-text-tertiary', message.role === 'user' ? 'text-right' : 'text-left')}>
-                  {formatRelative(message.created_at)}
-                </p>
               </div>
             </div>
           ))}
@@ -414,22 +390,23 @@ export default function ChatView() {
         {showScrollDown && (
           <button
             onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            className="focus-ring fixed bottom-28 right-4 z-20 rounded-full bg-surface p-3 shadow-md md:right-8"
+            className="focus-ring fixed bottom-32 right-4 z-20 rounded-full bg-surface p-3 shadow-lg border border-border md:right-8"
           >
-            <ArrowDown size={16} />
+            <ArrowDown size={16} className="text-text-secondary" />
           </button>
         )}
       </div>
 
-      <div className="border-t border-border bg-surface px-4 py-4 md:px-6">
-        <div className="mx-auto w-full max-w-[920px]">
+      <div className="bg-background px-4 py-4 md:px-6">
+        <div className="mx-auto w-full max-w-[800px]">
           <MorphPanel
             value={input}
             onValueChange={setInput}
             onSend={sendMessage}
             onCancel={cancelGeneration}
             isLoading={loading}
-            placeholder="Typ een bericht of sleep een afbeelding hierheen..."
+            placeholder="Stuur een bericht..."
+            className="shadow-xl"
           />
         </div>
       </div>
