@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/material-ui-dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, MetricTile, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
@@ -471,7 +472,7 @@ export default function FinanceView() {
   const incomeItems = items.filter((item) => item.type === 'inkomst')
   const expenseItems = items.filter((item) => item.type === 'uitgave')
   const biggestExpense = [...expenseItems].sort((left, right) => right.amount - left.amount)[0]
-  const currentBalance = balances.reduce((sum, balance) => sum + (balance.balance || 0), 0)
+  const currentBalance = balances.reduce((sum, balance) => sum + (Number(balance.balance) || 0), 0) || 0
   const maxMonthly = monthlyData.reduce((max, item) => Math.max(max, item.income, item.expenses), 1)
   const searchActions = useMemo<Action[]>(
     () => [
@@ -511,7 +512,7 @@ export default function FinanceView() {
     <>
       <PageShell
         title="Financien"
-        subtitle={`Deze pagina moet je geldbeeld versimpelen: snel zien waar geld lekt, wat binnenkomt en welke transacties aandacht nodig hebben in ${periodLabel(viewMode, currentDate)}.`}
+        subtitle={`${periodLabel(viewMode, currentDate)} · Overzicht van je inkomsten en uitgaven`}
         desktopSearch={
           <ActionSearchBar
             actions={searchActions}
@@ -611,101 +612,114 @@ export default function FinanceView() {
         }
       >
         <StatStrip stats={[
-          { label: 'Huidig saldo', value: formatCurrency(currentBalance), meta: `${balances.length} rekeningen`, accent: currentBalance >= 0 ? 'green' : 'red' },
+          { label: 'Saldo', value: formatCurrency(currentBalance), meta: `${balances.length} rekening${balances.length === 1 ? '' : 'en'}`, accent: currentBalance >= 0 ? 'green' : 'red' },
           { label: 'Netto', value: formatCurrency(net), meta: `${formatCurrency(stats?.month_income || 0)} in / ${formatCurrency(stats?.month_expenses || 0)} uit`, accent: net >= 0 ? 'green' : 'red' },
-          { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties', mobileHidden: true },
-          { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen', mobileHidden: true },
           { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'amber' : undefined },
         ]} />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-5">
-            {showAdd && (
-              <Panel tone="accent">
-                <PanelHeader
-                  eyebrow="Nieuwe transactie"
-                  title={editingItem ? 'Bewerk transactie' : 'Voeg transactie toe'}
-                  description="Registratie moet snel blijven. Eerst de kern, daarna pas extra nuance."
-                />
+          <div>
+            <Tabs value={showAdd ? 'add' : showImport ? 'import' : showAdjust ? 'adjust' : analyseResult ? 'analyse' : 'transactions'} 
+                  onValueChange={(v) => {
+                    setShowAdd(v === 'add')
+                    setShowImport(v === 'import')
+                    setShowAdjust(v === 'adjust')
+                  }}
+                  className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="transactions">Transacties</TabsTrigger>
+                <TabsTrigger value="add">Toevoegen</TabsTrigger>
+                <TabsTrigger value="import">Import</TabsTrigger>
+                <TabsTrigger value="adjust">Correctie</TabsTrigger>
+                <TabsTrigger value="analyse" disabled={!analyseResult}>Analyse</TabsTrigger>
+              </TabsList>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                  <input
-                    value={form.title}
-                    onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Omschrijving"
-                    className="md:col-span-2 xl:col-span-2 rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+              <TabsContent value="add" className="mt-0 space-y-4">
+                <Panel tone="accent">
+                  <PanelHeader
+                    eyebrow="Nieuwe transactie"
+                    title={editingItem ? 'Bewerk transactie' : 'Voeg transactie toe'}
+                    description="Registratie moet snel blijven. Eerst de kern, daarna pas extra nuance."
                   />
-                  <input
-                    type="number"
-                    value={form.amount}
-                    onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                    placeholder="Bedrag"
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                  />
-                  <Select
-                    value={form.type}
-                    onValueChange={(value) => setForm((current) => ({ ...current, type: value as 'inkomst' | 'uitgave' }))}
-                  >
-                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="uitgave">Uitgave</SelectItem>
-                      <SelectItem value="inkomst">Inkomst</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <input
-                    type="date"
-                    value={form.due_date}
-                    onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))}
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
-                  />
-                  <Select value={form.category} onValueChange={(value) => setForm((current) => ({ ...current, category: value }))}>
-                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
-                      <SelectValue placeholder="Categorie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORY_OPTIONS.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={form.account} onValueChange={(value) => setForm((current) => ({ ...current, account: value }))}>
-                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
-                      <SelectValue placeholder="Rekening" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="priv?">Prive</SelectItem>
-                      <SelectItem value="zakelijk">Zakelijk</SelectItem>
-                      <SelectItem value="spaar-priv?">Spaar Prive</SelectItem>
-                      <SelectItem value="spaar-zakelijk">Spaar Zakelijk</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    onClick={addItem}
-                    className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
-                  >
-                    {editingItem ? 'Opslaan' : 'Toevoegen'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAdd(false)
-                      setEditingItem(null)
-                    }}
-                    className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
-                  >
-                    Annuleer
-                  </button>
-                </div>
-              </Panel>
-            )}
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <input
+                      value={form.title}
+                      onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                      placeholder="Omschrijving"
+                      className="md:col-span-2 xl:col-span-2 rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    />
+                    <input
+                      type="number"
+                      value={form.amount}
+                      onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                      placeholder="Bedrag"
+                      className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    />
+                    <Select
+                      value={form.type}
+                      onValueChange={(value) => setForm((current) => ({ ...current, type: value as 'inkomst' | 'uitgave' }))}
+                    >
+                      <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="uitgave">Uitgave</SelectItem>
+                        <SelectItem value="inkomst">Inkomst</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <input
+                      type="date"
+                      value={form.due_date}
+                      onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))}
+                      className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    />
+                    <Select value={form.category} onValueChange={(value) => setForm((current) => ({ ...current, category: value }))}>
+                      <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                        <SelectValue placeholder="Categorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={form.account} onValueChange={(value) => setForm((current) => ({ ...current, account: value }))}>
+                      <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                        <SelectValue placeholder="Rekening" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="priv?">Prive</SelectItem>
+                        <SelectItem value="zakelijk">Zakelijk</SelectItem>
+                        <SelectItem value="spaar-priv?">Spaar Prive</SelectItem>
+                        <SelectItem value="spaar-zakelijk">Spaar Zakelijk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {showImport && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={addItem}
+                      className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                    >
+                      {editingItem ? 'Opslaan' : 'Toevoegen'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAdd(false)
+                        setEditingItem(null)
+                      }}
+                      className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                    >
+                      Annuleer
+                    </button>
+                  </div>
+                </Panel>
+              </TabsContent>
+
+              <TabsContent value="import" className="mt-0 space-y-4">
               <Panel tone="accent">
                 <PanelHeader
                   eyebrow="Import"
@@ -811,9 +825,9 @@ export default function FinanceView() {
                   )}
                 </div>
               </Panel>
-            )}
+            </TabsContent>
 
-            {showAdjust && (
+            <TabsContent value="adjust" className="mt-0 space-y-4">
               <Panel tone="accent">
                 <PanelHeader
                   eyebrow="Kasverschil"
@@ -857,8 +871,9 @@ export default function FinanceView() {
                   </button>
                 </div>
               </Panel>
-            )}
+            </TabsContent>
 
+            <TabsContent value="transactions" className="mt-0 space-y-4">
             <Panel tone="muted">
               <PanelHeader
                 eyebrow="Filters"
@@ -1044,9 +1059,11 @@ export default function FinanceView() {
                 </>
               )}
             </Panel>
+            </TabsContent>
 
-            {analyseResult && (
-              <Panel>
+            <TabsContent value="analyse" className="mt-0 space-y-4">
+              {analyseResult && (
+                <Panel>
                 <PanelHeader
                   eyebrow="Analyse"
                   title="AI financieel beeld"
@@ -1127,7 +1144,9 @@ export default function FinanceView() {
                   )}
                 </div>
               </Panel>
-            )}
+              )}
+            </TabsContent>
+          </Tabs>
           </div>
 
           <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">

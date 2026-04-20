@@ -389,18 +389,11 @@ export default function WorklogsView() {
     const selectedLog = logs.find((log) => action.id === `log-${log.id}`)
     if (!selectedLog) return
 
-    const dur = selectedLog.actual_duration_minutes || selectedLog.duration_minutes || 0
-    const logDate = typeof selectedLog.date === 'string' ? selectedLog.date.split('T')[0] : new Date().toISOString().split('T')[0]
-    // Default: start at 9:00, end based on duration
-    const startH = 9
-    const endH = startH + Math.floor(dur / 60)
-    const endM = dur % 60
-    
     setForm({
       title: selectedLog.title,
-      date: logDate,
-      start_time: `${String(startH).padStart(2, '0')}:00`,
-      end_time: `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`,
+      date: selectedLog.date,
+      start_time: '',
+      end_time: '',
       context: selectedLog.context,
       description: selectedLog.description ?? '',
     })
