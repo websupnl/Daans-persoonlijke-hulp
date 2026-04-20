@@ -1,23 +1,25 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { generateTags, rankNotesByQuery } from '@/lib/ai/note-utils'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const search = searchParams.get('search')
-  const smart = searchParams.get('smart') === 'true'
-  const projectId = searchParams.get('project_id')
-  const tag = searchParams.get('tag')
+  try {
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get('search')
+    const smart = searchParams.get('smart') === 'true'
+    const projectId = searchParams.get('project_id')
+    const tag = searchParams.get('tag')
 
-  let sql: string
-  const params: unknown[] = []
-  let i = 1
+    let sql: string
+    const params: unknown[] = []
+    let i = 1
 
-  if (search) {
-    sql = `
+    if (search) {
+      sql = `
       SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
       FROM notes n
       LEFT JOIN projects p ON n.project_id = p.id
@@ -25,44 +27,48 @@ export async function GET(req: NextRequest) {
       WHERE (n.title ILIKE $${i} OR n.content_text ILIKE $${i})
       ORDER BY n.pinned DESC, n.updated_at DESC
     `
-    params.push(`%${search}%`)
-  } else {
-    sql = `
+      params.push(`%${search}%`)
+    } else {
+      sql = `
       SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
       FROM notes n
       LEFT JOIN projects p ON n.project_id = p.id
       LEFT JOIN contacts c ON n.contact_id = c.id
       WHERE 1=1
     `
-    if (projectId) { sql += ` AND n.project_id = $${i++}`; params.push(parseInt(projectId)) }
-    if (tag) { sql += ` AND n.tags LIKE $${i++}`; params.push(`%"${tag}"%`) }
-    sql += ' ORDER BY n.pinned DESC, n.updated_at DESC'
+      if (projectId) { sql += ` AND n.project_id = $${i++}`; params.push(parseInt(projectId)) }
+      if (tag) { sql += ` AND n.tags LIKE $${i++}`; params.push(`%"${tag}"%`) }
+      sql += ' ORDER BY n.pinned DESC, n.updated_at DESC'
+    }
+
+    let notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
+      ...n,
+      tags: JSON.parse(n.tags as string || '[]'),
+      content: n.content, // Ensure content is available for ranking
+    }))
+
+    if (smart && search) {
+      notes = await rankNotesByQuery(notes, search)
+    }
+
+    return jsonOk(notes, undefined, req)
+  } catch (error: unknown) {
+    return jsonFail('NOTES_LIST_FAILED', 'Kon notities niet ophalen', 500, error, req)
   }
-
-  let notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
-    ...n,
-    tags: JSON.parse(n.tags as string || '[]'),
-    content: n.content, // Ensure content is available for ranking
-  }))
-
-  if (smart && search) {
-    notes = await rankNotesByQuery(notes, search)
-  }
-
-  return NextResponse.json({ data: notes })
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  let { title, content, content_text, tags, project_id, contact_id, pinned } = body
+  try {
+    const body = await req.json()
+    let { title, content, content_text, tags, project_id, contact_id, pinned } = body
 
   // Auto-tagging if no tags provided
-  if ((!tags || tags.length === 0) && content_text) {
-    const aiTags = await generateTags(content_text)
-    if (aiTags.length > 0) tags = aiTags
-  }
+    if ((!tags || tags.length === 0) && content_text) {
+      const aiTags = await generateTags(content_text)
+      if (aiTags.length > 0) tags = aiTags
+    }
 
-  const note = await queryOne<Record<string, unknown>>(`
+    const note = await queryOne<Record<string, unknown>>(`
     INSERT INTO notes (title, content, content_text, tags, project_id, contact_id, pinned)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *
@@ -76,23 +82,26 @@ export async function POST(req: NextRequest) {
     pinned ? 1 : 0,
   ])
 
-  if (note?.id) {
-    await syncEntityLinks({
-      sourceType: 'note',
-      sourceId: Number(note.id),
-      projectId: project_id || null,
-      contactId: contact_id || null,
-      tags: tags || [],
-    })
-    await logActivity({
-      entityType: 'note',
-      entityId: Number(note.id),
-      action: 'created',
-      title: String(note.title || title || 'Naamloze note'),
-      summary: 'Note opgeslagen',
-      metadata: { project_id: project_id || null, contact_id: contact_id || null },
-    })
-  }
+    if (note?.id) {
+      await syncEntityLinks({
+        sourceType: 'note',
+        sourceId: Number(note.id),
+        projectId: project_id || null,
+        contactId: contact_id || null,
+        tags: tags || [],
+      })
+      await logActivity({
+        entityType: 'note',
+        entityId: Number(note.id),
+        action: 'created',
+        title: String(note.title || title || 'Naamloze note'),
+        summary: 'Note opgeslagen',
+        metadata: { project_id: project_id || null, contact_id: contact_id || null },
+      })
+    }
 
-  return NextResponse.json({ data: { ...note, tags: JSON.parse(note?.tags as string || '[]') } }, { status: 201 })
+    return jsonOk({ ...note, tags: JSON.parse(note?.tags as string || '[]') }, { status: 201 }, req)
+  } catch (error: unknown) {
+    return jsonFail('NOTE_CREATE_FAILED', 'Kon notitie niet opslaan', 500, error, req)
+  }
 }

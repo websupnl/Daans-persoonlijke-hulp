@@ -250,3 +250,56 @@ Na 6–8 weken:
 - Betrouwbare chat-acties met controleerbare outcomes.
 - Sneller ontwikkeltempo door duidelijke architectuur-paden.
 - Minder bugs/rework en betere gebruikersbeleving op mobiel én desktop.
+
+---
+
+## 10) Implementatiestatus (toegepast op 2026-04-20)
+
+Onderstaande fundamenten uit fase 0/1/3 zijn nu concreet vastgelegd in de repository:
+
+- ✅ Current State Map toegevoegd: `docs/current-state-map.md`
+- ✅ Definition of Done toegevoegd: `docs/definition-of-done.md`
+- ✅ Design System ADR toegevoegd: `docs/adr/0001-design-system-canon.md`
+- ✅ API Envelope ADR + contractlaag toegevoegd:
+  - `docs/adr/0002-api-response-envelope.md`
+  - `src/lib/contracts/api-envelope.ts`
+- ✅ Chat Action Contract ADR + contractlaag toegevoegd:
+  - `docs/adr/0003-chat-action-contract.md`
+  - `src/lib/contracts/chat-action-result.ts`
+
+### Geactualiseerde 30-dagen backlogstatus
+
+## Week 1
+- [x] Design system ADR: “één componentlaag, tokens-only”.
+- [x] API contract ADR: uniforme error/success envelopes.
+- [x] Chat action contract vastleggen + instrumentation hooks (contractniveau).
+- [x] Start page inventory met scorekaart.
+
+## Week 2+
+- [ ] Migrate 5 kernpagina’s naar identieke PageShell/Panel patronen.
+- [ ] Introduceer shared empty/error/skeleton component set.
+- [~] Verwijder of migreer ongebruikte design-componenten (deprecation marker actief).
+- [~] Chat pipeline unificeren (single executor) in runtime implementatie (contract-layer live op `/api/chat` output).
+- [~] Verificatie voor alle mutaties verplicht maken (error-contract + typed action-result contract op kernroutes).
+- [ ] Integratietests voor top 10 chat commands.
+- [ ] Mobile UX fine-tuning voor kernflows.
+- [ ] E2E smoke-suite in CI.
+- [ ] Release checklist + observability dashboard live.
+
+### Uitvoering codebase (increment 2026-04-20)
+
+- API response envelope nu toegepast op kernroutes:
+  - `/api/chat` (GET/DELETE + typed action-result output).
+  - `/api/todos` en `/api/todos/[id]`.
+  - `/api/notes` en `/api/notes/[id]`.
+  - `/api/finance` en `/api/finance/[id]`.
+  - `/api/contacts` en `/api/contacts/[id]`.
+  - `/api/projects` en `/api/projects/[id]`.
+  - `/api/events` en `/api/events/[id]`.
+  - `/api/groceries` en `/api/groceries/[id]`.
+  - `/api/habits`, `/api/habits/[id]` en `/api/habits/log`.
+  - `/api/worklogs`.
+  - `/api/memory`.
+  - `/api/ideas` en `/api/ideas/[id]`.
+  - `/api/profile`, `/api/settings`, `/api/health`.
+- Nieuwe helper `src/lib/contracts/api-http.ts` verzorgt consistente success/error responses met `correlationId` en timestamp metadata.

@@ -1,8 +1,9 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getHealthToday, upsertHealthLog } from '@/lib/data-service'
 import { query } from '@/lib/db'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,9 +13,9 @@ export async function GET(req: NextRequest) {
       getHealthToday(),
       query(`SELECT * FROM health_logs ORDER BY log_date DESC LIMIT $1`, [days]),
     ])
-    return NextResponse.json({ data: { today, history } })
+    return jsonOk({ today, history }, undefined, req)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('HEALTH_GET_FAILED', error.message || 'Kon health data niet ophalen', 500, error, req)
   }
 }
 
@@ -23,8 +24,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     await upsertHealthLog(body)
     const today = await getHealthToday()
-    return NextResponse.json({ data: today })
+    return jsonOk(today, undefined, req)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('HEALTH_POST_FAILED', error.message || 'Kon health log niet opslaan', 500, error, req)
   }
 }
