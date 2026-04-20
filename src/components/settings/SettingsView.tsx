@@ -161,8 +161,8 @@ export default function SettingsView() {
 
   useEffect(() => { load() }, [load])
 
-  async function patchSetting(key: string, value: unknown) {
-    setSaving(key)
+  async function patchSetting(key: keyof Settings, value: unknown) {
+    setSaving(String(key))
     try {
       const res = await fetch('/api/settings', {
         method: 'PATCH',

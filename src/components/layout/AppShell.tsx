@@ -11,31 +11,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isChat = pathname === '/chat'
 
   return (
-    <div className="min-h-dvh bg-background text-on-surface">
-      {/* Desktop sidebar */}
+    <div className="min-h-dvh bg-background text-text-primary">
       <Sidebar />
 
-      {/* Main content */}
-      <main className={[
-        'min-h-dvh min-w-0',
-        'pb-[72px] md:pb-0',
-        'md:ml-[var(--sidebar-width)]',
-      ].join(' ')}>
-        <div className="min-h-dvh">
+      <main className="min-h-dvh min-w-0 bg-background pb-[calc(72px+env(safe-area-inset-bottom))] md:ml-[var(--sidebar-w)] md:pb-0">
+        <div className="min-h-dvh bg-background">
           {children}
         </div>
       </main>
 
-      {/* Mobile bottom nav */}
       <BottomNav />
 
-      {/* Desktop: floating Chat button — only when not already on chat */}
       {!isChat && (
         <Link
           href="/chat"
-          className="fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-xl md:flex focus-visible:shadow-focus"
+          className="focus-ring fixed bottom-6 right-6 z-40 hidden items-center gap-2 rounded-pill bg-accent px-4 py-3 text-sm font-semibold text-text-inverse shadow-md transition-all duration-base ease-calm hover:-translate-y-0.5 hover:bg-accent-hover md:flex"
         >
-          <span className="h-2 w-2 rounded-full bg-white/60 ai-pulse-dot" />
+          <span className="ai-pulse-dot h-2 w-2 rounded-full bg-white/70" />
           <MessageSquare size={16} />
           Chat
         </Link>

@@ -1,18 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-<<<<<<< Updated upstream
-import { queryOne, execute, query } from '@/lib/db'
-=======
-import { query, queryOne, execute } from '@/lib/db'
->>>>>>> Stashed changes
+import { execute, query, queryOne } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)
-<<<<<<< Updated upstream
+
   const [project, todos, notes, worklogs, finance] = await Promise.all([
-    queryOne(`
+    queryOne(
+      `
       SELECT p.*,
         (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id AND t.completed = 0)::int as open_todos,
         (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id)::int as total_todos,
@@ -20,30 +17,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         (SELECT COALESCE(SUM(COALESCE(wl.actual_duration_minutes, wl.duration_minutes)), 0) FROM work_logs wl WHERE wl.project_id = p.id)::int as total_minutes
       FROM projects p
       WHERE p.id = $1
-    `, [id]),
+    `,
+      [id]
+    ),
     query(`SELECT * FROM todos WHERE project_id = $1 ORDER BY completed ASC, CASE priority WHEN 'hoog' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`, [id]),
     query(`SELECT id, title, content_text, tags, pinned, created_at FROM notes WHERE project_id = $1 ORDER BY pinned DESC, created_at DESC`, [id]),
     query(`SELECT id, title, date, COALESCE(actual_duration_minutes, duration_minutes) as duration_minutes, context, source FROM work_logs WHERE project_id = $1 ORDER BY date DESC, created_at DESC LIMIT 50`, [id]),
     query(`SELECT id, type, title, amount, status, due_date FROM finance_items WHERE project_id = $1 ORDER BY created_at DESC`, [id]),
   ])
+
   if (!project) return NextResponse.json({ error: 'Niet gevonden' }, { status: 404 })
   return NextResponse.json({ data: project, todos, notes, worklogs, finance })
-=======
-  const project = await queryOne<Record<string, unknown>>('SELECT * FROM projects WHERE id = $1', [id])
-  if (!project) return NextResponse.json({ error: 'Project niet gevonden' }, { status: 404 })
-
-  const [todos, notes, worklogs] = await Promise.all([
-    query(`SELECT id, title, priority, due_date::text, completed, category FROM todos WHERE project_id = $1 ORDER BY completed, due_date NULLS LAST`, [id]),
-    query(`SELECT id, title, updated_at FROM notes WHERE project_id = $1 ORDER BY updated_at DESC`, [id]),
-    query(`SELECT id, title, date::text, COALESCE(actual_duration_minutes, duration_minutes) as minutes, context FROM work_logs WHERE project_id = $1 ORDER BY date DESC LIMIT 20`, [id]),
-  ])
-
-  const totalMinutes = worklogs.reduce((s, w) => s + Number((w as { minutes: number }).minutes || 0), 0)
-
-  return NextResponse.json({
-    data: { ...project, todos, notes, worklogs, totalMinutes }
-  })
->>>>>>> Stashed changes
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -62,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  updates.push(`updated_at = NOW()`)
+  updates.push('updated_at = NOW()')
   values.push(id)
 
   await execute(`UPDATE projects SET ${updates.join(', ')} WHERE id = $${i}`, values)
@@ -78,7 +62,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  await execute('DELETE FROM projects WHERE id = $1', [parseInt(params.id)])
-  await logActivity({ entityType: 'project', entityId: parseInt(params.id), action: 'deleted', title: `Project ${params.id}`, summary: 'Project verwijderd' })
+  const id = parseInt(params.id)
+  await execute('DELETE FROM projects WHERE id = $1', [id])
+  await logActivity({ entityType: 'project', entityId: id, action: 'deleted', title: `Project ${id}`, summary: 'Project verwijderd' })
   return NextResponse.json({ message: 'Project verwijderd' })
 }

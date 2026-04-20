@@ -12,34 +12,20 @@ interface PageShellProps {
 
 export default function PageShell({ title, subtitle, actions, children, className, compact }: PageShellProps) {
   return (
-    <div className={cn('mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8', compact ? 'py-5' : 'py-6 sm:py-8', className)}>
-      {/* Flat page header — geen card wrapper */}
-      <div className="sticky top-0 z-10 -mx-4 -mt-0 mb-6 bg-background/95 backdrop-blur-sm px-4 sm:px-6 lg:px-8 pt-5 pb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-outline-variant">
+    <div className={cn('mx-auto w-full max-w-content px-4 sm:px-6 lg:px-6', compact ? 'py-5' : 'py-6 sm:py-6', className)}>
+      <div className="page-shell-header sticky top-0 z-10 -mx-4 mb-6 flex flex-col gap-3 px-4 pb-4 pt-5 sm:-mx-6 sm:px-6 lg:px-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-extrabold tracking-tight text-on-surface sm:text-[28px]">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-on-surface-variant">
-              {subtitle}
-            </p>
-          )}
+          <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">{subtitle}</p>}
         </div>
-        {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {actions}
-          </div>
-        )}
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
-      <div className="space-y-4">
-        {children}
-      </div>
+      <div className="space-y-4">{children}</div>
     </div>
   )
 }
 
-/** Section label + optional action */
 export function PageSection({
   title,
   action,
@@ -55,10 +41,8 @@ export function PageSection({
     <div className={cn('space-y-2', className)}>
       {title && (
         <div className="flex items-center justify-between px-0.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant/60">
-            {title}
-          </p>
-          {action && <div className="text-xs text-on-surface-variant">{action}</div>}
+          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{title}</p>
+          {action && <div className="text-xs text-text-secondary">{action}</div>}
         </div>
       )}
       {children}
@@ -66,11 +50,6 @@ export function PageSection({
   )
 }
 
-/** 2 or 4 column stats grid */
 export function StatsRow({ children, cols = 2 }: { children: ReactNode; cols?: 2 | 4 }) {
-  return (
-    <div className={cn('grid gap-3', cols === 4 ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2')}>
-      {children}
-    </div>
-  )
+  return <div className={cn('grid gap-3', cols === 4 ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2')}>{children}</div>
 }

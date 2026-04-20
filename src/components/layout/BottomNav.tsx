@@ -2,18 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MessageSquare, CheckSquare, Euro, Sparkles, MoreHorizontal } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import MobileDrawer from './MobileDrawer'
-
-const PRIMARY_NAV = [
-  { href: '/',         label: 'Home',     icon: LayoutDashboard },
-  { href: '/chat',     label: 'Chat',     icon: MessageSquare },
-  { href: '/todos',    label: 'Taken',    icon: CheckSquare },
-  { href: '/finance',  label: 'Financiën', icon: Euro },
-  { href: '/patterns', label: 'AI',       icon: Sparkles },
-]
+import { MOBILE_PRIMARY_ITEMS } from './navigation'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -21,31 +14,31 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="bottom-nav-glass fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-outline-variant px-2 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 md:hidden">
-        {PRIMARY_NAV.map(({ href, label, icon: Icon }) => {
+      <nav className="bottom-nav-glass fixed inset-x-0 bottom-0 z-50 flex items-start justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+6px)] pt-1.5 md:hidden">
+        {MOBILE_PRIMARY_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 min-w-[52px] rounded-lg px-2 py-1.5 transition-all duration-150',
-                active ? 'text-accent' : 'text-on-surface-variant'
+                'relative flex min-w-[56px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-fast ease-calm',
+                active ? 'text-accent' : 'text-text-secondary'
               )}
             >
-              <Icon
-                size={21}
-                strokeWidth={active ? 2.2 : 1.7}
-              />
-              <span className={cn(
-                'text-[9px] font-semibold tracking-wide',
-                active ? 'text-accent' : 'text-on-surface-variant'
-              )}>
+              {active && (
+                <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent" />
+              )}
+              <Icon size={href === '/chat' ? 24 : 22} strokeWidth={active ? 2.2 : 1.8} />
+              <span
+                className={cn(
+                  'text-[10px] font-semibold tracking-[0.08em] transition-all duration-fast',
+                  active && href === '/chat' && 'sr-only',
+                  active ? 'text-accent' : 'text-text-secondary'
+                )}
+              >
                 {label}
               </span>
-              {active && (
-                <span className="absolute top-0 h-0.5 w-8 rounded-full bg-accent" />
-              )}
             </Link>
           )
         })}
@@ -53,12 +46,15 @@ export default function BottomNav() {
         <button
           onClick={() => setDrawerOpen(true)}
           className={cn(
-            'flex flex-col items-center justify-center gap-1 min-w-[52px] rounded-lg px-2 py-1.5 transition-all duration-150',
-            drawerOpen ? 'text-accent' : 'text-on-surface-variant'
+            'relative flex min-w-[56px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-fast ease-calm',
+            drawerOpen ? 'text-accent' : 'text-text-secondary'
           )}
         >
-          <MoreHorizontal size={21} strokeWidth={1.7} />
-          <span className="text-[9px] font-semibold tracking-wide text-on-surface-variant">Meer</span>
+          {drawerOpen && (
+            <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent" />
+          )}
+          <MoreHorizontal size={22} strokeWidth={1.8} />
+          <span className="text-[10px] font-semibold tracking-[0.08em]">···</span>
         </button>
       </nav>
 

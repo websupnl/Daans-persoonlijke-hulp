@@ -1,29 +1,25 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// ── Shadcn-compatible exports (used by admin pages) ───────────────────────────
-
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('rounded-xl border border-outline-variant bg-white shadow-sm', className)}>
-      {children}
-    </div>
-  )
+  return <div className={cn('card-base rounded-lg bg-surface', className)}>{children}</div>
 }
+
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('p-5 pb-0', className)}>{children}</div>
 }
+
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <h3 className={cn('text-[15px] font-semibold text-on-surface', className)}>{children}</h3>
+  return <h3 className={cn('text-md font-semibold text-text-primary', className)}>{children}</h3>
 }
+
 export function CardDescription({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn('mt-1 text-[13px] text-on-surface-variant', className)}>{children}</p>
+  return <p className={cn('mt-1 text-sm text-text-secondary', className)}>{children}</p>
 }
+
 export function CardContent({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('p-5', className)}>{children}</div>
 }
-
-// ── CardLow ───────────────────────────────────────────────────────────────────
 
 interface CardProps {
   children: ReactNode
@@ -37,9 +33,9 @@ export function CardLow({ children, className, onClick, compact }: CardProps) {
     <div
       onClick={onClick}
       className={cn(
-        'overflow-hidden rounded-lg border border-outline-variant bg-surface-container-low',
+        'overflow-hidden rounded-lg bg-surface-inset',
         compact ? 'p-3' : 'p-4',
-        onClick && 'cursor-pointer transition-colors duration-150 hover:bg-surface-container',
+        onClick && 'cursor-pointer transition-colors duration-base ease-calm hover:bg-surface-hover',
         className
       )}
     >
@@ -47,8 +43,6 @@ export function CardLow({ children, className, onClick, compact }: CardProps) {
     </div>
   )
 }
-
-// ── Row ───────────────────────────────────────────────────────────────────────
 
 export function Row({
   children,
@@ -65,8 +59,8 @@ export function Row({
     <div
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-100',
-        active ? 'bg-surface-container-low' : 'hover:bg-surface-container-low/70',
+        'flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-fast ease-calm',
+        active ? 'bg-surface-inset' : 'hover:bg-surface-hover',
         onClick && 'cursor-pointer',
         className
       )}
@@ -75,8 +69,6 @@ export function Row({
     </div>
   )
 }
-
-// ── StatChip ──────────────────────────────────────────────────────────────────
 
 export function StatChip({
   label,
@@ -92,25 +84,23 @@ export function StatChip({
   className?: string
 }) {
   const accentClass: Record<string, string> = {
-    blue:   'text-accent',
-    violet: 'text-ai-purple',
-    green:  'text-success',
-    red:    'text-danger',
-    amber:  'text-warning',
+    blue: 'text-accent',
+    violet: 'text-ai',
+    green: 'text-success',
+    red: 'text-error',
+    amber: 'text-warning',
   }
 
   return (
-    <div className={cn('rounded-lg border border-outline-variant bg-white px-3 py-2.5', className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant/60">{label}</p>
-      <p className={cn('mt-0.5 text-xl font-bold leading-none', accentClass[accent ?? ''] ?? 'text-on-surface')}>
+    <div className={cn('card-base rounded-lg bg-surface px-3 py-3', className)}>
+      <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
+      <p className={cn('mt-1 text-2xl font-bold leading-none', accentClass[accent ?? ''] ?? 'text-text-primary')}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-[10px] text-on-surface-variant">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-text-secondary">{sub}</p>}
     </div>
   )
 }
-
-// ── Tag ───────────────────────────────────────────────────────────────────────
 
 export function Tag({
   children,
@@ -123,38 +113,28 @@ export function Tag({
 }) {
   const colors: Record<string, string> = {
     orange: 'bg-orange-50 text-orange-600',
-    pink:   'bg-pink-50 text-pink-600',
-    violet: 'bg-ai-purple-bg text-ai-purple',
-    blue:   'bg-accent-light text-accent',
-    green:  'bg-success-bg text-success',
-    red:    'bg-danger-bg text-danger',
-    amber:  'bg-warning-bg text-warning',
-    gray:   'bg-surface-container text-on-surface-variant',
+    pink: 'bg-pink-50 text-pink-600',
+    violet: 'bg-ai-subtle text-ai',
+    blue: 'bg-accent-subtle text-accent',
+    green: 'bg-success-subtle text-success',
+    red: 'bg-error-subtle text-error',
+    amber: 'bg-warning-subtle text-warning',
+    gray: 'bg-surface-inset text-text-secondary',
   }
 
   return (
-    <span className={cn(
-      'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold',
-      colors[color ?? 'gray'],
-      className
-    )}>
+    <span className={cn('inline-flex items-center rounded-pill px-2.5 py-1 text-2xs font-semibold', colors[color ?? 'gray'], className)}>
       {children}
     </span>
   )
 }
 
-// ── PriorityDot ───────────────────────────────────────────────────────────────
-
 export function PriorityDot({ priority }: { priority: 'hoog' | 'medium' | 'laag' | string }) {
   const colors: Record<string, string> = {
-    hoog:   'bg-danger',
+    hoog: 'bg-error',
     medium: 'bg-warning',
-    laag:   'bg-success',
+    laag: 'bg-success',
   }
-  return (
-    <span className={cn(
-      'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-      colors[priority] ?? 'bg-outline-variant'
-    )} />
-  )
+
+  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', colors[priority] ?? 'bg-border-strong')} />
 }

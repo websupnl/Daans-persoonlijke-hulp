@@ -2,31 +2,27 @@ import { ReactNode, ButtonHTMLAttributes, forwardRef } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
-// ── Variants ──────────────────────────────────────────────────────────────────
-
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'ai' | 'default' | 'destructive' | 'outline'
-type Size    = 'sm' | 'md' | 'lg' | 'default' | 'icon'
+type Size = 'sm' | 'md' | 'lg' | 'default' | 'icon'
 
-const variantClasses: Record<string, string> = {
-  primary:     'bg-accent text-white hover:bg-accent-hover focus-visible:shadow-focus',
-  default:     'bg-accent text-white hover:bg-accent-hover focus-visible:shadow-focus',
-  secondary:   'bg-white border border-outline-variant text-on-surface hover:bg-surface-container-low focus-visible:shadow-focus',
-  outline:     'bg-transparent border border-outline-variant text-on-surface hover:bg-surface-container focus-visible:shadow-focus',
-  ghost:       'bg-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface focus-visible:shadow-focus',
-  danger:      'bg-error text-white hover:bg-red-600 focus-visible:shadow-[0_0_0_3px_rgba(239,68,68,0.15)]',
-  destructive: 'bg-error text-white hover:bg-red-600 focus-visible:shadow-[0_0_0_3px_rgba(239,68,68,0.15)]',
-  ai:          'bg-ai-purple-bg border border-ai-purple-border text-ai-purple hover:bg-purple-100 focus-visible:shadow-[0_0_0_3px_rgba(124,58,237,0.15)]',
+const variantClasses: Record<Variant, string> = {
+  primary: 'bg-accent text-text-inverse hover:bg-accent-hover',
+  default: 'bg-accent text-text-inverse hover:bg-accent-hover',
+  secondary: 'border border-border-strong bg-surface text-text-primary hover:bg-surface-hover',
+  outline: 'border border-border-strong bg-transparent text-text-primary hover:bg-surface-hover',
+  ghost: 'bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+  danger: 'bg-error text-text-inverse hover:bg-red-600',
+  destructive: 'bg-error text-text-inverse hover:bg-red-600',
+  ai: 'button-ai-shimmer bg-gradient text-text-inverse hover:opacity-95',
 }
 
-const sizeClasses: Record<string, string> = {
-  sm:      'h-8 px-3 text-[12px] rounded-lg gap-1.5',
-  md:      'h-9 px-4 text-[13px] rounded-lg gap-2',
-  lg:      'h-10 px-5 text-[14px] rounded-xl gap-2',
-  default: 'h-9 px-4 text-[13px] rounded-lg gap-2',
-  icon:    'h-9 w-9 rounded-lg',
+const sizeClasses: Record<Size, string> = {
+  sm: 'h-7 rounded-md px-3 text-sm gap-1.5',
+  md: 'h-9 rounded-md px-4 text-sm gap-2',
+  lg: 'h-11 rounded-lg px-5 text-base gap-2',
+  default: 'h-9 rounded-md px-4 text-sm gap-2',
+  icon: 'h-9 w-9 rounded-md',
 }
-
-// ── Button ────────────────────────────────────────────────────────────────────
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
@@ -43,12 +39,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled}
         className={cn(
-          'inline-flex items-center justify-center font-medium transition-all duration-150 select-none',
-          'focus-visible:outline-none',
-          'disabled:opacity-40 disabled:cursor-not-allowed',
-          variantClasses[variant] ?? variantClasses.default,
-          sizeClasses[size] ?? sizeClasses.default,
-          className,
+          'focus-ring inline-flex items-center justify-center font-semibold transition-all duration-base ease-calm select-none',
+          'focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40',
+          variantClasses[variant],
+          sizeClasses[size],
+          className
         )}
         {...props}
       >
@@ -58,8 +53,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   }
 )
 Button.displayName = 'Button'
-
-// ── LinkButton ────────────────────────────────────────────────────────────────
 
 export function LinkButton({
   href,
@@ -80,11 +73,11 @@ export function LinkButton({
     <Link
       href={href}
       className={cn(
-        'inline-flex items-center justify-center font-medium transition-all duration-150 select-none',
+        'focus-ring inline-flex items-center justify-center font-semibold transition-all duration-base ease-calm select-none',
         'focus-visible:outline-none',
-        variantClasses[variant] ?? variantClasses.default,
-        sizeClasses[size] ?? sizeClasses.default,
-        className,
+        variantClasses[variant],
+        sizeClasses[size],
+        className
       )}
     >
       {children}
@@ -92,8 +85,6 @@ export function LinkButton({
     </Link>
   )
 }
-
-// ── IconButton ────────────────────────────────────────────────────────────────
 
 export function IconButton({
   icon,
@@ -111,11 +102,10 @@ export function IconButton({
     <button
       aria-label={label}
       className={cn(
-        'inline-flex items-center justify-center h-9 w-9 rounded-lg transition-all duration-150',
-        'focus-visible:outline-none focus-visible:shadow-focus',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
-        variantClasses[variant] ?? variantClasses.ghost,
-        className,
+        'focus-ring inline-flex h-9 w-9 items-center justify-center rounded-md transition-all duration-base ease-calm',
+        'focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40',
+        variantClasses[variant],
+        className
       )}
       {...props}
     >
@@ -124,17 +114,15 @@ export function IconButton({
   )
 }
 
-// ── Chip ─────────────────────────────────────────────────────────────────────
-
 type ChipColor = 'default' | 'blue' | 'green' | 'amber' | 'red' | 'violet'
 
 const chipColors: Record<ChipColor, string> = {
-  default: 'bg-surface-container text-on-surface-variant',
-  blue:    'bg-blue-50 text-accent border border-accent/10',
-  green:   'bg-success-bg text-success border border-success/10',
-  amber:   'bg-warning-bg text-warning border border-warning-border',
-  red:     'bg-red-50 text-error border border-red-200',
-  violet:  'bg-ai-purple-bg text-ai-purple border border-ai-purple-border',
+  default: 'bg-surface-inset text-text-secondary',
+  blue: 'border border-accent-muted bg-accent-subtle text-accent',
+  green: 'border border-success/10 bg-success-subtle text-success',
+  amber: 'border border-warning-border bg-warning-subtle text-warning',
+  red: 'border border-red-200 bg-error-subtle text-error',
+  violet: 'border border-ai-muted bg-ai-subtle text-ai',
 }
 
 export function Chip({
@@ -147,25 +135,15 @@ export function Chip({
   className?: string
 }) {
   return (
-    <span className={cn(
-      'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-      chipColors[color],
-      className,
-    )}>
+    <span className={cn('inline-flex items-center rounded-pill px-3 py-1 text-xs font-medium', chipColors[color], className)}>
       {children}
     </span>
   )
 }
 
-// ── AIChip ────────────────────────────────────────────────────────────────────
-
 export function AIChip({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn(
-      'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-      'bg-ai-purple-bg text-ai-purple border border-ai-purple-border',
-      className,
-    )}>
+    <span className={cn('inline-flex items-center gap-1 rounded-pill border border-ai-muted bg-ai-subtle px-3 py-1 text-xs font-medium text-ai', className)}>
       <span className="text-[10px] leading-none">✦</span>
       {children}
     </span>

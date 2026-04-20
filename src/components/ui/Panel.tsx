@@ -1,26 +1,24 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// ── Panel ─────────────────────────────────────────────────────────────────────
-
 type PanelTone = 'default' | 'muted' | 'accent' | 'inverse' | 'warning' | 'ai' | 'success'
 type PanelPadding = 'sm' | 'md' | 'lg' | 'none'
 
 const toneClasses: Record<PanelTone, string> = {
-  default: 'bg-white border border-outline-variant shadow-sm',
-  muted:   'bg-surface-container-low border border-outline-variant',
-  accent:  'bg-brand-subtle border border-accent/10',
-  inverse: 'bg-on-surface text-white border border-on-surface',
-  warning: 'bg-warning-bg border border-warning-border',
-  ai:      'ai-card',
-  success: 'bg-success-bg border border-success/20',
+  default: 'card-base bg-surface',
+  muted: 'border border-border bg-surface-inset',
+  accent: 'card-accent',
+  inverse: 'border border-text-primary bg-text-primary text-text-inverse',
+  warning: 'card-warning',
+  ai: 'card-ai',
+  success: 'card-success',
 }
 
 const paddingClasses: Record<PanelPadding, string> = {
   none: '',
-  sm:   'p-4',
-  md:   'p-5',
-  lg:   'p-6',
+  sm: 'p-4',
+  md: 'p-5',
+  lg: 'p-6',
 }
 
 export function Panel({
@@ -39,10 +37,10 @@ export function Panel({
   return (
     <section
       className={cn(
-        'rounded-xl',
+        'rounded-lg',
         toneClasses[tone],
         paddingClasses[padding],
-        interactive && 'cursor-pointer transition-all duration-150 card-hover',
+        interactive && 'cursor-pointer transition-all duration-base ease-calm hover:-translate-y-0.5 hover:shadow-sm',
         className
       )}
     >
@@ -50,8 +48,6 @@ export function Panel({
     </section>
   )
 }
-
-// ── PanelHeader ───────────────────────────────────────────────────────────────
 
 export function PanelHeader({
   eyebrow,
@@ -69,27 +65,14 @@ export function PanelHeader({
   return (
     <div className={cn('flex items-start justify-between gap-4', className)}>
       <div className="min-w-0">
-        {eyebrow && (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/60">
-            {eyebrow}
-          </p>
-        )}
-        <h2 className="mt-0.5 text-[15px] font-semibold tracking-tight text-on-surface">
-          {title}
-        </h2>
-        {description && (
-          <p className="mt-1 max-w-2xl text-sm leading-5 text-on-surface-variant">
-            {description}
-          </p>
-        )}
+        {eyebrow && <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{eyebrow}</p>}
+        <h2 className="mt-1 text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
+        {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-text-secondary">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
   )
 }
-
-// ── AICard ────────────────────────────────────────────────────────────────────
-// Purple-accented card for AI-generated content
 
 export function AICard({
   label = 'AI Analyse',
@@ -105,41 +88,30 @@ export function AICard({
   confidence?: 'Hoog' | 'Gemiddeld' | 'Laag'
 }) {
   return (
-    <div className={cn('ai-card p-4', className)}>
-      <div className="flex items-center justify-between mb-3">
+    <div className={cn('bg-ai-briefing rounded-lg border border-ai-muted border-l-[3px] border-l-ai p-5', className)}>
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="text-ai-purple text-base leading-none">✦</span>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ai-purple">
-            {label}
-          </p>
+          <span className="text-base leading-none text-ai">✦</span>
+          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {confidence && (
-            <span className={cn(
-              'text-[10px] font-medium px-2 py-0.5 rounded-full',
-              confidence === 'Hoog'      ? 'bg-success-bg text-success' :
-              confidence === 'Gemiddeld' ? 'bg-warning-bg text-warning' :
-                                           'bg-surface-container text-on-surface-variant'
-            )}>
-              {confidence}
-            </span>
-          )}
-        </div>
+        {confidence && (
+          <span
+            className={cn(
+              'rounded-pill px-3 py-1 text-xs font-medium',
+              confidence === 'Hoog' && 'bg-success-subtle text-success',
+              confidence === 'Gemiddeld' && 'bg-warning-subtle text-warning',
+              confidence === 'Laag' && 'bg-surface-inset text-text-secondary'
+            )}
+          >
+            {confidence}
+          </span>
+        )}
       </div>
-      <div className="text-[14px] leading-7 text-on-surface">
-        {children}
-      </div>
-      {generatedAt && (
-        <p className="mt-3 text-[11px] text-on-surface-variant/60">
-          Gegenereerd {generatedAt}
-        </p>
-      )}
+      <div className="text-base leading-7 text-text-primary">{children}</div>
+      {generatedAt && <p className="mt-3 text-xs text-text-tertiary">Gegenereerd {generatedAt}</p>}
     </div>
   )
 }
-
-// ── InsightBlock ──────────────────────────────────────────────────────────────
-// A single detected pattern / insight row
 
 type InsightType = 'warning' | 'positive' | 'suggestion'
 
@@ -159,34 +131,24 @@ export function InsightBlock({
   className?: string
 }) {
   const icons: Record<InsightType, string> = {
-    warning:    '⚠',
-    positive:   '✦',
+    warning: '⚠',
+    positive: '✦',
     suggestion: '💡',
   }
   const iconColors: Record<InsightType, string> = {
-    warning:    'text-warning',
-    positive:   'text-ai-purple',
+    warning: 'text-warning',
+    positive: 'text-ai',
     suggestion: 'text-accent',
   }
 
   return (
-    <div className={cn(
-      'flex items-start gap-3 py-3 border-b border-outline-variant last:border-0',
-      className
-    )}>
-      <span className={cn('text-base leading-none shrink-0 mt-0.5', iconColors[type])}>
-        {icons[type]}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-on-surface">{title}</p>
-        {detail && (
-          <p className="mt-0.5 text-[12px] text-on-surface-variant">{detail}</p>
-        )}
+    <div className={cn('flex items-start gap-3 border-b border-border py-3 last:border-0', className)}>
+      <span className={cn('mt-0.5 shrink-0 text-base leading-none', iconColors[type])}>{icons[type]}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-text-primary">{title}</p>
+        {detail && <p className="mt-0.5 text-sm text-text-secondary">{detail}</p>}
         {action && actionHref && (
-          <a
-            href={actionHref}
-            className="mt-1 inline-block text-[12px] font-medium text-accent hover:text-accent-hover transition-colors"
-          >
+          <a href={actionHref} className="mt-1 inline-block text-sm font-medium text-accent transition-colors hover:text-accent-hover">
             {action} →
           </a>
         )}
@@ -194,8 +156,6 @@ export function InsightBlock({
     </div>
   )
 }
-
-// ── StatStrip ─────────────────────────────────────────────────────────────────
 
 export function StatStrip({
   stats,
@@ -210,41 +170,29 @@ export function StatStrip({
   className?: string
 }) {
   const accentColors: Record<string, string> = {
-    blue:   'text-accent',
-    violet: 'text-ai-purple',
-    green:  'text-success',
-    red:    'text-danger',
-    amber:  'text-warning',
+    blue: 'text-accent',
+    violet: 'text-ai',
+    green: 'text-success',
+    red: 'text-error',
+    amber: 'text-warning',
     orange: 'text-orange-500',
-    pink:   'text-pink-500',
+    pink: 'text-pink-500',
   }
 
   return (
-    <div className={cn(
-      'flex divide-x divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-white',
-      className
-    )}>
+    <div className={cn('grid gap-3 sm:grid-cols-2 xl:grid-cols-4', className)}>
       {stats.map((stat, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3.5">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant/60">
-            {stat.label}
-          </p>
-          <div className={cn(
-            'mt-1 text-xl font-bold leading-none tracking-tight',
-            stat.accent ? accentColors[stat.accent] : 'text-on-surface'
-          )}>
+        <div key={i} className="card-base flex min-w-0 flex-col justify-center rounded-lg bg-surface px-4 py-4">
+          <p className="truncate text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{stat.label}</p>
+          <div className={cn('mt-2 text-2xl font-bold leading-none tracking-tight', stat.accent ? accentColors[stat.accent] : 'text-text-primary')}>
             {stat.value}
           </div>
-          {stat.meta && (
-            <p className="mt-1 truncate text-[11px] text-on-surface-variant">{stat.meta}</p>
-          )}
+          {stat.meta && <p className="mt-1 truncate text-xs text-text-secondary">{stat.meta}</p>}
         </div>
       ))}
     </div>
   )
 }
-
-// ── SectionHeader ─────────────────────────────────────────────────────────────
 
 export function SectionHeader({
   title,
@@ -257,15 +205,11 @@ export function SectionHeader({
 }) {
   return (
     <div className={cn('flex items-center justify-between', className)}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant/60">
-        {title}
-      </p>
-      {action && <div className="text-xs text-on-surface-variant">{action}</div>}
+      <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{title}</p>
+      {action && <div className="text-xs text-text-secondary">{action}</div>}
     </div>
   )
 }
-
-// ── MetricTile ────────────────────────────────────────────────────────────────
 
 export function MetricTile({
   label,
@@ -283,33 +227,23 @@ export function MetricTile({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-lg border border-outline-variant bg-white p-4', className)}>
+    <div className={cn('card-base rounded-lg bg-surface p-4', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant/60">
-            {label}
-          </p>
-          <div className="mt-1.5 text-[22px] font-bold leading-none tracking-tight text-on-surface flex items-end gap-1.5">
+          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
+          <div className="mt-2 flex items-end gap-1.5 text-2xl font-bold leading-none tracking-tight text-text-primary">
             {value}
-            {trend === 'up'   && <span className="text-success text-sm mb-0.5">↑</span>}
-            {trend === 'down' && <span className="text-danger text-sm mb-0.5">↓</span>}
-            {trend === 'flat' && <span className="text-on-surface-variant text-sm mb-0.5">─</span>}
+            {trend === 'up' && <span className="mb-0.5 text-sm text-success">↑</span>}
+            {trend === 'down' && <span className="mb-0.5 text-sm text-error">↓</span>}
+            {trend === 'flat' && <span className="mb-0.5 text-sm text-text-tertiary">—</span>}
           </div>
-          {meta && (
-            <div className="mt-1.5 text-[11px] text-on-surface-variant">{meta}</div>
-          )}
+          {meta && <div className="mt-1.5 text-xs text-text-secondary">{meta}</div>}
         </div>
-        {icon && (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-container text-on-surface-variant">
-            {icon}
-          </div>
-        )}
+        {icon && <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-inset text-text-secondary">{icon}</div>}
       </div>
     </div>
   )
 }
-
-// ── EmptyPanel ────────────────────────────────────────────────────────────────
 
 export function EmptyPanel({
   title,
@@ -323,20 +257,13 @@ export function EmptyPanel({
   className?: string
 }) {
   return (
-    <div className={cn(
-      'rounded-lg border border-dashed border-outline-variant bg-surface-container-low/50 px-5 py-8 text-center',
-      className
-    )}>
-      <p className="text-sm font-semibold text-on-surface">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-md text-xs leading-5 text-on-surface-variant">
-        {description}
-      </p>
+    <div className={cn('card-ghost rounded-lg bg-surface/50 px-5 py-8 text-center', className)}>
+      <p className="text-lg font-semibold text-text-primary">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-secondary">{description}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }
-
-// ── ActionPill ────────────────────────────────────────────────────────────────
 
 export function ActionPill({
   children,
@@ -345,24 +272,12 @@ export function ActionPill({
   children: ReactNode
   className?: string
 }) {
-  return (
-    <span className={cn(
-      'inline-flex items-center rounded-full border border-outline-variant bg-white px-2.5 py-1 text-[11px] font-medium text-on-surface-variant',
-      className
-    )}>
-      {children}
-    </span>
-  )
+  return <span className={cn('inline-flex items-center rounded-pill border border-border bg-surface px-3 py-1 text-xs font-medium text-text-secondary', className)}>{children}</span>
 }
-
-// ── Divider ───────────────────────────────────────────────────────────────────
 
 export function Divider({ className }: { className?: string }) {
-  return <hr className={cn('border-t border-outline-variant', className)} />
+  return <hr className={cn('border-t border-border', className)} />
 }
-
-// ── SystemActionBubble ────────────────────────────────────────────────────────
-// For AI chat actions (task created, memory saved, etc.)
 
 export function SystemActionBubble({
   icon,
@@ -380,18 +295,15 @@ export function SystemActionBubble({
   className?: string
 }) {
   return (
-    <div className={cn('flex justify-center my-2', className)}>
-      <div className="chat-bubble-system inline-flex items-center gap-2.5 max-w-[65%]">
-        <span className="shrink-0 text-ai-purple">{icon}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-on-surface">{title}</p>
-          {detail && <p className="text-[11px] text-on-surface-variant mt-0.5">{detail}</p>}
+    <div className={cn('my-2 flex justify-center', className)}>
+      <div className="flex max-w-[65%] items-center gap-2.5 rounded-lg border border-border bg-surface px-4 py-3 shadow-xs">
+        <span className="shrink-0 text-ai">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-text-primary">{title}</p>
+          {detail && <p className="mt-0.5 text-xs text-text-secondary">{detail}</p>}
         </div>
         {onUndo && (
-          <button
-            onClick={onUndo}
-            className="shrink-0 text-[11px] font-medium text-accent hover:text-accent-hover transition-colors whitespace-nowrap"
-          >
+          <button onClick={onUndo} className="shrink-0 text-xs font-medium text-accent transition-colors hover:text-accent-hover">
             {undoLabel}
           </button>
         )}
