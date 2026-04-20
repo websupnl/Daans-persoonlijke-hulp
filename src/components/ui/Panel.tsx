@@ -205,7 +205,7 @@ export function StatStrip({
     label: string
     value: ReactNode
     meta?: ReactNode
-    accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber'
+    accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'orange'
   }>
   className?: string
 }) {
@@ -215,6 +215,7 @@ export function StatStrip({
     green:  'text-success',
     red:    'text-danger',
     amber:  'text-warning',
+    orange: 'text-orange-500',
   }
 
   return (
