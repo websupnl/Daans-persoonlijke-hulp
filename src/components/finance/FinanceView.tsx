@@ -459,6 +459,7 @@ export default function FinanceView() {
   const incomeItems = items.filter((item) => item.type === 'inkomst')
   const expenseItems = items.filter((item) => item.type === 'uitgave')
   const biggestExpense = [...expenseItems].sort((left, right) => right.amount - left.amount)[0]
+  const currentBalance = balances.reduce((sum, balance) => sum + (balance.balance || 0), 0)
   const maxMonthly = monthlyData.reduce((max, item) => Math.max(max, item.income, item.expenses), 1)
 
   return (
@@ -544,9 +545,10 @@ export default function FinanceView() {
         }
       >
         <StatStrip stats={[
+          { label: 'Huidig saldo', value: formatCurrency(currentBalance), meta: `${balances.length} rekeningen`, accent: currentBalance >= 0 ? 'green' : 'red' },
           { label: 'Netto', value: formatCurrency(net), meta: `${formatCurrency(stats?.month_income || 0)} in / ${formatCurrency(stats?.month_expenses || 0)} uit`, accent: net >= 0 ? 'green' : 'red' },
-          { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties' },
-          { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen' },
+          { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties', mobileHidden: true },
+          { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen', mobileHidden: true },
           { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'amber' : undefined },
         ]} />
 

@@ -86,15 +86,15 @@ export default function InboxView() {
         <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
           <Panel tone="accent">
             <PanelHeader
-              eyebrow="Quick capture"
-              title="Gooi het hier neer"
+              eyebrow="Capture"
+              title="Snel toevoegen"
             />
             <form onSubmit={handleAdd} className="mt-4 space-y-3">
               <textarea
                 value={newText}
                 onChange={(event) => setNewText(event.target.value)}
                 placeholder="Snel iets vastleggen: idee, follow-up, losse taak, belofte, notitie..."
-                className="min-h-[160px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="min-h-[120px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
               />
               <button
                 type="submit"
@@ -102,7 +102,7 @@ export default function InboxView() {
                 className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus size={13} />
-                {saving ? 'Opslaan...' : 'Voeg toe aan inbox'}
+                {saving ? 'Opslaan...' : 'Toevoegen'}
               </button>
             </form>
           </Panel>

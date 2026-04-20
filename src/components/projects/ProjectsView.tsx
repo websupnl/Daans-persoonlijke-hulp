@@ -89,7 +89,7 @@ export default function ProjectsView() {
   return (
     <PageShell
       title="Projecten"
-      subtitle={`${activeProjects.length} actieve projecten. Dit scherm moet je projecten laten voelen als echte werkruimtes in plaats van losse kaarten zonder richting.`}
+      subtitle={`${activeProjects.length} actieve projecten.`}
       actions={
         <button
           onClick={() => setShowAdd((value) => !value)}
@@ -114,7 +114,7 @@ export default function ProjectsView() {
               <PanelHeader
                 eyebrow="Actieve timer"
                 title={activeTimer.title}
-                description="Lopende tijd hoort direct zichtbaar te zijn zodat projecten als echte werkplekken aanvoelen."
+                description="Actieve tijd op dit project."
                 action={
                   activeTimer.project_id ? (
                     <button
@@ -138,7 +138,7 @@ export default function ProjectsView() {
               <PanelHeader
                 eyebrow="Nieuw project"
                 title="Maak een nieuwe werkruimte"
-                description="Een project moet een container zijn voor taken, notities en tijd. Niet alleen een mooie naam."
+                description="Koppel hier taken, notities en tijd."
               />
 
               <div className="mt-5 space-y-3">
@@ -191,7 +191,7 @@ export default function ProjectsView() {
             <PanelHeader
               eyebrow="Werkruimtes"
               title="Projectoverzicht"
-              description="Projecten moeten scanbaar zijn op voortgang, context en open werk. Minder decoratie, meer sturing."
+              description="Snel zicht op voortgang en open werk."
             />
 
             {loading ? (
@@ -204,7 +204,7 @@ export default function ProjectsView() {
               <div className="mt-5">
                 <EmptyPanel
                   title="Nog geen projecten"
-                  description="Maak van projecten een centrale plek voor werk, context en voortgang. Niet alleen een lijstje met namen."
+                  description="Maak je eerste project om werk, taken en notities te bundelen."
                 />
               </div>
             ) : (
