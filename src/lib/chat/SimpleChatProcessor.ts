@@ -596,6 +596,36 @@ export async function processChatMessage(message: string): Promise<ChatResponse>
   // 3. Generate response
   const response = generateResponse(intent, [result])
   console.log('[SimpleChat] Response:', response)
-  
+
   return response
+}
+
+export interface ProcessorContext {
+  tenant_id?: string
+  user_id?: string
+  database?: any
+  sessionKey?: string
+}
+
+export interface ProcessorResponse {
+  reply: string
+  actions: ActionResult[]
+  parserType?: string
+  confidence?: number
+  intent?: string
+}
+
+export class SimpleChatProcessor {
+  async processChatMessage(message: string, context?: ProcessorContext): Promise<ProcessorResponse> {
+    const intent = parseIntent(message)
+    const result = await executeAction(intent)
+    const response = generateResponse(intent, [result])
+    return {
+      reply: response.message,
+      actions: response.actions,
+      parserType: 'simple',
+      confidence: intent.confidence,
+      intent: intent.type,
+    }
+  }
 }
