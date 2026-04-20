@@ -250,11 +250,15 @@ h6 {
   max-width: 72%;
   margin-left: auto;
   border-radius: 14px 14px 4px 14px;
-  background: var(--text-primary);
-  color: var(--text-inverse);
+  background: var(--accent);
+  color: #ffffff;
   padding: 10px 14px;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.chat-bubble-user .chat-content {
+  color: #ffffff;
 }
 
 .chat-bubble-ai {

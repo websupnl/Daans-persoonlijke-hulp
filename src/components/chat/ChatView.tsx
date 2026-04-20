@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, Loader2, RotateCcw } from 'lucide-react'
 import { PromptInputBox } from '@/components/ui/ai-prompt-box'
+import { ShiningText } from '@/components/ui/shining-text'
 import { cn, formatMarkdown, formatRelative } from '@/lib/utils'
 
 interface DebugAction {
@@ -53,16 +54,18 @@ function ThinkingBubble({ status }: { status: string }) {
         AI
       </div>
       <div className="chat-bubble-ai">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {[0, 1, 2].map((index) => (
             <span
               key={index}
-              className="animate-thinking h-2 w-2 rounded-full bg-text-tertiary"
+              className="animate-thinking h-2 w-2 rounded-full bg-accent"
               style={{ animationDelay: `${index * 0.15}s` }}
             />
           ))}
+          <span className="ml-1">
+            <ShiningText text={status} />
+          </span>
         </div>
-        <p className="mt-2 text-2xs uppercase tracking-[0.18em] text-text-tertiary">{status}</p>
       </div>
     </div>
   )
