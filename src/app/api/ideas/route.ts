@@ -1,9 +1,10 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 interface IdeaAnalysis {
   title: string
@@ -79,7 +80,8 @@ Wees direct, praktisch en realistisch. Geen fluff.`,
 }
 
 export async function GET() {
-  const ideas = (await query<Record<string, unknown>>(`
+  try {
+    const ideas = (await query<Record<string, unknown>>(`
     SELECT * FROM ideas
     ORDER BY
       CASE status
@@ -90,25 +92,29 @@ export async function GET() {
         ELSE 4
       END,
       created_at DESC
-  `)).map((idea) => ({
-    ...idea,
-    next_steps: JSON.parse(String(idea.next_steps || '[]')),
-    tags: JSON.parse(String(idea.tags || '[]')),
-  }))
+    `)).map((idea) => ({
+      ...idea,
+      next_steps: JSON.parse(String(idea.next_steps || '[]')),
+      tags: JSON.parse(String(idea.tags || '[]')),
+    }))
 
-  return NextResponse.json({ data: ideas })
+    return jsonOk(ideas)
+  } catch (error: unknown) {
+    return jsonFail('IDEAS_LIST_FAILED', 'Kon ideeën niet ophalen', 500, error)
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const rawInput = String(body.raw_input || body.title || '').trim()
+  try {
+    const body = await req.json()
+    const rawInput = String(body.raw_input || body.title || '').trim()
 
-  if (!rawInput) {
-    return NextResponse.json({ error: 'Idee tekst is verplicht' }, { status: 400 })
-  }
+    if (!rawInput) {
+      return jsonFail('IDEA_VALIDATION', 'Idee tekst is verplicht', 400, undefined, req)
+    }
 
-  const analysis = await analyzeIdea(rawInput)
-  const row = await queryOne<Record<string, unknown>>(`
+    const analysis = await analyzeIdea(rawInput)
+    const row = await queryOne<Record<string, unknown>>(`
     INSERT INTO ideas (title, raw_input, refined_summary, verdict, score, market_gap, next_steps, tags, status)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *
@@ -124,27 +130,28 @@ export async function POST(req: NextRequest) {
     body.status || 'nieuw',
   ])
 
-  if (row?.id) {
-    await syncEntityLinks({
-      sourceType: 'idea',
-      sourceId: Number(row.id),
-      tags: analysis.tags,
-    })
-    await logActivity({
-      entityType: 'idea',
-      entityId: Number(row.id),
-      action: 'created',
-      title: analysis.title,
-      summary: `Idee beoordeeld als ${analysis.verdict}`,
-      metadata: { verdict: analysis.verdict, score: analysis.score, status: body.status || 'nieuw' },
-    })
-  }
+    if (row?.id) {
+      await syncEntityLinks({
+        sourceType: 'idea',
+        sourceId: Number(row.id),
+        tags: analysis.tags,
+      })
+      await logActivity({
+        entityType: 'idea',
+        entityId: Number(row.id),
+        action: 'created',
+        title: analysis.title,
+        summary: `Idee beoordeeld als ${analysis.verdict}`,
+        metadata: { verdict: analysis.verdict, score: analysis.score, status: body.status || 'nieuw' },
+      })
+    }
 
-  return NextResponse.json({
-    data: {
+    return jsonOk({
       ...row,
       next_steps: JSON.parse(String(row?.next_steps || '[]')),
       tags: JSON.parse(String(row?.tags || '[]')),
-    },
-  }, { status: 201 })
+    }, { status: 201 }, req)
+  } catch (error: unknown) {
+    return jsonFail('IDEA_CREATE_FAILED', 'Kon idee niet opslaan', 500, error, req)
+  }
 }

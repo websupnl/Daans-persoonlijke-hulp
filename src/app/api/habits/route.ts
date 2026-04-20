@@ -1,17 +1,19 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { format, subDays } from 'date-fns'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 export async function GET() {
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd')
-  const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd')
+  try {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const monthAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd')
+    const sixtyDaysAgo = format(subDays(new Date(), 60), 'yyyy-MM-dd')
 
-  const habits = await query<Record<string, unknown>>('SELECT * FROM habits WHERE active = 1 ORDER BY created_at')
+    const habits = await query<Record<string, unknown>>('SELECT * FROM habits WHERE active = 1 ORDER BY created_at')
 
-  const enriched = await Promise.all(habits.map(async (h) => {
+    const enriched = await Promise.all(habits.map(async (h) => {
     const rawLogs = await query<{ logged_date: string | Date }>(
       'SELECT logged_date FROM habit_logs WHERE habit_id = $1 AND logged_date >= $2 ORDER BY logged_date DESC',
       [h.id, monthAgo]
@@ -43,22 +45,29 @@ export async function GET() {
     }
 
     return { ...h, logs, completedToday, streak }
-  }))
+    }))
 
-  return NextResponse.json({ data: enriched })
+    return jsonOk(enriched)
+  } catch (error: unknown) {
+    return jsonFail('HABITS_LIST_FAILED', 'Kon gewoontes niet ophalen', 500, error)
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { name, description, frequency, target, color, icon } = body
+  try {
+    const body = await req.json()
+    const { name, description, frequency, target, color, icon } = body
 
-  if (!name?.trim()) return NextResponse.json({ error: 'Naam verplicht' }, { status: 400 })
+    if (!name?.trim()) return jsonFail('HABIT_VALIDATION', 'Naam verplicht', 400, undefined, req)
 
-  const habit = await queryOne(`
+    const habit = await queryOne(`
     INSERT INTO habits (name, description, frequency, target, color, icon)
     VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
   `, [name.trim(), description || null, frequency || 'dagelijks', target || 1, color || '#6172f3', icon || '⭐'])
 
-  return NextResponse.json({ data: habit }, { status: 201 })
+    return jsonOk(habit, { status: 201 }, req)
+  } catch (error: unknown) {
+    return jsonFail('HABIT_CREATE_FAILED', 'Kon gewoonte niet aanmaken', 500, error, req)
+  }
 }

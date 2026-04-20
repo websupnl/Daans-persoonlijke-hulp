@@ -1,14 +1,15 @@
 export const dynamic = 'force-dynamic'
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getUserSettings, setSetting } from '@/lib/data-service'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 export async function GET() {
   try {
     const settings = await getUserSettings()
-    return NextResponse.json({ data: settings })
+    return jsonOk(settings)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('SETTINGS_GET_FAILED', error.message || 'Kon settings niet ophalen', 500, error)
   }
 }
 
@@ -19,8 +20,8 @@ export async function PATCH(req: NextRequest) {
       Object.entries(body).map(([key, value]) => setSetting(key, String(value)))
     )
     const settings = await getUserSettings()
-    return NextResponse.json({ data: settings })
+    return jsonOk(settings, undefined, req)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('SETTINGS_PATCH_FAILED', error.message || 'Kon settings niet opslaan', 500, error, req)
   }
 }

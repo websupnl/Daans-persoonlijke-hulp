@@ -297,4 +297,9 @@ Onderstaande fundamenten uit fase 0/1/3 zijn nu concreet vastgelegd in de reposi
   - `/api/projects` en `/api/projects/[id]`.
   - `/api/events` en `/api/events/[id]`.
   - `/api/groceries` en `/api/groceries/[id]`.
+  - `/api/habits`, `/api/habits/[id]` en `/api/habits/log`.
+  - `/api/worklogs`.
+  - `/api/memory`.
+  - `/api/ideas` en `/api/ideas/[id]`.
+  - `/api/profile`, `/api/settings`, `/api/health`.
 - Nieuwe helper `src/lib/contracts/api-http.ts` verzorgt consistente success/error responses met `correlationId` en timestamp metadata.
