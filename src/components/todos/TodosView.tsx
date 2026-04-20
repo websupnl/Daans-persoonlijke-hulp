@@ -240,14 +240,6 @@ export default function TodosView() {
             ))}
           </div>
           <button
-            onClick={getRecommendation}
-            disabled={loadingRec}
-            className="inline-flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
-          >
-            {loadingRec ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Wat nu?
-          </button>
-          <button
             onClick={() => setShowAdd((value) => !value)}
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
           >

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura OS - Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-dim": "#d7dbda",
+                        "on-secondary": "#f9f8ff",
+                        "on-tertiary-fixed-variant": "#614c74",
+                        "on-primary-fixed": "#3c4045",
+                        "on-surface": "#2f3333",
+                        "surface-bright": "#f9f9f8",
+                        "surface-container-low": "#f3f4f3",
+                        "outline-variant": "#afb3b2",
+                        "on-secondary-fixed-variant": "#555b6e",
+                        "error": "#a83836",
+                        "surface-container-high": "#e6e9e8",
+                        "on-tertiary": "#fff6ff",
+                        "on-primary-container": "#4e5257",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-dim": "#5f4a72",
+                        "on-surface-variant": "#5b605f",
+                        "error-dim": "#67040d",
+                        "primary-fixed": "#e0e2e9",
+                        "primary-container": "#e0e2e9",
+                        "inverse-surface": "#0c0f0e",
+                        "primary": "#5b5f65",
+                        "on-tertiary-container": "#57426a",
+                        "outline": "#777c7b",
+                        "on-secondary-container": "#4b5164",
+                        "primary-fixed-dim": "#d1d4db",
+                        "tertiary-fixed": "#e8cdfd",
+                        "on-primary": "#f6f9ff",
+                        "secondary-fixed-dim": "#ced4eb",
+                        "on-error-container": "#6e0a12",
+                        "error-container": "#fa746f",
+                        "background": "#f9f9f8",
+                        "inverse-on-surface": "#9c9d9c",
+                        "on-primary-fixed-variant": "#585c61",
+                        "surface-container-highest": "#dfe3e2",
+                        "secondary": "#595e72",
+                        "on-background": "#2f3333",
+                        "tertiary-container": "#e8cdfd",
+                        "tertiary-fixed-dim": "#dabfee",
+                        "surface-variant": "#dfe3e2",
+                        "secondary-dim": "#4d5366",
+                        "tertiary": "#6c567f",
+                        "secondary-container": "#dde2f9",
+                        "inverse-primary": "#e8ebf2",
+                        "secondary-fixed": "#dde2f9",
+                        "surface-tint": "#5b5f65",
+                        "on-secondary-fixed": "#393f51",
+                        "surface-container": "#eceeed",
+                        "on-tertiary-fixed": "#433056",
+                        "primary-dim": "#4f5359",
+                        "surface": "#f9f9f8",
+                        "on-error": "#fff7f6"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low text-on-surface font-body h-screen flex flex-col overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="bg-transparent text-zinc-900 dark:text-zinc-100 font-['Manrope'] font-bold text-lg w-full h-16 flex justify-between items-center px-8 py-4 fixed top-0 left-0 z-40">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden shadow-sm flex items-center justify-center">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="close up portrait of a young woman with natural light and soft background blur" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuF9s_cK4DuSBzJAELbPYvS5C44iiAvUoN7MH-PSvZczlsN8U8sNA-QgGhsAktL2fEqMSCkxgl-gMMDuMWT-etGgj_-AXIVCbYcn0TMLaj2nRKUbDupD4c9KHMv62N4J5IGydng2XYDlom3XvaPv3ivTi6Pueze4QwjHWNx93H_SMZpa9_hlSaEG75TP17BK4wgOFU3offq9MAc5HAMtRDNmAUofDC4QEsleuHrUW8AbPoS_LUnTYCYto6hS9s870onYsrWlDA54hB"/>
+</div>
+<span class="text-xl font-black text-zinc-800 dark:text-zinc-100 tracking-tight">Ethereal</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-zinc-500 hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined">notifications_none</span>
+</button>
+<button class="text-zinc-500 hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined">grid_view</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile) -->
+<nav class="hidden lg:flex flex-col p-6 space-y-8 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur-xl h-screen w-64 fixed left-0 top-0 z-50 border-r border-slate-200/50">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high overflow-hidden shadow-sm flex items-center justify-center">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="close up portrait of a young woman with natural light and soft background blur" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUoFBvj3b3lWlTXJjMWwa5Vd2ZPgQZPwsDelGsvZDW94jBxamxDujnuu10zUStu9C86JeBlKAIsQx8S01i-dELsR6ocMyqxzEOw15Qh6iFAANiqil1z2UvhfdNymAyn0kQTY8FAdblT1jKTj53VfKaw90x6j4tVGBlSP9AhP0NypXHh3aQ0RzV_uW1vCmR-lq3j6X8CyC49Cyq5kYzMzL1qdkLUXezQZ9vw5uXfWpTpcpxyYR3JIGyBuJrf4sVSNz-brj6E-kMoiSh"/>
+</div>
+<div>
+<h2 class="font-['Manrope'] font-bold text-sm tracking-tight text-zinc-900">Ethereal</h2>
+<p class="text-xs text-zinc-500 font-medium">AI OS v1.0</p>
+</div>
+</div>
+<button class="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-br from-primary to-primary-dim text-on-primary font-medium text-sm shadow-sm hover:opacity-90 transition-opacity mb-4">
+<span class="material-symbols-outlined text-sm">add</span>
+            New Insight
+        </button>
+<div class="flex-1 flex flex-col gap-2 font-['Manrope'] font-semibold tracking-tight text-sm">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-[#7B8CBF] font-bold border-r-2 border-[#7B8CBF] bg-[#7B8CBF]/10 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">psychology</span>
+                Intelligence
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+                Chronos
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">check_circle</span>
+                Tasks
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">payments</span>
+                Treasury
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">stairs</span>
+                Rituals
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+                Library
+            </a>
+</div>
+<div class="pt-8 border-t border-slate-200/50 flex flex-col gap-2 font-['Manrope'] font-semibold tracking-tight text-sm">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-slate-200/40 dark:hover:bg-zinc-800/40 transition-colors duration-300" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+                Support
+            </a>
+</div>
+</nav>
+<!-- Main Chat Canvas -->
+<main class="flex-1 overflow-y-auto px-4 pt-24 pb-40 flex flex-col gap-8 w-full max-w-2xl mx-auto scroll-smooth">
+<!-- Date Header -->
+<div class="flex justify-center w-full">
+<span class="text-xs font-medium text-on-surface-variant uppercase tracking-wider bg-surface-container py-1 px-3 rounded-full">Today</span>
+</div>
+<!-- User Message -->
+<div class="flex flex-col items-end w-full pl-12">
+<div class="bg-gradient-to-br from-primary to-primary-dim text-on-primary p-4 rounded-2xl rounded-tr-sm shadow-[0_2px_10px_rgba(47,51,51,0.04)] max-w-[90%]">
+<p class="text-sm leading-relaxed">Could you prepare a brief synthesis of the Q3 performance metrics for tomorrow's Treasury review?</p>
+</div>
+<span class="text-[10px] text-on-surface-variant mt-1.5 mr-1 font-medium">09:41 AM</span>
+</div>
+<!-- AI Proposal Message -->
+<div class="flex flex-col items-start w-full pr-12">
+<div class="flex items-center gap-2 mb-2 ml-1">
+<span class="material-symbols-outlined text-lg text-primary" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-headline font-bold text-sm text-on-surface">Ethereal</span>
+</div>
+<div class="bg-surface-container-lowest text-on-surface p-5 rounded-2xl rounded-tl-sm shadow-[0_4px_20px_rgba(47,51,51,0.03)] border border-outline-variant/15 w-full">
+<p class="text-sm leading-relaxed mb-4 text-on-surface-variant">I have compiled the Q3 metrics from the Treasury module. Would you prefer a high-level summary or a detailed breakdown including regional variances?</p>
+<!-- Context Sensitive Proposal Actions -->
+<div class="flex flex-col gap-2 mt-4">
+<button class="w-full text-left bg-surface-container-low hover:bg-surface-container p-3 rounded-xl transition-colors duration-200 flex items-center justify-between group">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-on-surface">High-Level Summary</span>
+<span class="text-xs text-on-surface-variant mt-0.5">Key KPIs and executive overview</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</button>
+<button class="w-full text-left bg-surface-container-low hover:bg-surface-container p-3 rounded-xl transition-colors duration-200 flex items-center justify-between group">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-on-surface">Detailed Breakdown</span>
+<span class="text-xs text-on-surface-variant mt-0.5">Includes regional data and comparative analysis</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</button>
+</div>
+</div>
+<span class="text-[10px] text-on-surface-variant mt-1.5 ml-1 font-medium">09:42 AM</span>
+</div>
+<!-- User Action (Implicit selection visualization) -->
+<div class="flex flex-col items-end w-full pl-12">
+<div class="bg-surface-container-high text-on-surface py-2 px-4 rounded-full max-w-[90%] inline-flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant">done_all</span>
+<span class="text-sm font-medium">Detailed Breakdown selected</span>
+</div>
+</div>
+<!-- AI Confirmed Action -->
+<div class="flex flex-col items-start w-full pr-12">
+<div class="flex items-center gap-2 mb-2 ml-1">
+<span class="material-symbols-outlined text-lg text-primary" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-headline font-bold text-sm text-on-surface">Ethereal</span>
+</div>
+<div class="bg-tertiary-container text-on-tertiary-container p-4 rounded-2xl rounded-tl-sm w-full shadow-[0_2px_12px_rgba(95,74,114,0.06)] border border-tertiary-dim/10">
+<div class="flex items-start gap-3">
+<div class="bg-surface-container-lowest/50 p-1.5 rounded-lg shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-tertiary text-base" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div>
+<h4 class="font-headline font-bold text-sm mb-1">Q3 Comprehensive Synthesis Ready</h4>
+<p class="text-xs opacity-90 leading-relaxed mb-3">The detailed breakdown has been generated and filed in your Library under "Treasury Reviews".</p>
+<button class="text-xs font-semibold uppercase tracking-wider bg-surface-container-lowest/40 hover:bg-surface-container-lowest/60 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5">
+                            Open Document
+                            <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Chat Input Area -->
+<div class="fixed bottom-[88px] left-0 w-full px-4 z-40 lg:hidden">
+<div class="max-w-2xl mx-auto">
+<div class="bg-surface-container-lowest/80 backdrop-blur-2xl rounded-2xl p-2 flex items-end gap-2 shadow-[0_-4px_32px_rgba(47,51,51,0.08)] border border-outline-variant/10">
+<!-- Module Switch Button -->
+<button class="p-2.5 text-on-surface-variant hover:text-primary transition-colors rounded-xl hover:bg-surface-container-low shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined">apps</span>
+</button>
+<!-- Input Field -->
+<div class="flex-1 bg-surface-container-low rounded-xl flex items-center min-h-[44px] px-3 py-1 transition-colors focus-within:bg-surface-container">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-sm text-on-surface placeholder-on-surface-variant/60 resize-none py-2" placeholder="Ask Ethereal..." rows="1"></textarea>
+</div>
+<!-- Context Actions -->
+<div class="flex items-center gap-1 shrink-0 pb-0.5">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-low flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">mic</span>
+</button>
+<button class="p-2 bg-gradient-to-br from-primary to-primary-dim text-on-primary rounded-full shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">arrow_upward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-4 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.08)]">
+<!-- Item 1: Home -->
+<a class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors group" href="#">
+<div class="mb-1 p-1 rounded-full group-hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[22px]">home</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Home</span>
+</a>
+<!-- Item 2: Chat (Active) -->
+<a class="flex flex-col items-center justify-center text-[#7B8CBF] transition-all duration-200" href="#">
+<div class="flex flex-col items-center justify-center bg-[#7B8CBF]/10 rounded-full px-5 py-1.5 mb-1 scale-105 shadow-sm">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">chat_bubble</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Chat</span>
+</a>
+<!-- Item 3: Chronos -->
+<a class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors group" href="#">
+<div class="mb-1 p-1 rounded-full group-hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[22px]">schedule</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Chronos</span>
+</a>
+<!-- Item 4: Rituals -->
+<a class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors group" href="#">
+<div class="mb-1 p-1 rounded-full group-hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Rituals</span>
+</a>
+<!-- Item 5: Profile -->
+<a class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors group" href="#">
+<div class="mb-1 p-1 rounded-full group-hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[22px]">person</span>
+</div>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Profile</span>
+</a>
+</nav>
+</body></html>
