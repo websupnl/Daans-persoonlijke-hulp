@@ -8,8 +8,10 @@ import AIContextButton from '@/components/ai/AIContextButton'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ChatPreview } from '@/components/ui/chat-preview'
 
 interface WorkLog {
   id: number
@@ -93,7 +95,25 @@ export default function WorklogsView() {
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [weekMinutes, setWeekMinutes] = useState(0)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', duration_minutes: '', context: 'WebsUp', description: '' })
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({ 
+    title: '', 
+    date: today,
+    start_time: '', 
+    end_time: '', 
+    context: 'WebsUp', 
+    description: '' 
+  })
+  
+  // Auto-calculate duration when times change
+  const duration_minutes = useMemo(() => {
+    if (!form.start_time || !form.end_time) return 0
+    const [startH, startM] = form.start_time.split(':').map(Number)
+    const [endH, endM] = form.end_time.split(':').map(Number)
+    const start = startH * 60 + startM
+    const end = endH * 60 + endM
+    return Math.max(0, end - start)
+  }, [form.start_time, form.end_time])
   const [loading, setLoading] = useState(true)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false)
@@ -252,12 +272,34 @@ export default function WorklogsView() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    
+    // Calculate duration from time range
+    const [startH, startM] = form.start_time.split(':').map(Number)
+    const [endH, endM] = form.end_time.split(':').map(Number)
+    const duration = (endH * 60 + endM) - (startH * 60 + startM)
+    
     await fetch('/api/worklogs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, duration_minutes: parseInt(form.duration_minutes) }),
+      body: JSON.stringify({ 
+        title: form.title,
+        duration_minutes: duration,
+        actual_duration_minutes: duration,
+        context: form.context,
+        date: form.date,
+        description: form.description
+      }),
     })
-    setForm({ title: '', duration_minutes: '', context: 'WebsUp', description: '' })
+    
+    // Reset form
+    setForm({ 
+      title: '', 
+      date: new Date().toISOString().split('T')[0],
+      start_time: '', 
+      end_time: '', 
+      context: 'WebsUp', 
+      description: '' 
+    })
     setShowForm(false)
     load()
   }
@@ -386,92 +428,139 @@ export default function WorklogsView() {
         ...(stats[0] ? [{ label: stats[0].context, value: formatDuration(stats[0].total_minutes), meta: `${stats[0].count} logs` }] : []),
       ]} />
 
-      {(aiSummary || aiSummaryLoading) && (
-        <Panel tone="accent">
-          <div className="flex items-start gap-2.5">
-            <Sparkles size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />
-            {aiSummaryLoading ? (
-              <div className="flex gap-1 mt-1">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-on-surface-variant/40" style={{ animationDelay: `${i * 0.15}s` }} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm leading-7 text-on-surface-variant">{aiSummary}</p>
-            )}
-          </div>
-        </Panel>
-      )}
-
-      {focusStats?.detections && focusStats.detections.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {focusStats.detections.map((d, i) => (
-            <div
-              key={i}
-              className={cn(
-                'rounded-xl border px-4 py-3 text-sm font-medium',
-                d.type === 'error' ? 'border-red-100 bg-red-50 text-red-700' :
-                d.type === 'warning' ? 'border-amber-100 bg-amber-50 text-amber-700' :
-                'border-blue-100 bg-blue-50 text-blue-700'
-              )}
-            >
-              {d.type === 'error' ? '🚨' : d.type === 'warning' ? '⚠️' : 'ℹ️'} {d.message}
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-5">
+        <div>
+          <Tabs defaultValue="logs" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="logs">Werklogs</TabsTrigger>
+              <TabsTrigger value="insights" disabled={!focusStats}>Inzichten</TabsTrigger>
+              <TabsTrigger value="ai" disabled={!aiSummary}>AI Analyse</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="logs" className="mt-0 space-y-4">
           {showForm && (
-            <Panel tone="accent">
-              <PanelHeader eyebrow="Handmatig toevoegen" title="Werklog toevoegen" />
-              <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input
-                    value={form.title}
-                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                    required
-                    placeholder="Wat heb je gedaan? *"
-                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                    style={{ fontSize: '16px' }}
-                  />
-                  <input
-                    type="number"
-                    value={form.duration_minutes}
-                    onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))}
-                    required
-                    placeholder="Duur in minuten *"
-                    min="1"
-                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                    style={{ fontSize: '16px' }}
-                  />
-                  <Select value={form.context} onValueChange={(value) => setForm((f) => ({ ...f, context: value }))}>
-                    <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm" style={{ fontSize: '16px' }}>
-                      <SelectValue placeholder="Context" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONTEXT_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <input
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Notitie (optioneel)"
-                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                    style={{ fontSize: '16px' }}
-                  />
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-text-primary">Werklog toevoegen</h3>
+                <button 
+                  onClick={() => setShowForm(false)}
+                  className="text-xs text-text-tertiary hover:text-text-secondary"
+                >
+                  Sluiten
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Compact Table Layout */}
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-border">
+                      {/* Activity */}
+                      <tr className="bg-surface">
+                        <td className="px-3 py-2.5 w-24 text-xs font-medium text-text-secondary bg-surface-inset">Activiteit</td>
+                        <td className="px-3 py-2">
+                          <input
+                            value={form.title}
+                            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                            required
+                            placeholder="Wat heb je gedaan?"
+                            className="w-full bg-transparent outline-none placeholder:text-text-tertiary"
+                          />
+                        </td>
+                      </tr>
+                      
+                      {/* Date */}
+                      <tr className="bg-surface">
+                        <td className="px-3 py-2.5 text-xs font-medium text-text-secondary bg-surface-inset">Datum</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="date"
+                            value={form.date}
+                            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                            required
+                            className="w-full bg-transparent outline-none"
+                          />
+                        </td>
+                      </tr>
+                      
+                      {/* Time Range */}
+                      <tr className="bg-surface">
+                        <td className="px-3 py-2.5 text-xs font-medium text-text-secondary bg-surface-inset">Tijd</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="time"
+                              value={form.start_time}
+                              onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
+                              required
+                              className="bg-transparent outline-none w-20"
+                            />
+                            <span className="text-text-tertiary">tot</span>
+                            <input
+                              type="time"
+                              value={form.end_time}
+                              onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))}
+                              required
+                              className="bg-transparent outline-none w-20"
+                            />
+                            {duration_minutes > 0 && (
+                              <span className="text-xs text-text-secondary ml-2">
+                                = {Math.floor(duration_minutes / 60)}u {duration_minutes % 60}m
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Context */}
+                      <tr className="bg-surface">
+                        <td className="px-3 py-2.5 text-xs font-medium text-text-secondary bg-surface-inset">Context</td>
+                        <td className="px-3 py-2">
+                          <Select value={form.context} onValueChange={(value) => setForm((f) => ({ ...f, context: value }))}>
+                            <SelectTrigger className="w-32 h-7 text-xs border-0 bg-transparent p-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CONTEXT_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      </tr>
+                      
+                      {/* Note */}
+                      <tr className="bg-surface">
+                        <td className="px-3 py-2.5 text-xs font-medium text-text-secondary bg-surface-inset">Notitie</td>
+                        <td className="px-3 py-2">
+                          <input
+                            value={form.description}
+                            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                            placeholder="Optioneel..."
+                            className="w-full bg-transparent outline-none placeholder:text-text-tertiary"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="submit" className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
-                    Opslaan
+                
+                <div className="flex gap-2">
+                  <button 
+                    type="submit" 
+                    disabled={!form.title || !form.start_time || !form.end_time || duration_minutes <= 0}
+                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {duration_minutes > 0 ? `Log ${Math.floor(duration_minutes / 60)}u ${duration_minutes % 60}m` : 'Log werk'}
                   </button>
-                  <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowForm(false)} 
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover"
+                  >
                     Annuleren
                   </button>
                 </div>
               </form>
-            </Panel>
+            </div>
           )}
 
           {loading ? (
@@ -618,6 +707,49 @@ export default function WorklogsView() {
                 })}
             </div>
           )}
+            </TabsContent>
+
+            <TabsContent value="insights" className="mt-0">
+              {focusStats?.detections && focusStats.detections.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {focusStats.detections.map((d, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        'rounded-xl border px-4 py-3 text-sm font-medium',
+                        d.type === 'error' ? 'border-red-100 bg-red-50 text-red-700' :
+                        d.type === 'warning' ? 'border-amber-100 bg-amber-50 text-amber-700' :
+                        'border-blue-100 bg-blue-50 text-blue-700'
+                      )}
+                    >
+                      {d.type === 'error' ? '🚨' : d.type === 'warning' ? '⚠️' : 'ℹ️'} {d.message}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyPanel title="Geen inzichten" description="Er zijn nog geen focus-inzichten beschikbaar. Blijf loggen om patronen te ontdekken." />
+              )}
+            </TabsContent>
+
+            <TabsContent value="ai" className="mt-0">
+              {aiSummaryLoading ? (
+                <div className="flex gap-1 mt-1">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-on-surface-variant/40" style={{ animationDelay: `${i * 0.15}s` }} />
+                  ))}
+                </div>
+              ) : aiSummary ? (
+                <Panel tone="accent">
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />
+                    <p className="text-sm leading-7 text-on-surface-variant">{aiSummary}</p>
+                  </div>
+                </Panel>
+              ) : (
+                <EmptyPanel title="Geen AI analyse" description="AI analyse is nog niet beschikbaar." />
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
 
         <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
@@ -721,6 +853,25 @@ export default function WorklogsView() {
               </div>
             )}
           </Panel>
+
+          {/* AI Assistant Chat Preview */}
+          <ChatPreview
+            variation="compact"
+            channel={{
+              name: "werk-assistent",
+              description: "AI tips, reminders & grapjes",
+            }}
+            maxMessages={1}
+            gradientBackground={false}
+            theme={{
+              background: "bg-surface",
+              border: "border border-border",
+              textColor: "text-text-primary",
+              avatarSize: "w-6 h-6",
+            }}
+            autoPlay={true}
+            interval={8000}
+          />
 
           {stats.length > 0 && (
             <div id="worklog-stats-panel">
