@@ -80,7 +80,7 @@ export default function HabitsView() {
       actions={
         <button
           onClick={() => setShowAdd((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={14} />
           Nieuwe gewoonte
@@ -89,7 +89,7 @@ export default function HabitsView() {
     >
       <StatStrip stats={[
         { label: 'Consistency', value: `${consistency}%`, meta: 'vandaag' },
-        { label: 'Beste streak', value: topStreak, meta: 'dagen', accent: 'orange' },
+        { label: 'Beste streak', value: topStreak, meta: 'dagen', accent: 'amber' },
         { label: 'Gedaan vandaag', value: `${completedToday}/${habits.length}`, meta: 'gewoontes' },
       ]} />
 
@@ -104,13 +104,13 @@ export default function HabitsView() {
                     value={form.name}
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                     placeholder="Naam gewoonte *"
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
                   <input
                     value={form.description}
                     onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                     placeholder="Waarom is dit belangrijk?"
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
                 </div>
                 <div>
@@ -120,7 +120,7 @@ export default function HabitsView() {
                       <button
                         key={icon}
                         onClick={() => setForm((p) => ({ ...p, icon }))}
-                        className={cn('rounded-lg p-2 text-base transition-colors', form.icon === icon ? 'bg-[#202625]' : 'bg-white hover:bg-surface-container-low')}
+                        className={cn('rounded-lg p-2 text-base transition-colors', form.icon === icon ? 'bg-accent' : 'bg-white hover:bg-surface-container-low')}
                       >
                         {icon}
                       </button>
@@ -134,7 +134,7 @@ export default function HabitsView() {
                       onClick={() => setForm((p) => ({ ...p, frequency }))}
                       className={cn(
                         'rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                        form.frequency === frequency ? 'bg-[#202625] text-white' : 'border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low'
+                        form.frequency === frequency ? 'bg-accent text-white' : 'border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low'
                       )}
                     >
                       {frequency}
@@ -143,10 +143,10 @@ export default function HabitsView() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={addHabit} className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
+                <button onClick={addHabit} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
                   Opslaan
                 </button>
-                <button onClick={() => setShowAdd(false)} className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
+                <button onClick={() => setShowAdd(false)} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
                   Annuleer
                 </button>
               </div>
@@ -179,8 +179,8 @@ export default function HabitsView() {
                         className={cn(
                           'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
                           habit.completedToday
-                            ? 'border-transparent bg-[#202625]'
-                            : 'border-black/8 bg-surface-container-low hover:bg-surface-container'
+                            ? 'border-transparent bg-accent'
+                            : 'border-outline-variant bg-surface-container-low hover:bg-surface-container'
                         )}
                       >
                         {habit.completedToday
@@ -210,7 +210,7 @@ export default function HabitsView() {
                               <div
                                 key={day}
                                 title={format(new Date(`${day}T12:00:00`), 'd MMM')}
-                                className={cn('h-2.5 w-2.5 rounded-sm', done ? 'bg-[#202625]' : 'bg-surface-container')}
+                                className={cn('h-2.5 w-2.5 rounded-sm', done ? 'bg-accent' : 'bg-surface-container')}
                               />
                             )
                           })}
@@ -239,12 +239,12 @@ export default function HabitsView() {
                 <span className="font-semibold">{consistency}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
-                <div className="h-full rounded-full bg-[#202625] transition-all duration-500" style={{ width: `${consistency}%` }} />
+                <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${consistency}%` }} />
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="rounded-md border border-black/5 bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{completedToday} gedaan</span>
-              <span className="rounded-md border border-black/5 bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{habits.length - completedToday} resterend</span>
+              <span className="rounded-md border border-outline-variant bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{completedToday} gedaan</span>
+              <span className="rounded-md border border-outline-variant bg-white px-2 py-1 text-[11px] font-medium text-on-surface-variant">{habits.length - completedToday} resterend</span>
             </div>
           </Panel>
 

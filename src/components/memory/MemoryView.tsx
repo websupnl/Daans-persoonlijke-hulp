@@ -118,14 +118,14 @@ export default function MemoryView() {
           <button
             onClick={generate}
             disabled={generating}
-            className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
           >
             <Sparkles size={15} />
             {generating ? 'Analyseren...' : 'Analyseer mijn data'}
           </button>
           <button
             onClick={() => setShowAdd((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
             <Plus size={15} />
             Handmatig
@@ -180,18 +180,18 @@ export default function MemoryView() {
                   value={keyValue}
                   onChange={(event) => setKeyValue(event.target.value)}
                   placeholder="Sleutel, bijvoorbeeld uurtarief of ochtendroutine"
-                  className="w-full rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
                 <textarea
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
                   placeholder="Wat moet het systeem hierover onthouden?"
-                  className="min-h-[120px] w-full resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="min-h-[120px] w-full resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
                 <select
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
-                  className="w-full rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                 >
                   {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
@@ -204,13 +204,13 @@ export default function MemoryView() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={save}
-                  className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                 >
                   Opslaan
                 </button>
                 <button
                   onClick={() => setShowAdd(false)}
-                  className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                 >
                   Annuleer
                 </button>
@@ -242,7 +242,7 @@ export default function MemoryView() {
                   <button
                     onClick={generate}
                     disabled={generating}
-                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                    className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                   >
                     {generating ? 'Bezig...' : 'Analyseer mijn data'}
                   </button>
@@ -260,7 +260,7 @@ export default function MemoryView() {
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
                   {items.map((memory) => (
-                    <div key={memory.id} className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                    <div key={memory.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-on-surface">
@@ -283,7 +283,7 @@ export default function MemoryView() {
                       <div className="mt-4 flex items-center gap-3">
                         <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container">
                           <div
-                            className="h-full rounded-full bg-[#202625]"
+                            className="h-full rounded-full bg-accent"
                             style={{ width: `${Math.round(memory.confidence * 100)}%` }}
                           />
                         </div>

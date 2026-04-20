@@ -72,7 +72,7 @@ export function LightCard({
   return (
     <div 
       className={cn(
-        'rounded-[24px] border border-black/5 bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]',
+        'rounded-xl border border-outline-variant bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]',
         paddingMap[padding],
         hover && 'transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-[0_26px_64px_-40px_rgba(31,37,35,0.32)]',
         className
@@ -98,7 +98,7 @@ export function CompactListItem({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-[22px] border-b border-black/5 py-3 px-4 last:border-b-0',
+        'flex items-center gap-3 rounded-xl border-b border-outline-variant py-3 px-4 last:border-b-0',
         hover && 'cursor-pointer transition-colors hover:bg-surface-container-low',
         className
       )}
@@ -132,7 +132,7 @@ export function StatsCard({
   }
 
   return (
-    <div className={cn('rounded-[24px] border border-black/5 bg-surface-container-lowest p-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
+    <div className={cn('rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">{title}</p>
@@ -175,7 +175,7 @@ export function ModernButton({
   const baseClasses = 'font-medium rounded-lg transition-all inline-flex items-center gap-2'
   
   const variants = {
-    primary: 'bg-[#202625] text-white hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant',
+    primary: 'bg-accent text-white hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant',
     secondary: 'bg-surface-container-low text-on-surface hover:bg-surface-container disabled:bg-surface-container-low disabled:text-on-surface-variant',
     outline: 'border border-black/[0.08] text-on-surface hover:bg-surface-container-low disabled:bg-surface-container-low disabled:text-on-surface-variant'
   }
@@ -208,10 +208,10 @@ export function ModernTable({
   className?: string
 }) {
   return (
-    <div className={cn('overflow-hidden rounded-[24px] border border-black/5 bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
+    <div className={cn('overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]', className)}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="border-b border-black/5 bg-surface-container-low">
+          <thead className="border-b border-outline-variant bg-surface-container-low">
             <tr>
               {headers.map((header) => (
                 <th

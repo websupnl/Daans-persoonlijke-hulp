@@ -156,7 +156,7 @@ export default function JournalView() {
               <button
                 onClick={askAI}
                 disabled={aiLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#202625] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:opacity-60"
               >
                 <Sparkles size={14} />
                 {aiLoading ? 'AI denkt na...' : 'Stel me een vraag'}
@@ -164,7 +164,7 @@ export default function JournalView() {
               <button
                 onClick={() => fetchInsights('30')}
                 disabled={insightsLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-60"
               >
                 <LineChart size={14} className="text-on-surface-variant" />
                 {insightsLoading ? 'Laden...' : 'Dagboekinzichten'}
@@ -180,8 +180,8 @@ export default function JournalView() {
                   key={currentDate}
                   onClick={() => setDate(currentDate)}
                   className={cn(
-                    'w-full rounded-[18px] px-3 py-2.5 text-left text-xs font-medium transition-all',
-                    currentDate === date ? 'bg-[#202625] text-white' : 'text-on-surface hover:bg-surface-container'
+                    'w-full rounded-lg px-3 py-2.5 text-left text-xs font-medium transition-all',
+                    currentDate === date ? 'bg-accent text-white' : 'text-on-surface hover:bg-surface-container'
                   )}
                 >
                   <span className="capitalize">{format(new Date(`${currentDate}T12:00:00`), 'EEEE', { locale: nl })}</span>
@@ -197,7 +197,7 @@ export default function JournalView() {
         <div className="space-y-5">
           <Panel>
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate(-1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low">
+              <button onClick={() => navigate(-1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low">
                 <ChevronLeft size={16} />
               </button>
               <div className="flex-1 text-center">
@@ -209,7 +209,7 @@ export default function JournalView() {
               {entry?.id && (
                 <AIContextButton type="journal" title={`Dagboek ${date}`} content={entry.content?.slice(0, 300)} id={entry.id} />
               )}
-              <button onClick={() => navigate(1)} disabled={isToday} className="flex h-8 w-8 items-center justify-center rounded-full border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30">
+              <button onClick={() => navigate(1)} disabled={isToday} className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30">
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -236,7 +236,7 @@ export default function JournalView() {
                         onClick={() => fetchInsights(p)}
                         className={cn(
                           'rounded-full px-2.5 py-1 text-[10px] font-bold transition-all',
-                          insightPeriod === p ? 'bg-[#202625] text-white' : 'text-on-surface-variant hover:text-on-surface'
+                          insightPeriod === p ? 'bg-accent text-white' : 'text-on-surface-variant hover:text-on-surface'
                         )}
                       >
                         {p === 'all' ? 'Alles' : `${p}d`}
@@ -252,7 +252,7 @@ export default function JournalView() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-black/5 bg-surface-container-low p-4">
+              <div className="mt-4 rounded-2xl border border-outline-variant bg-surface-container-low p-4">
                 <p className="text-sm italic leading-7 text-on-surface-variant">&quot;{insights.summary}&quot;</p>
               </div>
 
@@ -278,7 +278,7 @@ export default function JournalView() {
                   </div>
                   <p className="text-sm leading-7 text-on-surface-variant">{insights.development}</p>
                 </div>
-                <div className="rounded-2xl border border-black/5 bg-white/70 p-3">
+                <div className="rounded-2xl border border-outline-variant bg-white/70 p-3">
                   <div className="mb-2 flex items-center gap-1.5">
                     <Zap size={12} className="text-emerald-500" />
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Geeft energie</p>
@@ -291,7 +291,7 @@ export default function JournalView() {
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-2xl border border-black/5 bg-white/70 p-3">
+                <div className="rounded-2xl border border-outline-variant bg-white/70 p-3">
                   <div className="mb-2 flex items-center gap-1.5">
                     <Zap size={12} className="text-orange-500" />
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-600">Kost energie</p>
@@ -307,14 +307,14 @@ export default function JournalView() {
               </div>
 
               {insights.patterns && insights.patterns.length > 0 && (
-                <div className="mt-4 border-t border-black/5 pt-4">
+                <div className="mt-4 border-t border-outline-variant pt-4">
                   <div className="mb-2 flex items-center gap-2">
                     <BarChart3 size={13} className="text-violet-500" />
                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Patronen</p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {insights.patterns.map((p, i) => (
-                      <div key={i} className="rounded-[18px] border border-black/5 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+                      <div key={i} className="rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
                         {p}
                       </div>
                     ))}
@@ -354,19 +354,19 @@ export default function JournalView() {
                         onChange={(e) => setAiAnswer(e.target.value)}
                         placeholder="Jouw antwoord..."
                         rows={3}
-                        className="flex-1 resize-none rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                        className="flex-1 resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
                       />
                       <div className="flex flex-col gap-2">
                         <button
                           onClick={submitAiAnswer}
                           disabled={!aiAnswer.trim()}
-                          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#202625] text-white transition-colors hover:bg-[#2a3230] disabled:opacity-40"
+                          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent text-white transition-colors hover:bg-[#2a3230] disabled:opacity-40"
                         >
                           <Send size={14} />
                         </button>
                         <button
                           onClick={() => setAiQuestion(null)}
-                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low"
+                          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
                         >
                           <X size={14} />
                         </button>
@@ -402,7 +402,7 @@ export default function JournalView() {
                         onClick={() => save({ mood: value })}
                         className={cn(
                           'rounded-2xl py-2 text-lg transition-all',
-                          entry.mood === value ? 'bg-[#202625] shadow-sm' : 'bg-surface-container-low hover:bg-surface-container'
+                          entry.mood === value ? 'bg-accent shadow-sm' : 'bg-surface-container-low hover:bg-surface-container'
                         )}
                       >
                         {['😔', '😕', '😐', '🙂', '😄'][value - 1]}
@@ -424,7 +424,7 @@ export default function JournalView() {
                         onClick={() => save({ energy: value })}
                         className={cn(
                           'rounded-2xl py-2 text-sm font-bold transition-all',
-                          entry.energy === value ? 'bg-[#202625] text-white shadow-sm' : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
+                          entry.energy === value ? 'bg-accent text-white shadow-sm' : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
                         )}
                       >
                         {value}
@@ -438,7 +438,7 @@ export default function JournalView() {
                   <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Dankbaarheid</p>
                   <div className="space-y-2">
                     {entry.gratitude.map((item, index) => (
-                      <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-2xl border border-black/5 bg-surface-container-low px-3 py-2">
+                      <div key={`${item}-${index}`} className="flex items-center gap-2 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2">
                         <span className="text-on-surface-variant">✦</span>
                         <span className="flex-1 text-sm text-on-surface">{item}</span>
                         <button onClick={() => removeGratitude(index)} className="text-on-surface-variant hover:text-[#a55a2c]">
@@ -453,11 +453,11 @@ export default function JournalView() {
                       onChange={(e) => setNewGratitude(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && addGratitude()}
                       placeholder="Waar ben je dankbaar voor?"
-                      className="flex-1 rounded-2xl border border-black/5 bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                      className="flex-1 rounded-2xl border border-outline-variant bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     />
                     <button
                       onClick={addGratitude}
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#202625] text-white transition-colors hover:bg-[#2a3230]"
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent text-white transition-colors hover:bg-[#2a3230]"
                     >
                       <Plus size={14} />
                     </button>

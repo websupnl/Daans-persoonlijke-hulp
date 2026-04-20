@@ -102,7 +102,7 @@ export default function SearchView() {
                   action={
                     <Link
                       href={GROUP_LINKS[group] || '/'}
-                      className="rounded-lg border border-black/5 bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface hover:bg-surface-container"
+                      className="rounded-lg border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface hover:bg-surface-container"
                     >
                       Openen
                     </Link>

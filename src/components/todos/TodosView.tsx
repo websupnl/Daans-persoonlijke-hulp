@@ -162,14 +162,14 @@ export default function TodosView() {
       subtitle={`${openTodos.length} open taken. Dit scherm moet helpen kiezen wat nu telt, niet alleen een lijst langer maken.`}
       actions={
         <>
-          <div className="flex rounded-full border border-black/5 bg-white p-1">
+          <div className="flex rounded-full border border-outline-variant bg-white p-1">
             {(['list', 'board'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={cn(
                   'flex h-9 w-9 items-center justify-center rounded-full transition-colors',
-                  viewMode === mode ? 'bg-[#202625] text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
+                  viewMode === mode ? 'bg-accent text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
                 )}
               >
                 {mode === 'list' ? <ListTodo size={15} /> : <LayoutGrid size={15} />}
@@ -179,14 +179,14 @@ export default function TodosView() {
           <button
             onClick={getRecommendation}
             disabled={loadingRec}
-            className="inline-flex items-center gap-2 rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
+            className="inline-flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
           >
             {loadingRec ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             Wat nu?
           </button>
           <button
             onClick={() => setShowAdd((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
           >
             <Plus size={14} />
             Nieuwe todo
@@ -196,7 +196,7 @@ export default function TodosView() {
     >
       <StatStrip stats={[
         { label: 'Open', value: openTodos.length },
-        { label: 'Vandaag', value: todayTodos.length, accent: todayTodos.length > 0 ? 'orange' : undefined },
+        { label: 'Vandaag', value: todayTodos.length, accent: todayTodos.length > 0 ? 'amber' : undefined },
         { label: 'Te laat', value: overdueTodos.length, accent: overdueTodos.length > 0 ? 'red' : undefined },
         { label: 'Afgerond', value: completedTodos.length, accent: 'green' },
       ]} />
@@ -218,12 +218,12 @@ export default function TodosView() {
                   onChange={(event) => setNewTodo((current) => ({ ...current, title: event.target.value }))}
                   onKeyDown={(event) => event.key === 'Enter' && addTodo()}
                   placeholder="Wat moet er gebeuren?"
-                  className="md:col-span-2 xl:col-span-2 rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="md:col-span-2 xl:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
                 <select
                   value={newTodo.priority}
                   onChange={(event) => setNewTodo((current) => ({ ...current, priority: event.target.value }))}
-                  className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
                 >
                   <option value="hoog">Hoog</option>
                   <option value="medium">Medium</option>
@@ -232,7 +232,7 @@ export default function TodosView() {
                 <select
                   value={newTodo.category}
                   onChange={(event) => setNewTodo((current) => ({ ...current, category: event.target.value }))}
-                  className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
                 >
                   {CATEGORIES.filter((item) => item !== 'alles').map((item) => (
                     <option key={item} value={item}>
@@ -244,20 +244,20 @@ export default function TodosView() {
                   type="date"
                   value={newTodo.due_date}
                   onChange={(event) => setNewTodo((current) => ({ ...current, due_date: event.target.value }))}
-                  className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
                 />
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   onClick={addTodo}
-                  className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                 >
                   Opslaan
                 </button>
                 <button
                   onClick={() => setShowAdd(false)}
-                  className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                 >
                   Annuleer
                 </button>
@@ -280,7 +280,7 @@ export default function TodosView() {
                     onClick={() => setFilter(item)}
                     className={cn(
                       'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                      filter === item ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
+                      filter === item ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
                     )}
                   >
                     {item}
@@ -294,7 +294,7 @@ export default function TodosView() {
                     key={item}
                     onClick={() => setCategory(item)}
                     className={cn(
-                      'rounded-full border border-black/5 px-3 py-1.5 text-xs font-medium transition-colors',
+                      'rounded-full border border-outline-variant px-3 py-1.5 text-xs font-medium transition-colors',
                       category === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low'
                     )}
                   >
@@ -341,7 +341,7 @@ export default function TodosView() {
                     </div>
                     <div className="space-y-3">
                       {boardColumns[column.key].length === 0 ? (
-                        <div className="rounded-[22px] border border-dashed border-outline-variant/40 bg-white/55 px-4 py-10 text-center text-xs text-on-surface-variant">
+                        <div className="rounded-xl border border-dashed border-outline-variant/40 bg-white/55 px-4 py-10 text-center text-xs text-on-surface-variant">
                           Geen taken in deze kolom
                         </div>
                       ) : (
@@ -390,7 +390,7 @@ export default function TodosView() {
                     <button
                       onClick={getRecommendation}
                       disabled={loadingRec}
-                      className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                      className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                     >
                       {loadingRec ? 'Bezig...' : 'Vraag advies'}
                     </button>
@@ -421,7 +421,7 @@ export default function TodosView() {
                 />
               ) : (
                 nextUp.map((todo) => (
-                  <div key={todo.id} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                  <div key={todo.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
                     <div className="flex items-start gap-3">
                       <PriorityDot priority={todo.priority} />
                       <div className="min-w-0 flex-1">
@@ -456,14 +456,14 @@ function TodoCard({
     <div
       draggable
       onDragStart={(event) => event.dataTransfer.setData('text/plain', String(todo.id))}
-      className="group rounded-[22px] border border-black/5 bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]"
+      className="group rounded-xl border border-outline-variant bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]"
     >
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(todo.id, todo.completed)}
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-            todo.completed ? 'border-[#202625] bg-[#202625] text-white' : 'border-outline-variant hover:border-on-surface'
+            todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
           )}
         >
           {todo.completed && <Check size={11} strokeWidth={3} />}
@@ -510,13 +510,13 @@ function TodoRow({
   onDelete: (id: number) => void
 }) {
   return (
-    <div className={cn('group rounded-[24px] px-4 py-3.5 transition-colors hover:bg-surface-container-low', todo.completed && 'opacity-60')}>
+    <div className={cn('group rounded-xl px-4 py-3.5 transition-colors hover:bg-surface-container-low', todo.completed && 'opacity-60')}>
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(todo.id, todo.completed)}
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-            todo.completed ? 'border-[#202625] bg-[#202625] text-white' : 'border-outline-variant hover:border-on-surface'
+            todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
           )}
         >
           {todo.completed && <Check size={11} strokeWidth={3} />}

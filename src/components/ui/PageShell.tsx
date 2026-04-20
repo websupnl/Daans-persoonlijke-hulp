@@ -14,9 +14,9 @@ export default function PageShell({ title, subtitle, actions, children, classNam
   return (
     <div className={cn('mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8', compact ? 'py-5' : 'py-6 sm:py-8', className)}>
       {/* Flat page header — geen card wrapper */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="sticky top-0 z-10 -mx-4 -mt-0 mb-6 bg-background/95 backdrop-blur-sm px-4 sm:px-6 lg:px-8 pt-5 pb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-outline-variant">
         <div className="min-w-0">
-          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-[28px]">
+          <h1 className="text-2xl font-extrabold tracking-tight text-on-surface sm:text-[28px]">
             {title}
           </h1>
           {subtitle && (

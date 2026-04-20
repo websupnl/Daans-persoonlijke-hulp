@@ -35,29 +35,27 @@ export async function GET(req: NextRequest) {
   sql += `) ORDER BY e.date ASC, e.time ASC NULLS LAST`
 
   const events = await query<any>(sql, params)
-  
+
   const startRange = date ? new Date(date) : (from ? new Date(from) : new Date())
   const endRange = date ? new Date(date) : (to ? new Date(to) : new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000))
 
   const expanded: any[] = []
-  
+
   events.forEach(e => {
     if (!e.recurring) {
       expanded.push(e)
       return
     }
 
-    // Always include the original if it's in range
     const originalDate = new Date(e.date)
     if (originalDate >= startRange && originalDate <= endRange) {
       expanded.push(e)
     }
 
-    // Add occurrences
     let current = new Date(originalDate)
     const limit = 365
     let safety = 0
-    
+
     while (safety < limit) {
       safety++
       if (e.recurring === 'dagelijks') current.setDate(current.getDate() + 1)

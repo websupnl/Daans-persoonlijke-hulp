@@ -468,14 +468,14 @@ export default function FinanceView() {
         subtitle={`Deze pagina moet je geldbeeld versimpelen: snel zien waar geld lekt, wat binnenkomt en welke transacties aandacht nodig hebben in ${periodLabel(viewMode, currentDate)}.`}
         actions={
           <>
-            <div className="flex rounded-full border border-black/5 bg-white p-1">
+            <div className="flex rounded-full border border-outline-variant bg-white p-1">
               {VIEW_MODES.map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={cn(
                     'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                    viewMode === mode ? 'bg-[#202625] text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
+                    viewMode === mode ? 'bg-accent text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
                   )}
                 >
                   {mode === 'day' ? 'Dag' : mode === 'week' ? 'Week' : 'Maand'}
@@ -488,13 +488,13 @@ export default function FinanceView() {
                 else if (viewMode === 'week') setCurrentDate((previous) => addWeeks(previous, -1))
                 else setCurrentDate((previous) => addMonths(previous, -1))
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+              className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
             >
               {periodLabel(viewMode, currentDate)}
             </button>
@@ -504,14 +504,14 @@ export default function FinanceView() {
                 else if (viewMode === 'week') setCurrentDate((previous) => addWeeks(previous, 1))
                 else setCurrentDate((previous) => addMonths(previous, 1))
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-white text-on-surface transition-colors hover:bg-surface-container-low"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
             >
               <ChevronRight size={16} />
             </button>
             <button
               onClick={runAnalyse}
               disabled={analyseLoading}
-              className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
+              className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
             >
               {analyseLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
               Analyse
@@ -522,7 +522,7 @@ export default function FinanceView() {
                 setShowAdd(false)
                 setShowAdjust(false)
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+              className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
             >
               <Upload size={15} />
               Import
@@ -535,7 +535,7 @@ export default function FinanceView() {
                 setShowImport(false)
                 setShowAdjust(false)
               }}
-              className="inline-flex items-center gap-2 rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
             >
               <Plus size={15} />
               Nieuwe transactie
@@ -547,7 +547,7 @@ export default function FinanceView() {
           { label: 'Netto', value: formatCurrency(net), meta: `${formatCurrency(stats?.month_income || 0)} in / ${formatCurrency(stats?.month_expenses || 0)} uit`, accent: net >= 0 ? 'green' : 'red' },
           { label: 'Inkomsten', value: incomeItems.length, meta: 'transacties' },
           { label: 'Uitgaven', value: expenseItems.length, meta: biggestExpense ? `max ${formatCurrency(biggestExpense.amount)}` : 'geen' },
-          { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'orange' : undefined },
+          { label: 'Openstaand', value: formatCurrency(stats?.open_amount || 0), meta: `${stats?.open_count || 0} facturen`, accent: (stats?.open_count || 0) > 0 ? 'amber' : undefined },
         ]} />
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -565,19 +565,19 @@ export default function FinanceView() {
                     value={form.title}
                     onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                     placeholder="Omschrijving"
-                    className="md:col-span-2 xl:col-span-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="md:col-span-2 xl:col-span-2 rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
                   <input
                     type="number"
                     value={form.amount}
                     onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
                     placeholder="Bedrag"
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
                   <select
                     value={form.type}
                     onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as 'inkomst' | 'uitgave' }))}
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   >
                     <option value="uitgave">Uitgave</option>
                     <option value="inkomst">Inkomst</option>
@@ -586,12 +586,12 @@ export default function FinanceView() {
                     type="date"
                     value={form.due_date}
                     onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))}
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   />
                   <select
                     value={form.category}
                     onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   >
                     {CATEGORY_OPTIONS.map((category) => (
                       <option key={category} value={category}>
@@ -602,7 +602,7 @@ export default function FinanceView() {
                   <select
                     value={form.account}
                     onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))}
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   >
                     <option value="privé">Prive</option>
                     <option value="zakelijk">Zakelijk</option>
@@ -614,7 +614,7 @@ export default function FinanceView() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={addItem}
-                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                    className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                   >
                     {editingItem ? 'Opslaan' : 'Toevoegen'}
                   </button>
@@ -623,7 +623,7 @@ export default function FinanceView() {
                       setShowAdd(false)
                       setEditingItem(null)
                     }}
-                    className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                    className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                   >
                     Annuleer
                   </button>
@@ -642,20 +642,20 @@ export default function FinanceView() {
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button
                     onClick={() => setImportMethod('csv')}
-                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'csv' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'csv' ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
                   >
                     CSV
                   </button>
                   <button
                     onClick={() => setImportMethod('ai')}
-                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'ai' ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                    className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', importMethod === 'ai' ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
                   >
                     AI parse
                   </button>
                   <select
                     value={importAccount}
                     onChange={(event) => setImportAccount(event.target.value)}
-                    className="rounded-full border border-black/5 bg-white px-3.5 py-1.5 text-xs font-medium text-on-surface outline-none"
+                    className="rounded-full border border-outline-variant bg-white px-3.5 py-1.5 text-xs font-medium text-on-surface outline-none"
                   >
                     <option value="privé">Prive</option>
                     <option value="zakelijk">Zakelijk</option>
@@ -666,7 +666,7 @@ export default function FinanceView() {
 
                 <div className="mt-5 space-y-3">
                   {importMethod === 'csv' ? (
-                    <div className="rounded-[24px] border border-dashed border-outline-variant/40 bg-white/55 px-4 py-6">
+                    <div className="rounded-xl border border-dashed border-outline-variant/40 bg-white/55 px-4 py-6">
                       <input ref={fileRef} type="file" accept=".csv,.txt,.tsv" onChange={handleFileSelect} className="text-sm text-on-surface" />
                     </div>
                   ) : (
@@ -675,12 +675,12 @@ export default function FinanceView() {
                         value={importText}
                         onChange={(event) => setImportText(event.target.value)}
                         placeholder="Plak hier ruwe banktekst of PDF-export"
-                        className="min-h-[180px] w-full resize-none rounded-[24px] border border-black/5 bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                        className="min-h-[180px] w-full resize-none rounded-xl border border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
                       />
                       <button
                         onClick={handleAiParse}
                         disabled={importLoading || !importText.trim()}
-                        className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                        className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                       >
                         {importLoading ? 'Bezig...' : 'Maak preview'}
                       </button>
@@ -688,13 +688,13 @@ export default function FinanceView() {
                   )}
 
                   {importError && (
-                    <div className="rounded-[22px] border border-[#e5c6b8] bg-[#fff7eb] px-4 py-3 text-sm text-[#9b6941]">
+                    <div className="rounded-xl border border-[#e5c6b8] bg-[#fff7eb] px-4 py-3 text-sm text-[#9b6941]">
                       {importError}
                     </div>
                   )}
 
                   {importResult && (
-                    <div className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3 text-sm text-on-surface">
+                    <div className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3 text-sm text-on-surface">
                       {importResult.imported} van {importResult.total} transacties opgeslagen.
                     </div>
                   )}
@@ -706,7 +706,7 @@ export default function FinanceView() {
                         <button
                           onClick={doImport}
                           disabled={importLoading}
-                          className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                          className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                         >
                           {importLoading ? 'Importeren...' : 'Importeer nu'}
                         </button>
@@ -714,7 +714,7 @@ export default function FinanceView() {
 
                       <div className="space-y-2">
                         {importPreview.slice(0, 8).map((row, index) => (
-                          <div key={`${row.description}-${index}`} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                          <div key={`${row.description}-${index}`} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-on-surface">{row.description}</p>
@@ -750,7 +750,7 @@ export default function FinanceView() {
                   <select
                     value={adjustForm.account}
                     onChange={(event) => setAdjustForm((current) => ({ ...current, account: event.target.value }))}
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   >
                     <option value="privé">Prive</option>
                     <option value="zakelijk">Zakelijk</option>
@@ -762,20 +762,20 @@ export default function FinanceView() {
                     value={adjustForm.actual_balance}
                     onChange={(event) => setAdjustForm((current) => ({ ...current, actual_balance: event.target.value }))}
                     placeholder="Werkelijke stand"
-                    className="rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={handleAdjust}
-                    className="rounded-full bg-[#202625] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                    className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                   >
                     Corrigeer
                   </button>
                   <button
                     onClick={() => setShowAdjust(false)}
-                    className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                    className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                   >
                     Annuleer
                   </button>
@@ -795,7 +795,7 @@ export default function FinanceView() {
                       setShowAdd(false)
                       setShowImport(false)
                     }}
-                    className="inline-flex items-center gap-1 rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+                    className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
                   >
                     <RefreshCw size={12} />
                     Kasverschil
@@ -809,7 +809,7 @@ export default function FinanceView() {
                     <button
                       key={item}
                       onClick={() => setTypeFilter(item)}
-                      className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', typeFilter === item ? 'bg-[#202625] text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                      className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', typeFilter === item ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
                     >
                       {item}
                     </button>
@@ -821,7 +821,7 @@ export default function FinanceView() {
                     <button
                       key={item}
                       onClick={() => setAccountFilter(item)}
-                      className={cn('rounded-full border border-black/5 px-3 py-1.5 text-xs font-medium transition-colors', accountFilter === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
+                      className={cn('rounded-full border border-outline-variant px-3 py-1.5 text-xs font-medium transition-colors', accountFilter === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
                     >
                       {item}
                     </button>
@@ -853,10 +853,10 @@ export default function FinanceView() {
                     <button
                       key={item.id}
                       onClick={() => setSelectedTransaction(item)}
-                      className="group block w-full rounded-[24px] px-4 py-3.5 text-left transition-colors hover:bg-surface-container-low"
+                      className="group block w-full rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-container-low"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#202625]" />
+                        <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start gap-2">
                             <p className="text-sm font-semibold text-on-surface">{item.title}</p>
@@ -920,7 +920,7 @@ export default function FinanceView() {
 
                 <div className="mt-5 space-y-5">
                   {analyseResult.aiInsights && (
-                    <div className="rounded-[24px] border border-black/5 bg-white/70 px-4 py-4">
+                    <div className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
                       <p className="text-sm leading-7 text-on-surface">{analyseResult.aiInsights}</p>
                     </div>
                   )}
@@ -982,7 +982,7 @@ export default function FinanceView() {
                         Nog te bevestigen
                       </p>
                       {analyseResult.reviewQuestions.slice(0, 4).map((question) => (
-                        <div key={question.queueKey} className="rounded-[22px] border border-black/5 bg-white/70 px-4 py-3.5">
+                        <div key={question.queueKey} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
                           <p className="text-sm font-semibold text-on-surface">{question.merchantLabel}</p>
                           <p className="mt-2 text-xs leading-5 text-on-surface-variant">{question.prompt}</p>
                           <p className="mt-2 text-xs leading-5 text-on-surface-variant">{question.rationale}</p>

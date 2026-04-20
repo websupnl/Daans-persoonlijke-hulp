@@ -70,8 +70,8 @@ export default function TimelineView() {
               onClick={() => setFilter(f.key)}
               className={
                 filter === f.key
-                  ? 'rounded-full bg-[#202625] px-4 py-1.5 text-xs font-semibold text-white'
-                  : 'rounded-full border border-black/5 bg-white px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface-container-low'
+                  ? 'rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white'
+                  : 'rounded-full border border-outline-variant bg-white px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface-container-low'
               }
             >
               {f.label}
@@ -83,7 +83,7 @@ export default function TimelineView() {
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-[20px] bg-surface-container-low" />
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-low" />
               ))}
             </div>
           ) : items.length === 0 ? (
@@ -93,7 +93,7 @@ export default function TimelineView() {
             />
           ) : (
             items.map((item) => (
-              <div key={item.id} className="rounded-[22px] border border-black/5 bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)]">
+              <div key={item.id} className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)]">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TYPE_COLORS[item.entity_type] ?? 'bg-surface-container-low text-on-surface-variant'}`}>
                     {item.entity_type}

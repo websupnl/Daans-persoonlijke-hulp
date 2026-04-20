@@ -258,6 +258,26 @@ async function initializeTenantDatabase(tenantId: string, databaseUrl: string) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Chat messages table
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      role VARCHAR(20) NOT NULL,
+      content TEXT NOT NULL,
+      actions JSONB DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Conversation log table
+    CREATE TABLE IF NOT EXISTS conversation_log (
+      id SERIAL PRIMARY KEY,
+      user_message TEXT,
+      assistant_message TEXT,
+      parser_type VARCHAR(50),
+      confidence DECIMAL(3,2),
+      actions JSONB DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_todos_project_id ON todos(project_id);
     CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);

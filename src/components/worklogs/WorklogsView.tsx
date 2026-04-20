@@ -281,7 +281,7 @@ export default function WorklogsView() {
       actions={
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={15} />
           Log toevoegen
@@ -318,7 +318,7 @@ export default function WorklogsView() {
             <div
               key={i}
               className={cn(
-                'rounded-[22px] border px-4 py-3 text-sm font-medium',
+                'rounded-xl border px-4 py-3 text-sm font-medium',
                 d.type === 'error' ? 'border-red-100 bg-red-50 text-red-700' :
                 d.type === 'warning' ? 'border-amber-100 bg-amber-50 text-amber-700' :
                 'border-blue-100 bg-blue-50 text-blue-700'
@@ -342,7 +342,7 @@ export default function WorklogsView() {
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                     required
                     placeholder="Wat heb je gedaan? *"
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     style={{ fontSize: '16px' }}
                   />
                   <input
@@ -352,13 +352,13 @@ export default function WorklogsView() {
                     required
                     placeholder="Duur in minuten *"
                     min="1"
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     style={{ fontSize: '16px' }}
                   />
                   <select
                     value={form.context}
                     onChange={(e) => setForm((f) => ({ ...f, context: e.target.value }))}
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
                     style={{ fontSize: '16px' }}
                   >
                     {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -367,15 +367,15 @@ export default function WorklogsView() {
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     placeholder="Notitie (optioneel)"
-                    className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button type="submit" className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
+                  <button type="submit" className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">
                     Opslaan
                   </button>
-                  <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
+                  <button type="button" onClick={() => setShowForm(false)} className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">
                     Annuleren
                   </button>
                 </div>
@@ -387,7 +387,7 @@ export default function WorklogsView() {
             <Panel>
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-16 animate-pulse rounded-[22px] bg-surface-container-low" />
+                  <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-low" />
                 ))}
               </div>
             </Panel>
@@ -417,7 +417,7 @@ export default function WorklogsView() {
                           const actualDur = log.actual_duration_minutes || log.duration_minutes
                           const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
                           return (
-                            <div key={log.id} className="group flex items-start justify-between gap-4 rounded-[22px] border border-black/5 bg-white p-4">
+                            <div key={log.id} className="group flex items-start justify-between gap-4 rounded-xl border border-outline-variant bg-white p-4">
                               <div className="flex items-start gap-3 flex-1 min-w-0">
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-sm">
                                   {log.type ? (TYPE_ICONS[log.type] ?? <Clock size={14} className="text-on-surface-variant" />) : <Clock size={14} className="text-on-surface-variant" />}
@@ -487,21 +487,21 @@ export default function WorklogsView() {
                   value={timerTitle}
                   onChange={(e) => setTimerTitle(e.target.value)}
                   placeholder="Beschrijving (optioneel)"
-                  className="w-full rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="w-full rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   style={{ fontSize: '16px' }}
                 />
                 <div className="flex gap-2">
                   <select
                     value={timerContext}
                     onChange={(e) => setTimerContext(e.target.value)}
-                    className="flex-1 rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
+                    className="flex-1 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
                     style={{ fontSize: '16px' }}
                   >
                     {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <button
                     onClick={startTimer}
-                    className="flex-1 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                    className="flex-1 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
                   >
                     ▶ Start
                   </button>
@@ -518,13 +518,13 @@ export default function WorklogsView() {
                 onChange={(e) => setAiText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAiInputEnhanced()}
                 placeholder="Vertel wat je gedaan hebt..."
-                className="flex-1 rounded-2xl border border-black/5 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="flex-1 rounded-2xl border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 style={{ fontSize: '16px' }}
               />
               <button
                 onClick={handleAiInputEnhanced}
                 disabled={aiLoading || !aiText.trim()}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#202625] text-white transition-colors hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-white transition-colors hover:bg-[#2a3230] disabled:bg-surface-container-high disabled:text-on-surface-variant"
               >
                 {aiLoading ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -539,19 +539,19 @@ export default function WorklogsView() {
               </p>
             )}
             {aiProposal && (
-              <div className="mt-3 rounded-2xl border border-black/5 bg-surface-container-low p-3">
+              <div className="mt-3 rounded-2xl border border-outline-variant bg-surface-container-low p-3">
                 <p className="text-xs leading-6 text-on-surface-variant">{aiProposal.reply}</p>
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={confirmAiProposal}
                     disabled={aiLoading}
-                    className="rounded-full bg-[#202625] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:opacity-50"
+                    className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:opacity-50"
                   >
                     Bevestig
                   </button>
                   <button
                     onClick={() => setAiProposal(null)}
-                    className="rounded-full border border-black/5 bg-white px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container-low"
+                    className="rounded-full border border-outline-variant bg-white px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container-low"
                   >
                     Sluiten
                   </button>
@@ -570,7 +570,7 @@ export default function WorklogsView() {
                     <div key={s.context} className="flex items-center gap-3">
                       <span className="w-14 text-xs text-on-surface-variant">{s.context}</span>
                       <div className="flex-1 h-2 overflow-hidden rounded-full bg-surface-container">
-                        <div className={cn('h-full rounded-full transition-all duration-500', CONTEXT_BAR[s.context] ?? 'bg-[#202625]')} style={{ width: `${pct}%` }} />
+                        <div className={cn('h-full rounded-full transition-all duration-500', CONTEXT_BAR[s.context] ?? 'bg-accent')} style={{ width: `${pct}%` }} />
                       </div>
                       <span className="w-14 text-right text-xs font-bold text-on-surface">{formatDuration(s.total_minutes)}</span>
                     </div>

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { queryOne, execute, query } from '@/lib/db'
+import { query, queryOne, execute } from '@/lib/db'
 import { logActivity } from '@/lib/activity'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -9,7 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const [project, todos, notes, worklogs, finance] = await Promise.all([
     queryOne(`
       SELECT p.*,
-        (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id AND t.completed = 0)::int as open_todos,
+        (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id AND t.completed = false)::int as open_todos,
         (SELECT COUNT(*) FROM todos t WHERE t.project_id = p.id)::int as total_todos,
         (SELECT COUNT(*) FROM notes n WHERE n.project_id = p.id)::int as note_count,
         (SELECT COALESCE(SUM(COALESCE(wl.actual_duration_minutes, wl.duration_minutes)), 0) FROM work_logs wl WHERE wl.project_id = p.id)::int as total_minutes

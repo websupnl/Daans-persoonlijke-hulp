@@ -78,7 +78,7 @@ export default function ContactsView() {
       actions={
         <button
           onClick={() => setShowAdd((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={14} />
           Nieuw contact
@@ -96,22 +96,22 @@ export default function ContactsView() {
           <PanelHeader eyebrow="Nieuw contact" title="Voeg een contact toe" />
           <div className="mt-4 space-y-3">
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Naam *" className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-              <input value={form.company || ''} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} placeholder="Bedrijf" className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-              <input value={form.email || ''} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-              <input value={form.phone || ''} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Telefoon" className="rounded-lg border border-black/5 bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+              <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Naam *" className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+              <input value={form.company || ''} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} placeholder="Bedrijf" className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+              <input value={form.email || ''} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
+              <input value={form.phone || ''} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Telefoon" className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
             </div>
             <div className="flex gap-1.5">
               {(['persoon', 'bedrijf'] as const).map((t) => (
-                <button key={t} onClick={() => setForm((p) => ({ ...p, type: t }))} className={cn('rounded-lg px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors', form.type === t ? 'bg-[#202625] text-white' : 'border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low')}>
+                <button key={t} onClick={() => setForm((p) => ({ ...p, type: t }))} className={cn('rounded-lg px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors', form.type === t ? 'bg-accent text-white' : 'border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low')}>
                   {t}
                 </button>
               ))}
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={saveContact} className="rounded-lg bg-[#202625] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">Opslaan</button>
-            <button onClick={() => setShowAdd(false)} className="rounded-lg border border-black/5 bg-white px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">Annuleer</button>
+            <button onClick={saveContact} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">Opslaan</button>
+            <button onClick={() => setShowAdd(false)} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low">Annuleer</button>
           </div>
         </Panel>
       )}
@@ -154,7 +154,7 @@ export default function ContactsView() {
                         selected === c.id ? 'bg-surface-container-low' : 'hover:bg-surface-container-low/60'
                       )}
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#202625] text-xs font-bold text-white">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-bold text-white">
                         {c.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -200,7 +200,7 @@ export default function ContactsView() {
           <div className="relative h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-surface-container-lowest p-6 shadow-xl sm:h-auto sm:max-h-[85vh] sm:rounded-2xl">
             <button
               onClick={() => setShowDetail(false)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 bg-white text-on-surface-variant hover:bg-surface-container-low"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
             >
               <X size={15} />
             </button>
@@ -242,7 +242,7 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
     <div className="space-y-4">
       <Panel>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#202625] text-xl font-extrabold text-white">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent text-xl font-extrabold text-white">
             {(detail.name as string).charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
@@ -254,13 +254,13 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
         {(!!detail.email || !!detail.phone) && (
           <div className="mt-3 flex flex-wrap gap-2">
             {!!detail.email && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-surface-container-low px-3 py-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
                 <Mail size={12} className="shrink-0 text-on-surface-variant" />
                 <span className="text-xs font-medium text-on-surface">{detail.email as string}</span>
               </div>
             )}
             {!!detail.phone && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-surface-container-low px-3 py-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2">
                 <Phone size={12} className="shrink-0 text-on-surface-variant" />
                 <span className="text-xs font-medium text-on-surface">{detail.phone as string}</span>
               </div>
@@ -280,7 +280,7 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
           value={notesText}
           onChange={(e) => setNotesText(e.target.value)}
           placeholder="Voeg hier belangrijke details toe..."
-          className="mt-3 min-h-[100px] w-full resize-none rounded-lg border border-black/5 bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+          className="mt-3 min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
         />
       </Panel>
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { planMessage } from '@/lib/chat/engine'
+import { planMessage } from '@/lib/chat/deterministic'
 import type { ChatRuntimeContext } from '@/lib/chat/types'
 
 function createContext(now = new Date('2026-04-17T10:00:00+02:00')): ChatRuntimeContext {

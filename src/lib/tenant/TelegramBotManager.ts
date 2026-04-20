@@ -210,16 +210,14 @@ export class TelegramBotManager {
    * Process chat message with tenant context
    */
   private async processChatMessage(message: string, context: any): Promise<any> {
-    // Import chat processor dynamically to avoid circular dependencies
-    const { SimpleChatProcessor } = await import('../chat/SimpleChatProcessor')
-    const processor = new SimpleChatProcessor()
-
-    // Process message with tenant-specific database connection
-    return await processor.processChatMessage(message, {
-      tenant_id: context.tenant.id,
-      user_id: context.user?.id,
-      database: context.database
-    })
+    const { parseCommandWithAI } = await import('../ai/parse-command')
+    const { executeActions } = await import('../ai/execute-actions')
+    const { generateAIResponse } = await import('../ai/generate-response')
+    const aiResult = await parseCommandWithAI(message)
+    if (!aiResult) return { reply: 'Kon het bericht niet verwerken.', message: 'Kon het bericht niet verwerken.', actions: [] }
+    const actionResults = aiResult.requires_confirmation ? [] : await executeActions(aiResult.actions)
+    const reply = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
+    return { reply, message: reply, actions: actionResults }
   }
 
   /**
@@ -313,7 +311,7 @@ export class TelegramBotManager {
   async getBotStatuses(): Promise<Record<string, boolean>> {
     const statuses: Record<string, boolean> = {}
 
-    for (const [tenantId, config] of Array.from(this.botConfigs)) {
+    for (const [tenantId, config] of Array.from(this.botConfigs.entries())) {
       try {
         const apiUrl = `https://api.telegram.org/bot${config.token}/getMe`
         const response = await fetch(apiUrl)
