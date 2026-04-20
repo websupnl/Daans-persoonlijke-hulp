@@ -1,6 +1,12 @@
 /**
  * Nieuw Design Systeem - Geïnspireerd op Talab Edu voorbeeld
  * Minder bulky cards, betere mobiele ervaring, consistente styling
+ *
+ * @deprecated Gebruik canonieke primitives uit:
+ * - src/components/ui/button.tsx
+ * - src/components/ui/card.tsx
+ * - src/components/ui/Panel.tsx
+ * - src/components/ui/PageShell.tsx
  */
 
 import { cn } from '@/lib/utils'

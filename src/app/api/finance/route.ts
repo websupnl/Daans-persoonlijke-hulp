@@ -4,15 +4,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne, execute } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { enrichTransaction } from '@/lib/finance/engine'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const type = searchParams.get('type')
-  const status = searchParams.get('status')
-  const contactId = searchParams.get('contact_id')
-  const account = searchParams.get('account')
-  const from = searchParams.get('from') // YYYY-MM-DD
-  const to = searchParams.get('to')     // YYYY-MM-DD
+  try {
+    const { searchParams } = new URL(req.url)
+    const type = searchParams.get('type')
+    const status = searchParams.get('status')
+    const contactId = searchParams.get('contact_id')
+    const account = searchParams.get('account')
+    const from = searchParams.get('from') // YYYY-MM-DD
+    const to = searchParams.get('to')     // YYYY-MM-DD
 
   let sql = `
     SELECT f.*, c.name as contact_name, p.title as project_title
@@ -40,11 +42,11 @@ export async function GET(req: NextRequest) {
 
   sql += ' ORDER BY COALESCE(f.due_date, f.created_at::date) DESC, f.created_at DESC'
 
-  const items = await query(sql, params)
+    const items = await query(sql, params)
 
   // Statistieken
   // Als er een range is (from/to), gebruik die. Anders huidige maand.
-  const stats = await queryOne<Record<string, unknown>>(`
+    const stats = await queryOne<Record<string, unknown>>(`
     SELECT
       SUM(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN amount ELSE 0 END)::float as open_amount,
       COUNT(CASE WHEN type='factuur' AND status IN ('verstuurd','verlopen') THEN 1 END) as open_count,
@@ -67,7 +69,15 @@ export async function GET(req: NextRequest) {
     FROM finance_items
   `, [from || null, to || null, account || null])
 
-  return NextResponse.json({ data: items, stats: { ...stats, active_month: from ? from.slice(0, 7) : TO_CHAR_NOW() } })
+    return NextResponse.json({
+      success: true,
+      data: items,
+      stats: { ...stats, active_month: from ? from.slice(0, 7) : TO_CHAR_NOW() },
+      meta: { correlationId: req.headers.get('x-correlation-id') || req.headers.get('x-request-id') || crypto.randomUUID() },
+    })
+  } catch (error: unknown) {
+    return jsonFail('FINANCE_LIST_FAILED', 'Kon financiële items niet ophalen', 500, error, req)
+  }
 }
 
 function TO_CHAR_NOW() {
@@ -76,9 +86,10 @@ function TO_CHAR_NOW() {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const type = searchParams.get('type')
-  const account = searchParams.get('account')
+  try {
+    const { searchParams } = new URL(req.url)
+    const type = searchParams.get('type')
+    const account = searchParams.get('account')
 
   let sql = 'DELETE FROM finance_items WHERE 1=1'
   const params: unknown[] = []
@@ -86,32 +97,36 @@ export async function DELETE(req: NextRequest) {
   if (type) { sql += ` AND type = $${i++}`; params.push(type) }
   if (account) { sql += ` AND account = $${i++}`; params.push(account) }
 
-  await execute(sql, params)
-  return NextResponse.json({ ok: true })
+    await execute(sql, params)
+    return jsonOk({ deleted: true }, undefined, req)
+  } catch (error: unknown) {
+    return jsonFail('FINANCE_DELETE_FAILED', 'Kon financiële items niet verwijderen', 500, error, req)
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { type, title, description, amount, contact_id, project_id, status, due_date, category, account } = body
+  try {
+    const body = await req.json()
+    const { type, title, description, amount, contact_id, project_id, status, due_date, category, account } = body
 
-  if (!type || !title) return NextResponse.json({ error: 'Type en titel zijn verplicht' }, { status: 400 })
+    if (!type || !title) return jsonFail('FINANCE_VALIDATION', 'Type en titel zijn verplicht', 400, undefined, req)
 
-  const enrichment = enrichTransaction({
-    title: String(title),
-    account: String(account || 'privé'),
-  })
-  const resolvedCategory = category || enrichment.category
+    const enrichment = enrichTransaction({
+      title: String(title),
+      account: String(account || 'privé'),
+    })
+    const resolvedCategory = category || enrichment.category
 
   // Auto invoice number voor facturen
-  let invoiceNumber: string | null = null
-  if (type === 'factuur') {
-    const year = new Date().getFullYear()
-    const countRow = await queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM finance_items WHERE type='factuur' AND TO_CHAR(created_at, 'YYYY') = $1`, [String(year)])
-    const count = countRow?.c ?? 0
-    invoiceNumber = `${year}-${String(count + 1).padStart(3, '0')}`
-  }
+    let invoiceNumber: string | null = null
+    if (type === 'factuur') {
+      const year = new Date().getFullYear()
+      const countRow = await queryOne<{ c: number }>(`SELECT COUNT(*) as c FROM finance_items WHERE type='factuur' AND TO_CHAR(created_at, 'YYYY') = $1`, [String(year)])
+      const count = countRow?.c ?? 0
+      invoiceNumber = `${year}-${String(count + 1).padStart(3, '0')}`
+    }
 
-  const item = await queryOne(`
+    const item = await queryOne(`
     INSERT INTO finance_items (
       type, title, description, amount, contact_id, project_id, status, invoice_number, due_date,
       category, subcategory, merchant_raw, merchant_normalized, category_confidence, personal_business, needs_review, account
@@ -133,23 +148,26 @@ export async function POST(req: NextRequest) {
     account || 'privé',
   ])
 
-  if (item && 'id' in item) {
-    await syncEntityLinks({
-      sourceType: 'finance',
-      sourceId: Number(item.id),
-      projectId: project_id || null,
-      contactId: contact_id || null,
-      tags: [resolvedCategory, type],
-    })
-    await logActivity({
-      entityType: 'finance',
-      entityId: Number(item.id),
-      action: 'created',
-      title: String(title),
-      summary: `${type} opgeslagen`,
-      metadata: { amount: amount || 0, type, status: status || (type === 'factuur' ? 'concept' : 'betaald'), category: resolvedCategory },
-    })
-  }
+    if (item && 'id' in item) {
+      await syncEntityLinks({
+        sourceType: 'finance',
+        sourceId: Number(item.id),
+        projectId: project_id || null,
+        contactId: contact_id || null,
+        tags: [resolvedCategory, type],
+      })
+      await logActivity({
+        entityType: 'finance',
+        entityId: Number(item.id),
+        action: 'created',
+        title: String(title),
+        summary: `${type} opgeslagen`,
+        metadata: { amount: amount || 0, type, status: status || (type === 'factuur' ? 'concept' : 'betaald'), category: resolvedCategory },
+      })
+    }
 
-  return NextResponse.json({ data: item }, { status: 201 })
+    return jsonOk(item, { status: 201 }, req)
+  } catch (error: unknown) {
+    return jsonFail('FINANCE_CREATE_FAILED', 'Kon financieel item niet aanmaken', 500, error, req)
+  }
 }

@@ -5,6 +5,8 @@ import { query, execute } from '@/lib/db'
 import { parseCommandWithAI } from '@/lib/ai/parse-command'
 import { executeActions } from '@/lib/ai/execute-actions'
 import { generateAIResponse } from '@/lib/ai/generate-response'
+import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
+import { ChatActionResult } from '@/lib/contracts/chat-action-result'
 
 // ── GET: haal chatgeschiedenis op ────────────────────────────────────────────
 
@@ -26,15 +28,13 @@ export async function GET(req: NextRequest) {
       LIMIT $1
     `, [limit])
 
-    return NextResponse.json({
-      data: messages.reverse().map(m => ({
+    return jsonOk(messages.reverse().map(m => ({
         ...m,
         actions: (() => { try { return JSON.parse(m.actions || '[]') } catch { return [] } })(),
-      })),
-    })
+      })), undefined, req)
   } catch (error: any) {
     console.error('[/api/chat GET]', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('CHAT_HISTORY_FAILED', 'Kon chatgeschiedenis niet ophalen', 500, error, req)
   }
 }
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const { message, sessionKey, imageBase64, imageType } = body
 
   if (!message?.trim() && !imageBase64) {
-    return NextResponse.json({ error: 'Bericht is leeg' }, { status: 400 })
+    return jsonFail('CHAT_EMPTY_MESSAGE', 'Bericht is leeg', 400, undefined, req)
   }
 
   const encoder = new TextEncoder()
@@ -87,6 +87,16 @@ export async function POST(req: NextRequest) {
         const actionResults = hasActions
           ? await executeActions(aiResult.actions)
           : []
+        const contractedActionResults: ChatActionResult[] = actionResults.map((result) => ({
+          action: result.type,
+          attempted: true,
+          executed: result.success,
+          verified: result.success,
+          userMessage: result.success
+            ? `${result.type} succesvol uitgevoerd`
+            : (result.error || `${result.type} niet uitgevoerd`),
+          details: result.data,
+        }))
 
         // 4. Debug payload
         const debugInfo = {
@@ -132,7 +142,7 @@ export async function POST(req: NextRequest) {
         // 8. Klaar — stuur actie-samenvatting mee
         send({
           type: 'done',
-          actionResults,
+          actionResults: contractedActionResults,
           debugInfo,
           requiresConfirmation: aiResult.requires_confirmation,
           pendingActions: aiResult.requires_confirmation ? aiResult.actions : [],
@@ -162,8 +172,8 @@ export async function POST(req: NextRequest) {
 export async function DELETE() {
   try {
     await execute(`DELETE FROM chat_messages WHERE role != 'system'`)
-    return NextResponse.json({ success: true })
+    return jsonOk({ deleted: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return jsonFail('CHAT_DELETE_FAILED', 'Kon chatgeschiedenis niet verwijderen', 500, error)
   }
 }
