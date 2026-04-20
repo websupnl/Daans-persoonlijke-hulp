@@ -2,8 +2,12 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Daan's Persoonlijke Hulp",
-  description: 'Jouw persoonlijke levens-OS',
+  title: 'Persoonlijke Hulp',
+  description: 'Je persoonlijke levens-OS',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
   robots: {
     index: false,
     follow: false,

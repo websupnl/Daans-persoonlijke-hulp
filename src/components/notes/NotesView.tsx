@@ -86,7 +86,7 @@ export default function NotesView() {
   return (
     <PageShell
       title="Notities"
-      subtitle={`${notes.length} notities. Dit moet voelen als een rustige kennisruimte waar snelle capture en terugvinden allebei serieus goed werken.`}
+      subtitle={`${notes.length} notities.`}
       actions={
         <button
           onClick={() => createNote()}
@@ -110,7 +110,7 @@ export default function NotesView() {
             <PanelHeader
               eyebrow="Snelle capture"
               title="Vang de gedachte eerst"
-              description="Bij ADHD werkt capture alleen als het moeiteloos voelt. Structuur komt pas daarna."
+              description="Eerst vastleggen, later uitwerken."
             />
 
             <textarea
@@ -137,7 +137,7 @@ export default function NotesView() {
             <PanelHeader
               eyebrow="Zoeken"
               title="Doorzoek je kennisbank"
-              description="Niet alleen tekstmatch, maar desnoods ook slimmere AI-zoekmodus."
+              description="Zoek op tekst of via AI."
             />
 
             <div className="mt-5 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3">
@@ -171,7 +171,7 @@ export default function NotesView() {
             <PanelHeader
               eyebrow="Recent"
               title="Snel terug"
-              description="De laatste notities horen een snelle geheugensteun te zijn, niet een extra zoekactie."
+              description="Je laatste notities op één plek."
             />
 
             <div className="mt-5 space-y-3">
@@ -203,7 +203,7 @@ export default function NotesView() {
             <Panel>
               <EmptyPanel
                 title="Nog geen notities"
-                description="Gebruik links de snelle capture of maak direct een nieuwe note. Dit scherm moet uiteindelijk je tweede brein dragen."
+                description="Maak een notitie of gebruik snelle capture."
               />
             </Panel>
           ) : (
@@ -213,7 +213,7 @@ export default function NotesView() {
                   <PanelHeader
                     eyebrow="Vastgezet"
                     title="Altijd snel bij de hand"
-                    description="Dit zijn de notities die blijkbaar structureel belangrijk genoeg zijn om boven te blijven drijven."
+                    description="Belangrijke notities bovenaan."
                   />
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

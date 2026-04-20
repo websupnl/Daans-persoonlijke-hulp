@@ -249,17 +249,17 @@ export default function ChatView() {
 
   return (
     <div className="flex h-[calc(100dvh-72px)] flex-col bg-background md:h-dvh">
-      <div className="page-shell-header sticky top-0 z-10 flex items-center justify-between px-4 py-4 md:px-6">
+      <div className="page-shell-header sticky top-0 z-10 flex items-center justify-between px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-center gap-3">
           <div className="bg-gradient flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-text-inverse">◎</div>
           <div>
             <p className="text-sm font-semibold text-text-primary">Chat met je AI</p>
-            <p className="text-xs text-text-secondary">De assistent verwerkt acties zichtbaar en direct.</p>
+            <p className="hidden text-xs text-text-secondary md:block">De assistent verwerkt acties zichtbaar en direct.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="rounded-pill bg-accent-subtle px-3 py-1.5 text-xs font-medium text-accent">
+          <button className="rounded-pill bg-accent-subtle px-2.5 py-1 text-[11px] font-medium text-accent md:px-3 md:py-1.5 md:text-xs">
             {contextCount} context-items
           </button>
           <button onClick={resetChat} className="focus-ring rounded-md border border-border bg-surface p-2 text-text-secondary">
@@ -299,7 +299,7 @@ export default function ChatView() {
                 </div>
               )}
 
-              <div className={cn('w-full', message.role === 'user' ? 'max-w-[72%]' : 'max-w-[80%]')}>
+            <div className={cn('w-full', message.role === 'user' ? 'max-w-[86%] sm:max-w-[72%]' : 'max-w-[92%] sm:max-w-[80%]')}>
                 <div className={message.role === 'user' ? 'chat-bubble-user' : message.role === 'error' ? 'chat-bubble-error' : 'chat-bubble-ai'}>
                   {message.role === 'error' ? (
                     <p className="text-sm text-error">{message.content}</p>
@@ -335,7 +335,7 @@ export default function ChatView() {
         {!input && (
           <div className="mb-3 flex gap-2 overflow-x-auto hide-scrollbar">
             {quickActions.map((action) => (
-              <button key={action} className="rounded-pill bg-surface-inset px-3 py-1.5 text-xs text-text-secondary">
+              <button key={action} className="hidden rounded-pill bg-surface-inset px-3 py-1.5 text-xs text-text-secondary sm:block">
                 {action}
               </button>
             ))}

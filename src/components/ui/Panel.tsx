@@ -166,6 +166,7 @@ export function StatStrip({
     value: ReactNode
     meta?: ReactNode
     accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'orange' | 'pink'
+    mobileHidden?: boolean
   }>
   className?: string
 }) {
@@ -182,7 +183,7 @@ export function StatStrip({
   return (
     <div className={cn('grid gap-3 sm:grid-cols-2 xl:grid-cols-4', className)}>
       {stats.map((stat, i) => (
-        <div key={i} className="card-base flex min-w-0 flex-col justify-center rounded-lg bg-surface px-4 py-4">
+        <div key={i} className={cn('card-base flex min-w-0 flex-col justify-center rounded-lg bg-surface px-4 py-4', stat.mobileHidden && 'hidden sm:flex')}>
           <p className="truncate text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{stat.label}</p>
           <div className={cn('mt-2 text-2xl font-bold leading-none tracking-tight', stat.accent ? accentColors[stat.accent] : 'text-text-primary')}>
             {stat.value}
