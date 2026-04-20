@@ -369,7 +369,7 @@ interface PromptInputBoxProps {
   className?: string
 }
 
-export const PromptInputBox = React.forwardRef<HTMLDivElement, PromptInputBoxProps>(
+export const MorphPanel = React.forwardRef<HTMLDivElement, PromptInputBoxProps>(
   ({ value, onValueChange, onSend, onCancel, isLoading = false, placeholder = 'Type your message here...', className }, ref) => {
     const [internalInput, setInternalInput] = React.useState(value ?? '')
     const [files, setFiles] = React.useState<File[]>([])
@@ -599,4 +599,4 @@ export const PromptInputBox = React.forwardRef<HTMLDivElement, PromptInputBoxPro
     )
   }
 )
-PromptInputBox.displayName = 'PromptInputBox'
+MorphPanel.displayName = 'MorphPanel'

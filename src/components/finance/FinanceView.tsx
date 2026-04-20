@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
@@ -583,14 +583,6 @@ export default function FinanceView() {
               className="flex h-10 w-10 items-center justify-center rounded-2xl border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
             >
               <ChevronRight size={16} />
-            </button>
-            <button
-              onClick={runAnalyse}
-              disabled={analyseLoading}
-              className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface-variant"
-            >
-              {analyseLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              Analyse
             </button>
             <button
               onClick={() => {

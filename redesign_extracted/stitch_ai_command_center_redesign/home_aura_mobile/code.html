@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ethereal - Mobile Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d7dbda",
+                        "on-secondary": "#f9f8ff",
+                        "on-tertiary-fixed-variant": "#614c74",
+                        "on-primary-fixed": "#3c4045",
+                        "on-surface": "#2f3333",
+                        "surface-bright": "#f9f9f8",
+                        "surface-container-low": "#f3f4f3",
+                        "outline-variant": "#afb3b2",
+                        "on-secondary-fixed-variant": "#555b6e",
+                        "error": "#a83836",
+                        "surface-container-high": "#e6e9e8",
+                        "on-tertiary": "#fff6ff",
+                        "on-primary-container": "#4e5257",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-dim": "#5f4a72",
+                        "on-surface-variant": "#5b605f",
+                        "error-dim": "#67040d",
+                        "primary-fixed": "#e0e2e9",
+                        "primary-container": "#e0e2e9",
+                        "inverse-surface": "#0c0f0e",
+                        "primary": "#5b5f65",
+                        "on-tertiary-container": "#57426a",
+                        "outline": "#777c7b",
+                        "on-secondary-container": "#4b5164",
+                        "primary-fixed-dim": "#d1d4db",
+                        "tertiary-fixed": "#e8cdfd",
+                        "on-primary": "#f6f9ff",
+                        "secondary-fixed-dim": "#ced4eb",
+                        "on-error-container": "#6e0a12",
+                        "error-container": "#fa746f",
+                        "background": "#f9f9f8",
+                        "inverse-on-surface": "#9c9d9c",
+                        "on-primary-fixed-variant": "#585c61",
+                        "surface-container-highest": "#dfe3e2",
+                        "secondary": "#595e72",
+                        "on-background": "#2f3333",
+                        "tertiary-container": "#e8cdfd",
+                        "tertiary-fixed-dim": "#dabfee",
+                        "surface-variant": "#dfe3e2",
+                        "secondary-dim": "#4d5366",
+                        "tertiary": "#6c567f",
+                        "secondary-container": "#dde2f9",
+                        "inverse-primary": "#e8ebf2",
+                        "secondary-fixed": "#dde2f9",
+                        "surface-tint": "#5b5f65",
+                        "on-secondary-fixed": "#393f51",
+                        "surface-container": "#eceeed",
+                        "on-tertiary-fixed": "#433056",
+                        "primary-dim": "#4f5359",
+                        "surface": "#f9f9f8",
+                        "on-error": "#fff7f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    },
+                    "boxShadow": {
+                        'ambient': '0 32px 32px -4px rgba(47, 51, 51, 0.06)',
+                        'ambient-sm': '0 16px 24px -4px rgba(47, 51, 51, 0.04)',
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Base styles to ensure soft minimalist feel */
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Hide scrollbar for clean horizontal scroll sections if any */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body min-h-screen flex flex-col antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar (From JSON) -->
+<header class="fixed top-0 z-40 bg-surface/80 backdrop-blur-xl w-full h-16 flex justify-between items-center px-6 py-4 transition-opacity">
+<div class="flex items-center gap-3">
+<!-- Brain Pulse Indicator (Custom interpretation) -->
+<div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-high">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<div class="absolute w-full h-full rounded-full border border-primary/20 scale-125"></div>
+</div>
+<span class="font-headline font-black text-xl text-zinc-800 dark:text-zinc-100 tracking-tight">Ethereal</span>
+</div>
+<div class="flex items-center gap-4 text-zinc-900 dark:text-zinc-100">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[22px]">notifications_none</span>
+</button>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[22px]">grid_view</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full object-cover outline outline-1 outline-outline-variant/15" data-alt="Close up portrait of a young professional woman with neutral expression, soft lighting, minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbE-c5h68sE0WB0fPHjWMFlxtRcR0TipEaI9uwiotiiZXnhwgn4QRsgYATm83a2VuhJxM3nlHOEQJOUALWcJ356GbhFsB7z9XvCi6g8VHmFLWPKtYKY2F6WGY27-nKYP0rtkYL49aER81KHQBuL_wzWPzRjDlKRKe3u-MnthBHuYBCxISkeFP_O51t1GbCzFRj0J4aHXIzM5Jf2niANrMmVOTyWBZ3t7nLoZnxY_A4Fsf1oEaahrYm0e5KTl2sX7PzlHgvivgByA1S"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<!-- Added pt-24 to clear fixed header, pb-32 to clear bottom nav -->
+<main class="flex-1 px-5 pt-24 pb-32 space-y-10 lg:max-w-md lg:mx-auto">
+<!-- Prominent AI Insight Card -->
+<section class="relative">
+<div class="bg-surface-container-lowest rounded-3xl p-7 shadow-ambient flex flex-col gap-4 relative overflow-hidden">
+<!-- Subtle gradient accent in top right corner -->
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-tertiary-container/40 to-transparent rounded-full blur-2xl"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-headline text-xs font-bold uppercase tracking-widest text-primary">Insight</span>
+</div>
+<h1 class="font-headline text-[1.75rem] leading-[1.15] font-extrabold text-on-surface">
+                    Your deep work block begins in 15 minutes.
+                </h1>
+<p class="text-on-surface-variant text-sm font-body leading-relaxed mt-1">
+                    I've automatically muted non-essential notifications and prepared your "Strategic Planning" workspace.
+                </p>
+<div class="mt-4 flex gap-3">
+<button class="bg-gradient-to-br from-primary to-primary-dim text-on-primary px-5 py-3 rounded-2xl font-body text-sm font-medium shadow-ambient-sm transition-transform active:scale-[0.98]">
+                        Start Focus
+                    </button>
+<button class="bg-surface-container-high text-on-surface px-5 py-3 rounded-2xl font-body text-sm font-medium transition-colors hover:bg-surface-variant active:scale-[0.98]">
+                        Delay
+                    </button>
+</div>
+</div>
+</section>
+<!-- Vandaag (Today) Section - Bento Style -->
+<section class="space-y-4">
+<h2 class="font-headline text-lg font-bold text-on-surface px-2">Vandaag</h2>
+<div class="grid grid-cols-2 gap-4">
+<!-- Chronos Widget -->
+<div class="col-span-2 bg-surface-container-low rounded-3xl p-5 flex flex-col justify-between">
+<div class="flex justify-between items-start mb-6">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">schedule</span>
+<span class="text-xs font-semibold uppercase tracking-wider">Chronos</span>
+</div>
+<span class="text-sm font-medium text-on-surface">14:00 - 15:30</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-base text-on-surface">Q3 Product Review</h3>
+<p class="text-xs text-on-surface-variant mt-1">Virtual Room Alpha</p>
+</div>
+</div>
+<!-- Weather/Location Widget -->
+<div class="col-span-1 bg-surface-container-low rounded-3xl p-5 flex flex-col gap-3 relative overflow-hidden group">
+<img alt="City view" class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-luminosity" data-alt="Abstract soft focus view of modern city architecture on an overcast day, muted colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXll5BgM0aOdiWoatS0mkPUz6vD-IS2V-QugXKoUvWl-fySTkT8hv6VJUyKir2iO2jz5bz_KulDra3Zj9DmlIZua1VtxZ_NitH2VN6LRF8EZ5jqr03h26UjMM6us0zN-J7gz45R3xICj_NdQ18LiJ9d2kK1nq9IXOgARfzh42o5W_TqdvNVlY2JTSHV5Bxt-n6MF_pkNNe_72P0KNzDxUsM3UHDYH_O6M2bAXQ8WskgQ0j8xwc3980s3djoaEKJglqzV0OFA79u-Fx"/>
+<div class="relative z-10">
+<span class="material-symbols-outlined text-[20px] text-on-surface">cloud</span>
+<h3 class="font-headline font-bold text-2xl mt-2 text-on-surface">18°</h3>
+<p class="text-xs text-on-surface-variant font-medium mt-1">Amsterdam</p>
+</div>
+</div>
+<!-- Wellness Widget -->
+<div class="col-span-1 bg-surface-container-low rounded-3xl p-5 flex flex-col gap-3">
+<span class="material-symbols-outlined text-[20px] text-primary">monitor_heart</span>
+<h3 class="font-headline font-bold text-2xl mt-2 text-on-surface">82<span class="text-sm font-medium text-on-surface-variant ml-1">bpm</span></h3>
+<p class="text-xs text-on-surface-variant font-medium mt-1">Resting avg.</p>
+</div>
+</div>
+</section>
+<!-- Actieve taken (Active Tasks) Section -->
+<section class="space-y-4">
+<div class="flex justify-between items-center px-2">
+<h2 class="font-headline text-lg font-bold text-on-surface">Actieve taken</h2>
+<button class="text-primary text-sm font-medium">View all</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Task 1 -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-4">
+<div class="w-6 h-6 rounded-full border-2 border-outline-variant/30 flex items-center justify-center shrink-0"></div>
+<div class="flex-1 min-w-0">
+<h4 class="font-headline font-semibold text-sm text-on-surface truncate">Finalize Q3 Financial Report</h4>
+<p class="text-xs text-on-surface-variant mt-0.5">Due Tomorrow</p>
+</div>
+<div class="w-2 h-2 rounded-full bg-error-container shrink-0"></div>
+</div>
+<!-- Task 2 -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-4">
+<div class="w-6 h-6 rounded-full border-2 border-outline-variant/30 flex items-center justify-center shrink-0"></div>
+<div class="flex-1 min-w-0">
+<h4 class="font-headline font-semibold text-sm text-on-surface truncate">Review design system updates</h4>
+<p class="text-xs text-on-surface-variant mt-0.5">Treasury Team</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Financiën preview (Treasury) Section -->
+<section class="space-y-4">
+<h2 class="font-headline text-lg font-bold text-on-surface px-2">Financiën preview</h2>
+<div class="bg-surface-container-lowest rounded-3xl p-6 shadow-ambient-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-secondary-container/20 to-transparent"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="text-xs font-semibold uppercase tracking-wider">Treasury</span>
+</div>
+<h3 class="font-headline font-extrabold text-[2rem] text-on-surface tracking-tight mt-1">
+                        $42,850<span class="text-lg text-on-surface-variant font-medium ml-1">.00</span>
+</h3>
+<div class="flex items-center gap-2 mt-4">
+<span class="bg-tertiary-container/50 text-on-tertiary-container text-xs font-medium px-2 py-1 rounded-lg">
+                            +2.4% this week
+                        </span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (From JSON) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-4 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.08)]">
+<!-- Tab 1: Home (ACTIVE) -->
+<button class="flex flex-col items-center justify-center bg-[#7B8CBF]/10 text-[#7B8CBF] rounded-full px-4 py-1 active:scale-90 duration-200">
+<span class="material-symbols-outlined text-[24px] mb-1" data-weight="fill" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Home</span>
+</button>
+<!-- Tab 2: Chat -->
+<button class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors">
+<span class="material-symbols-outlined text-[24px] mb-1">chat_bubble</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Chat</span>
+</button>
+<!-- Tab 3: Chronos -->
+<button class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors">
+<span class="material-symbols-outlined text-[24px] mb-1">schedule</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Chronos</span>
+</button>
+<!-- Tab 4: Rituals -->
+<button class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors">
+<span class="material-symbols-outlined text-[24px] mb-1">auto_awesome</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Rituals</span>
+</button>
+<!-- Tab 5: Profile -->
+<button class="flex flex-col items-center justify-center text-zinc-400 hover:text-[#7B8CBF] transition-colors">
+<span class="material-symbols-outlined text-[24px] mb-1">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Profile</span>
+</button>
+</nav>
+</body></html>

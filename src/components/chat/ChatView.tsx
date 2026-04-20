@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, Loader2, RotateCcw } from 'lucide-react'
-import { PromptInputBox } from '@/components/ui/ai-prompt-box'
+import { useSearchParams } from 'next/navigation'
+import { MorphPanel } from '@/components/ui/ai-prompt-box'
 import { ShiningText } from '@/components/ui/shining-text'
 import { cn, formatMarkdown, formatRelative } from '@/lib/utils'
 
@@ -111,6 +112,20 @@ export default function ChatView() {
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const query = searchParams.get('q')
+    if (query && messages.length > 0 && !loading) {
+      // Check if the last message is the same to avoid double sending
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage.role === 'user' && lastMessage.content === query) return
+
+      sendMessage(query)
+    } else if (query && !initialLoad && messages.length === 0 && !loading) {
+        sendMessage(query)
+    }
+  }, [searchParams, initialLoad, messages.length, loading])
 
   const loadHistory = useCallback(async () => {
     const response = await fetch('/api/chat?limit=40')
@@ -408,7 +423,7 @@ export default function ChatView() {
 
       <div className="border-t border-border bg-surface px-4 py-4 md:px-6">
         <div className="mx-auto w-full max-w-[920px]">
-          <PromptInputBox
+          <MorphPanel
             value={input}
             onValueChange={setInput}
             onSend={sendMessage}
