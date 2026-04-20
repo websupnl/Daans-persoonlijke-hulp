@@ -18,6 +18,14 @@
   --text-secondary: #62626e;
   --text-tertiary: #9898a6;
   --text-inverse: #ffffff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f9f9fa;
+  --surface-container: #f3f3f5;
+  --surface-container-high: #ebebef;
+  --surface-container-highest: #e2e2e9;
+  --on-surface: #0f0f10;
+  --on-surface-variant: #62626e;
+  --outline-variant: #ebebef;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
   --accent-active: #3730a3;
@@ -157,6 +165,24 @@ h6 {
 
 .bg-gradient {
   background: linear-gradient(135deg, var(--accent) 0%, var(--ai) 100%);
+}
+
+.icon-gradient {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--ai) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--ai) 100%);
+  color: white;
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .bg-ai-briefing {
