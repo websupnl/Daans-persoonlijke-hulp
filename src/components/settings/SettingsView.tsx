@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import PageShell, { PageSection } from '@/components/ui/PageShell'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import {
   User, Brain, LayoutGrid, Bell, Trash2, Plus, Check,
   ChevronDown, ChevronUp, Save, RefreshCw, Tag
@@ -276,13 +277,14 @@ export default function SettingsView() {
                   className="flex-1 rounded-md border border-outline-variant bg-background px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:border-accent focus:outline-none"
                   onKeyDown={e => e.key === 'Enter' && addFact()}
                 />
-                <select
-                  value={newCategory}
-                  onChange={e => setNewCategory(e.target.value)}
-                  className="rounded-md border border-outline-variant bg-background px-3 py-1.5 text-sm text-on-surface focus:border-accent focus:outline-none"
-                >
-                  {PROFILE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger className="w-full rounded-md bg-background px-3 py-1.5 text-sm sm:w-[170px]">
+                    <SelectValue placeholder="Categorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROFILE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <button
                   onClick={addFact}
                   disabled={addingFact || !newLabel.trim() || !newValue.trim()}
@@ -355,16 +357,20 @@ export default function SettingsView() {
             desc="Tijdstip voor de dagelijkse ochtendplanning"
             saving={saving === 'notification_morning_hour'}
           >
-            <select
-              value={settings.notification_morning_hour}
-              onChange={e => patchSetting('notification_morning_hour', parseInt(e.target.value))}
+            <Select
+              value={String(settings.notification_morning_hour)}
+              onValueChange={value => patchSetting('notification_morning_hour', parseInt(value))}
               disabled={!settings.notification_enabled}
-              className="rounded-md border border-outline-variant bg-background px-3 py-1.5 text-sm text-on-surface focus:border-accent focus:outline-none disabled:opacity-40"
             >
-              {Array.from({ length: 13 }, (_, i) => i + 5).map(h => (
-                <option key={h} value={h}>{h}:00</option>
-              ))}
-            </select>
+              <SelectTrigger className="w-[120px] rounded-md bg-background px-3 py-1.5 text-sm disabled:opacity-40">
+                <SelectValue placeholder="Uur" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 13 }, (_, i) => i + 5).map(h => (
+                  <SelectItem key={h} value={String(h)}>{h}:00</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </SettingRow>
         </div>
       </SectionCard>

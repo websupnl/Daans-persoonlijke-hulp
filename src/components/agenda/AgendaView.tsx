@@ -13,6 +13,7 @@ import {
 import { format, addDays, startOfWeek, isSameDay, parseISO, isToday, isPast } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -169,15 +170,25 @@ export default function AgendaView() {
             <input value={form.title} onChange={(e) => setForm((c) => ({ ...c, title: e.target.value }))} placeholder="Titel" className="xl:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
             <input type="date" value={form.date} onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
             <input type="time" value={form.time} onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
-            <select value={form.type} onChange={(e) => setForm((c) => ({ ...c, type: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
-              {Object.entries(TYPE_CONFIG).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
-            </select>
-            <select value={form.recurring} onChange={(e) => setForm((c) => ({ ...c, recurring: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none">
-              <option value="">Niet herhalend</option>
-              <option value="dagelijks">Dagelijks</option>
-              <option value="wekelijks">Wekelijks</option>
-              <option value="maandelijks">Maandelijks</option>
-            </select>
+            <Select value={form.type} onValueChange={(value) => setForm((c) => ({ ...c, type: value }))}>
+              <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TYPE_CONFIG).map(([key, item]) => <SelectItem key={key} value={key}>{item.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={form.recurring || '__none__'} onValueChange={(value) => setForm((c) => ({ ...c, recurring: value === '__none__' ? '' : value }))}>
+              <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
+                <SelectValue placeholder="Herhaling" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Niet herhalend</SelectItem>
+                <SelectItem value="dagelijks">Dagelijks</SelectItem>
+                <SelectItem value="wekelijks">Wekelijks</SelectItem>
+                <SelectItem value="maandelijks">Maandelijks</SelectItem>
+              </SelectContent>
+            </Select>
             <input value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Omschrijving" className="md:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">

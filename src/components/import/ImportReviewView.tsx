@@ -8,6 +8,7 @@ import {
   Clock, Users, Calendar, Loader2, AlertCircle, ArrowLeft,
   Play
 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -375,16 +376,16 @@ function CandidateCard({
         {!isDone && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
             {/* Suggested action selector */}
-            <select
-              value={selectedAction}
-              onChange={e => setSelectedAction(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-              disabled={loading}
-            >
-              {Object.entries(ACTION_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+            <Select value={selectedAction} onValueChange={setSelectedAction} disabled={loading}>
+              <SelectTrigger className="w-[170px] rounded-lg border-gray-200 px-2 py-1.5 text-xs text-gray-600 focus:ring-blue-400">
+                <SelectValue placeholder="Actie" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ACTION_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <div className="flex-1" />
 

@@ -1,15 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ArrowDown,
-  Loader2,
-  MessageSquare,
-  Paperclip,
-  RotateCcw,
-  Send,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowDown, Loader2, RotateCcw } from 'lucide-react'
+import { PromptInputBox } from '@/components/ui/ai-prompt-box'
 import { cn, formatMarkdown, formatRelative } from '@/lib/utils'
 
 interface DebugAction {
@@ -32,28 +25,41 @@ interface Message {
   created_at: string
   debugInfo?: DebugInfo
   streaming?: boolean
+  imageUrl?: string | null
+  imageName?: string | null
 }
-
-const quickActions = ['📎 Bestand', '🎙 Spraak', '💡 Vorige context']
 
 const actionLabels: Record<string, { label: string; tone: string }> = {
   todo_create: { label: 'Taak aangemaakt', tone: 'border-l-accent' },
   grocery_create: { label: 'Boodschap toegevoegd', tone: 'border-l-success' },
-  finance_create_expense: { label: 'Financiële post opgeslagen', tone: 'border-l-warning' },
+  finance_create_expense: { label: 'Financiele post opgeslagen', tone: 'border-l-warning' },
   memory_store: { label: 'Geheugen bijgewerkt', tone: 'border-l-ai' },
   event_create: { label: 'Agenda-item aangemaakt', tone: 'border-l-info' },
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Kon bestand niet lezen'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function ThinkingBubble({ status }: { status: string }) {
   return (
     <div className="animate-fade-in flex gap-3">
-      <div className="bg-gradient mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-text-inverse">
-        ✦
+      <div className="bg-gradient mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse">
+        AI
       </div>
       <div className="chat-bubble-ai">
         <div className="flex items-center gap-1.5">
           {[0, 1, 2].map((index) => (
-            <span key={index} className="animate-thinking h-2 w-2 rounded-full bg-text-tertiary" style={{ animationDelay: `${index * 0.15}s` }} />
+            <span
+              key={index}
+              className="animate-thinking h-2 w-2 rounded-full bg-text-tertiary"
+              style={{ animationDelay: `${index * 0.15}s` }}
+            />
           ))}
         </div>
         <p className="mt-2 text-2xs uppercase tracking-[0.18em] text-text-tertiary">{status}</p>
@@ -100,8 +106,8 @@ export default function ChatView() {
   const [showScrollDown, setShowScrollDown] = useState(false)
 
   const listRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const loadHistory = useCallback(async () => {
     const response = await fetch('/api/chat?limit=40')
@@ -111,6 +117,7 @@ export default function ChatView() {
       role: message.role === 'assistant' || message.role === 'user' ? message.role : 'assistant',
       debugInfo: message.actions && typeof message.actions === 'object' && !Array.isArray(message.actions) ? message.actions : undefined,
     }))
+
     setMessages(history)
     setShowExamples(history.length === 0)
     setInitialLoad(false)
@@ -131,15 +138,28 @@ export default function ChatView() {
     setShowScrollDown(distance > 120)
   }, [])
 
-  async function sendMessage() {
-    const message = input.trim()
-    if (!message || loading) return
+  const cancelGeneration = useCallback(() => {
+    abortControllerRef.current?.abort()
+  }, [])
+
+  async function sendMessage(rawMessage: string, files: File[] = []) {
+    const message = rawMessage.trim()
+
+    if ((!message && files.length === 0) || loading) {
+      return
+    }
+
+    const imageFile = files[0]
+    const imageDataUrl = imageFile ? await fileToDataUrl(imageFile) : null
+    const imageBase64 = imageDataUrl ? imageDataUrl.split(',')[1] ?? null : null
 
     const userMessage: Message = {
       id: Date.now(),
       role: 'user',
-      content: message,
+      content: message || 'Afbeelding gedeeld',
       created_at: new Date().toISOString(),
+      imageUrl: imageDataUrl,
+      imageName: imageFile?.name ?? null,
     }
 
     setMessages((current) => [...current, userMessage])
@@ -147,26 +167,36 @@ export default function ChatView() {
     setShowExamples(false)
     setLoading(true)
     setLoadingStatus('Interpreteren...')
+    abortControllerRef.current = new AbortController()
+
+    let assistantId: number | null = null
+    let assistantText = ''
+    let debugInfo: DebugInfo | undefined
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          imageBase64,
+          imageType: imageFile?.type,
+        }),
+        signal: abortControllerRef.current.signal,
       })
 
-      if (!response.body) throw new Error('Geen stream')
+      if (!response.body) {
+        throw new Error('Geen stream')
+      }
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let assistantText = ''
-      let debugInfo: DebugInfo | undefined
 
-      const assistantId = Date.now() + 1
+      assistantId = Date.now() + 1
       setMessages((current) => [
         ...current,
-        { id: assistantId, role: 'assistant', content: '', created_at: new Date().toISOString(), streaming: true },
+        { id: assistantId!, role: 'assistant', content: '', created_at: new Date().toISOString(), streaming: true },
       ])
 
       while (true) {
@@ -185,13 +215,19 @@ export default function ChatView() {
           if (!line) continue
 
           const data = JSON.parse(line.slice(6))
+
           if (data.type === 'status') {
-            if (data.text?.includes('Acties')) setLoadingStatus('Actie uitvoeren...')
-            else if (data.text?.includes('Denken')) setLoadingStatus('Interpreteren...')
+            if (data.text?.includes('Acties')) {
+              setLoadingStatus('Acties uitvoeren...')
+            } else if (data.text?.includes('Denken')) {
+              setLoadingStatus('Interpreteren...')
+            }
           }
+
           if (data.type === 'debug') {
             debugInfo = data.data
           }
+
           if (data.type === 'text') {
             assistantText += data.text
             setLoadingStatus('Antwoord formuleren...')
@@ -201,6 +237,7 @@ export default function ChatView() {
               )
             )
           }
+
           if (data.type === 'done') {
             setMessages((current) =>
               current.map((item) =>
@@ -208,6 +245,7 @@ export default function ChatView() {
               )
             )
           }
+
           if (data.type === 'error') {
             setMessages((current) =>
               current.map((item) =>
@@ -217,20 +255,41 @@ export default function ChatView() {
           }
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (assistantId !== null) {
+          setMessages((current) =>
+            current.map((item) =>
+              item.id === assistantId
+                ? { ...item, content: assistantText || 'Generatie gestopt.', debugInfo, streaming: false }
+                : item
+            )
+          )
+        }
+        return
+      }
+
       setMessages((current) => [
         ...current,
-        { id: Date.now() + 2, role: 'error', content: 'Er ging iets fout. Je bericht is bewaard.', created_at: new Date().toISOString() },
+        {
+          id: Date.now() + 2,
+          role: 'error',
+          content: 'Er ging iets fout. Je bericht is bewaard.',
+          created_at: new Date().toISOString(),
+        },
       ])
     } finally {
       setLoading(false)
-      inputRef.current?.focus()
+      abortControllerRef.current = null
     }
   }
 
   async function resetChat() {
+    abortControllerRef.current?.abort()
     await fetch('/api/chat', { method: 'DELETE' })
     setMessages([])
+    setInput('')
+    setLoading(false)
     setShowExamples(true)
   }
 
@@ -251,7 +310,9 @@ export default function ChatView() {
     <div className="flex h-[calc(100dvh-72px)] flex-col bg-background md:h-dvh">
       <div className="page-shell-header sticky top-0 z-10 flex items-center justify-between px-3 py-3 md:px-6 md:py-4">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-text-inverse">◎</div>
+          <div className="bg-gradient flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse">
+            AI
+          </div>
           <div>
             <p className="text-sm font-semibold text-text-primary">Chat met je AI</p>
             <p className="hidden text-xs text-text-secondary md:block">De assistent verwerkt acties zichtbaar en direct.</p>
@@ -294,22 +355,33 @@ export default function ChatView() {
           {messages.map((message) => (
             <div key={message.id} className={cn('animate-fade-in flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
               {message.role !== 'user' && (
-                <div className="bg-gradient mr-3 mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-text-inverse md:flex">
-                  ✦
+                <div className="bg-gradient mr-3 mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse md:flex">
+                  AI
                 </div>
               )}
 
-            <div className={cn('w-full', message.role === 'user' ? 'max-w-[86%] sm:max-w-[72%]' : 'max-w-[92%] sm:max-w-[80%]')}>
+              <div className={cn('w-full', message.role === 'user' ? 'max-w-[86%] sm:max-w-[72%]' : 'max-w-[92%] sm:max-w-[80%]')}>
                 <div className={message.role === 'user' ? 'chat-bubble-user' : message.role === 'error' ? 'chat-bubble-error' : 'chat-bubble-ai'}>
+                  {message.imageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={message.imageUrl}
+                      alt={message.imageName ?? 'Upload'}
+                      className="mb-3 max-h-64 w-full rounded-xl object-cover"
+                    />
+                  )}
+
                   {message.role === 'error' ? (
                     <p className="text-sm text-error">{message.content}</p>
                   ) : (
                     <div className="chat-content" dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content || '...') }} />
                   )}
+
                   {message.role === 'assistant' && message.debugInfo?.actions?.map((action, index) => (
                     <ActionCard key={`${message.id}-${index}`} action={action} />
                   ))}
                 </div>
+
                 <p className={cn('mt-1 text-xs text-text-tertiary', message.role === 'user' ? 'text-right' : 'text-left')}>
                   {formatRelative(message.created_at)}
                 </p>
@@ -331,47 +403,16 @@ export default function ChatView() {
         )}
       </div>
 
-      <div className="border-t border-border bg-surface px-4 py-3 md:px-6">
-        {!input && (
-          <div className="mb-3 flex gap-2 overflow-x-auto hide-scrollbar">
-            {quickActions.map((action) => (
-              <button key={action} className="hidden rounded-pill bg-surface-inset px-3 py-1.5 text-xs text-text-secondary sm:block">
-                {action}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="rounded-xl border border-border bg-surface-inset px-4 py-3">
-          <div className="flex items-end gap-3">
-            <button className="mb-1 text-text-secondary">
-              <Paperclip size={16} />
-            </button>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  sendMessage()
-                }
-              }}
-              rows={1}
-              placeholder="Typ een bericht of vraag iets aan je AI..."
-              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent text-sm leading-6 text-text-primary outline-none placeholder:text-text-tertiary"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full transition-colors',
-                input.trim() && !loading ? 'bg-accent text-text-inverse' : 'bg-surface text-text-tertiary'
-              )}
-            >
-              {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            </button>
-          </div>
+      <div className="border-t border-border bg-surface px-4 py-4 md:px-6">
+        <div className="mx-auto w-full max-w-[920px]">
+          <PromptInputBox
+            value={input}
+            onValueChange={setInput}
+            onSend={sendMessage}
+            onCancel={cancelGeneration}
+            isLoading={loading}
+            placeholder="Typ een bericht of sleep een afbeelding hierheen..."
+          />
         </div>
       </div>
     </div>

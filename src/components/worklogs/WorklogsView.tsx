@@ -5,6 +5,7 @@ import { Clock, Plus, Trash2, Zap, Brain, BarChart3, Send, Sparkles } from 'luci
 import { cn } from '@/lib/utils'
 import type { ChatAction } from '@/lib/chat/types'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -355,14 +356,14 @@ export default function WorklogsView() {
                     className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     style={{ fontSize: '16px' }}
                   />
-                  <select
-                    value={form.context}
-                    onChange={(e) => setForm((f) => ({ ...f, context: e.target.value }))}
-                    className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
-                    style={{ fontSize: '16px' }}
-                  >
-                    {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Select value={form.context} onValueChange={(value) => setForm((f) => ({ ...f, context: value }))}>
+                    <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm" style={{ fontSize: '16px' }}>
+                      <SelectValue placeholder="Context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTEXT_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <input
                     value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -491,14 +492,14 @@ export default function WorklogsView() {
                   style={{ fontSize: '16px' }}
                 />
                 <div className="flex gap-2">
-                  <select
-                    value={timerContext}
-                    onChange={(e) => setTimerContext(e.target.value)}
-                    className="flex-1 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
-                    style={{ fontSize: '16px' }}
-                  >
-                    {CONTEXT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Select value={timerContext} onValueChange={setTimerContext}>
+                    <SelectTrigger className="flex-1 rounded-lg px-3.5 py-2.5 text-sm" style={{ fontSize: '16px' }}>
+                      <SelectValue placeholder="Context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTEXT_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <button
                     onClick={startTimer}
                     className="flex-1 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"

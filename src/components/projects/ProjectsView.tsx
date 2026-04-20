@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckSquare, Clock3, FileText, FolderOpen, Plus, Timer } from 'lucide-react'
 import { cn, PROJECT_COLORS } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 import AIContextButton from '@/components/ai/AIContextButton'
@@ -72,12 +73,11 @@ export default function ProjectsView() {
     fetchProjects()
   }
 
-  async function updateStatus(event: React.ChangeEvent<HTMLSelectElement>, id: number) {
-    event.stopPropagation()
+  async function updateStatus(value: string, id: number) {
     await fetch(`/api/projects/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: event.target.value }),
+      body: JSON.stringify({ status: value }),
     })
     fetchProjects()
   }
@@ -265,18 +265,18 @@ export default function ProjectsView() {
                       </div>
 
                       <div className="mt-5 flex items-center justify-between gap-3">
-                        <select
-                          value={project.status}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => updateStatus(event, project.id)}
-                          className="rounded-full border border-outline-variant bg-white px-3 py-1.5 text-xs font-medium text-on-surface outline-none"
-                        >
-                          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={project.status} onValueChange={(value) => updateStatus(value, project.id)}>
+                          <SelectTrigger onClick={(event) => event.stopPropagation()} className="w-[120px] rounded-full px-3 py-1.5 text-xs font-medium shadow-none">
+                            <SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <span className="text-xs text-on-surface-variant">Open werkruimte</span>
                       </div>
                     </button>

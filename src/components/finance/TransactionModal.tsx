@@ -5,6 +5,7 @@ import { X, Save, Trash2, Calendar, Tag, CreditCard, AlignLeft, Info } from 'luc
 import { cn, formatCurrency } from '@/lib/utils'
 import AIActionButton from '@/components/ai/AIActionButton'
 import ContextInput from '@/components/ai/ContextInput'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 
 interface TransactionModalProps {
   isOpen: boolean
@@ -207,13 +208,14 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Categorie</label>
-              <select
-                value={form.category}
-                onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all appearance-none"
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Select value={form.category} onValueChange={value => setForm(p => ({ ...p, category: value }))}>
+                <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50 px-4 py-2.5 text-sm focus:ring-pink-100">
+                  <SelectValue placeholder="Categorie" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -250,13 +252,14 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Status</label>
-                <select
-                  value={form.status}
-                  onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-                  className="w-full bg-gray-50/50 border border-gray-100 rounded-2xl px-4 py-2 text-xs focus:outline-none transition-all appearance-none"
-                >
-                  {['betaald', 'concept', 'verstuurd', 'verlopen', 'geannuleerd'].map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <Select value={form.status} onValueChange={value => setForm(p => ({ ...p, status: value }))}>
+                  <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50/50 px-4 py-2 text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['betaald', 'concept', 'verstuurd', 'verlopen', 'geannuleerd'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
@@ -30,6 +30,7 @@ import {
 } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import { cn, formatCurrency } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, MetricTile, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import TransactionModal from './TransactionModal'
@@ -130,9 +131,9 @@ const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven'] as const
 const ACCOUNT_FILTERS = ['Alle rekeningen', 'Prive', 'Zakelijk', 'Spaar Prive', 'Spaar Zakelijk'] as const
 const ACCOUNT_VALUES: Record<string, string | null> = {
   'Alle rekeningen': null,
-  Prive: 'privé',
+  Prive: 'privÃ©',
   Zakelijk: 'zakelijk',
-  'Spaar Prive': 'spaar-privé',
+  'Spaar Prive': 'spaar-privÃ©',
   'Spaar Zakelijk': 'spaar-zakelijk',
 }
 const CATEGORY_OPTIONS = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding', 'buffer', 'btw', 'sparen']
@@ -144,8 +145,8 @@ const CONFIDENCE_TEXT: Record<'high' | 'medium' | 'low', string> = {
 }
 
 function accountLabel(account: string) {
-  if (account === 'privé') return 'Prive'
-  if (account === 'spaar-privé') return 'Spaar Prive'
+  if (account === 'privÃ©') return 'Prive'
+  if (account === 'spaar-privÃ©') return 'Spaar Prive'
   if (account === 'spaar-zakelijk') return 'Spaar Zakelijk'
   if (account === 'zakelijk') return 'Zakelijk'
   return account
@@ -184,10 +185,10 @@ export default function FinanceView() {
     amount: '',
     due_date: '',
     category: 'overig',
-    account: 'privé',
+    account: 'privÃ©',
   })
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null)
-  const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
+  const [adjustForm, setAdjustForm] = useState({ account: 'privÃ©', actual_balance: '' })
 
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
@@ -197,7 +198,7 @@ export default function FinanceView() {
   const [importMethod, setImportMethod] = useState<'csv' | 'ai'>('csv')
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importText, setImportText] = useState('')
-  const [importAccount, setImportAccount] = useState('privé')
+  const [importAccount, setImportAccount] = useState('privÃ©')
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; total: number } | null>(null)
@@ -287,7 +288,7 @@ export default function FinanceView() {
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
 
-    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
     setEditingItem(null)
     setShowAdd(false)
     fetchData()
@@ -337,7 +338,7 @@ export default function FinanceView() {
         balance: parseFloat(adjustForm.actual_balance),
       }),
     })
-    setAdjustForm({ account: 'privé', actual_balance: '' })
+    setAdjustForm({ account: 'privÃ©', actual_balance: '' })
     setShowAdjust(false)
     fetchData()
   }
@@ -532,7 +533,7 @@ export default function FinanceView() {
               onClick={() => {
                 setShowAdd((value) => !value)
                 setEditingItem(null)
-                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
+                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
                 setShowImport(false)
                 setShowAdjust(false)
               }}
@@ -576,41 +577,47 @@ export default function FinanceView() {
                     placeholder="Bedrag"
                     className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                   />
-                  <select
+                  <Select
                     value={form.type}
-                    onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as 'inkomst' | 'uitgave' }))}
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
+                    onValueChange={(value) => setForm((current) => ({ ...current, type: value as 'inkomst' | 'uitgave' }))}
                   >
-                    <option value="uitgave">Uitgave</option>
-                    <option value="inkomst">Inkomst</option>
-                  </select>
+                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="uitgave">Uitgave</SelectItem>
+                      <SelectItem value="inkomst">Inkomst</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <input
                     type="date"
                     value={form.due_date}
                     onChange={(event) => setForm((current) => ({ ...current, due_date: event.target.value }))}
                     className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
                   />
-                  <select
-                    value={form.category}
-                    onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
-                  >
-                    {CATEGORY_OPTIONS.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={form.account}
-                    onChange={(event) => setForm((current) => ({ ...current, account: event.target.value }))}
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
-                  >
-                    <option value="privé">Prive</option>
-                    <option value="zakelijk">Zakelijk</option>
-                    <option value="spaar-privé">Spaar Prive</option>
-                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
-                  </select>
+                  <Select value={form.category} onValueChange={(value) => setForm((current) => ({ ...current, category: value }))}>
+                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                      <SelectValue placeholder="Categorie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_OPTIONS.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={form.account} onValueChange={(value) => setForm((current) => ({ ...current, account: value }))}>
+                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                      <SelectValue placeholder="Rekening" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="priv?">Prive</SelectItem>
+                      <SelectItem value="zakelijk">Zakelijk</SelectItem>
+                      <SelectItem value="spaar-priv?">Spaar Prive</SelectItem>
+                      <SelectItem value="spaar-zakelijk">Spaar Zakelijk</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -654,16 +661,17 @@ export default function FinanceView() {
                   >
                     AI parse
                   </button>
-                  <select
-                    value={importAccount}
-                    onChange={(event) => setImportAccount(event.target.value)}
-                    className="rounded-full border border-outline-variant bg-white px-3.5 py-1.5 text-xs font-medium text-on-surface outline-none"
-                  >
-                    <option value="privé">Prive</option>
-                    <option value="zakelijk">Zakelijk</option>
-                    <option value="spaar-privé">Spaar Prive</option>
-                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
-                  </select>
+                  <Select value={importAccount} onValueChange={setImportAccount}>
+                    <SelectTrigger className="w-[170px] rounded-full px-3.5 py-1.5 text-xs font-medium">
+                      <SelectValue placeholder="Rekening" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="priv?">Prive</SelectItem>
+                      <SelectItem value="zakelijk">Zakelijk</SelectItem>
+                      <SelectItem value="spaar-priv?">Spaar Prive</SelectItem>
+                      <SelectItem value="spaar-zakelijk">Spaar Zakelijk</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="mt-5 space-y-3">
@@ -749,16 +757,17 @@ export default function FinanceView() {
                 />
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <select
-                    value={adjustForm.account}
-                    onChange={(event) => setAdjustForm((current) => ({ ...current, account: event.target.value }))}
-                    className="rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none"
-                  >
-                    <option value="privé">Prive</option>
-                    <option value="zakelijk">Zakelijk</option>
-                    <option value="spaar-privé">Spaar Prive</option>
-                    <option value="spaar-zakelijk">Spaar Zakelijk</option>
-                  </select>
+                  <Select value={adjustForm.account} onValueChange={(value) => setAdjustForm((current) => ({ ...current, account: value }))}>
+                    <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">
+                      <SelectValue placeholder="Rekening" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="priv?">Prive</SelectItem>
+                      <SelectItem value="zakelijk">Zakelijk</SelectItem>
+                      <SelectItem value="spaar-priv?">Spaar Prive</SelectItem>
+                      <SelectItem value="spaar-zakelijk">Spaar Zakelijk</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <input
                     type="number"
                     value={adjustForm.actual_balance}
@@ -1026,7 +1035,7 @@ export default function FinanceView() {
 
               <div className="mt-4">
                 {[
-                  { account: 'privé', calc: stats?.total_balance_prive || 0 },
+                  { account: 'privÃ©', calc: stats?.total_balance_prive || 0 },
                   { account: 'zakelijk', calc: stats?.total_balance_zakelijk || 0 },
                 ].map((entry, index) => {
                   const actual = balances.find((balance) => balance.account === entry.account)
@@ -1144,3 +1153,4 @@ export default function FinanceView() {
     </>
   )
 }
+

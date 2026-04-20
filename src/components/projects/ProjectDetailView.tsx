@@ -8,6 +8,7 @@ import {
   CheckCircle2, AlertCircle, Timer, BarChart2, RefreshCw,
 } from 'lucide-react'
 import { cn, PROJECT_COLORS } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 
 const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
 
@@ -161,9 +162,14 @@ export default function ProjectDetailView({ projectId }: { projectId: number }) 
           )}
           {project.description && <p className="text-xs text-gray-400 truncate">{project.description}</p>}
         </div>
-        <select value={project.status} onChange={e => updateStatus(e.target.value)} className={cn('text-[10px] px-2.5 py-1.5 rounded-xl border-0 outline-none cursor-pointer font-semibold', { actief: 'text-emerald-600 bg-emerald-50', 'on-hold': 'text-amber-600 bg-amber-50', afgerond: 'text-gray-400 bg-gray-100' }[project.status])}>
-          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+        <Select value={project.status} onValueChange={updateStatus}>
+          <SelectTrigger className={cn('w-[120px] rounded-xl border-0 px-2.5 py-1.5 text-[10px] font-semibold shadow-none', { actief: 'text-emerald-600 bg-emerald-50', 'on-hold': 'text-amber-600 bg-amber-50', afgerond: 'text-gray-400 bg-gray-100' }[project.status])}>
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 pb-10">

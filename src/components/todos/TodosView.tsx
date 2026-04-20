@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { cn, formatDate, isOverdue } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { PriorityDot } from '@/components/ui/card'
@@ -220,26 +221,28 @@ export default function TodosView() {
                   placeholder="Wat moet er gebeuren?"
                   className="md:col-span-2 xl:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
-                <select
-                  value={newTodo.priority}
-                  onChange={(event) => setNewTodo((current) => ({ ...current, priority: event.target.value }))}
-                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
-                >
-                  <option value="hoog">Hoog</option>
-                  <option value="medium">Medium</option>
-                  <option value="laag">Laag</option>
-                </select>
-                <select
-                  value={newTodo.category}
-                  onChange={(event) => setNewTodo((current) => ({ ...current, category: event.target.value }))}
-                  className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none"
-                >
-                  {CATEGORIES.filter((item) => item !== 'alles').map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                <Select value={newTodo.priority} onValueChange={(value) => setNewTodo((current) => ({ ...current, priority: value }))}>
+                  <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
+                    <SelectValue placeholder="Prioriteit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hoog">Hoog</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="laag">Laag</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={newTodo.category} onValueChange={(value) => setNewTodo((current) => ({ ...current, category: value }))}>
+                  <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
+                    <SelectValue placeholder="Categorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.filter((item) => item !== 'alles').map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <input
                   type="date"
                   value={newTodo.due_date}

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Brain, Lightbulb, Sparkles, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { EditableChip } from '@/components/ui/editable-chip'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -248,10 +250,10 @@ function IdeaDetail({
               </span>
               <ActionPill>Score {idea.score}/100</ActionPill>
             </div>
-            <input
-              value={idea.title}
-              onChange={(e) => onUpdate(idea.id, { title: e.target.value })}
-              className="w-full bg-transparent text-xl font-extrabold text-on-surface outline-none"
+            <EditableChip
+              defaultLabel={idea.title}
+              onChange={(value) => onUpdate(idea.id, { title: value })}
+              className="max-w-full"
             />
           </div>
           <button
@@ -310,15 +312,19 @@ function IdeaDetail({
 
         <div className="space-y-3">
           <FieldPanel title="Status">
-            <select
+            <Select
               value={idea.status}
-              onChange={(e) => onUpdate(idea.id, { status: e.target.value as Idea['status'] })}
-              className="w-full rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-2 text-sm text-on-surface outline-none"
+              onValueChange={(value) => onUpdate(idea.id, { status: value as Idea['status'] })}
             >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>{STATUS_LABELS[status]}</option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full rounded-lg bg-surface-container-low px-3.5 py-2 text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status} value={status}>{STATUS_LABELS[status]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FieldPanel>
 
           <FieldPanel title="Tags">

@@ -332,6 +332,28 @@ h6 {
   color: var(--text-primary);
 }
 
+.ai-prompt-box textarea {
+  scrollbar-width: thin;
+  scrollbar-color: #444444 transparent;
+}
+
+.ai-prompt-box textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-prompt-box textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-prompt-box textarea::-webkit-scrollbar-thumb {
+  background-color: #444444;
+  border-radius: 999px;
+}
+
+.ai-prompt-box textarea::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
 .tiptap {
   min-height: 180px;
   color: var(--text-primary);
