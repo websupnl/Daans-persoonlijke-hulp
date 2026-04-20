@@ -634,188 +634,6 @@ export default function FinanceView() {
                 <TabsTrigger value="analyse" disabled={!analyseResult}>Analyse</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="transactions" className="mt-0 space-y-4">
-                <Panel tone="muted">
-                  <PanelHeader
-                    eyebrow="Filters"
-                    title="Breng ruis terug"
-                    description="Financien worden pas bruikbaar als je snel kunt inzoomen op periode, rekening en type."
-                    action={
-                      <button
-                        onClick={() => setShowAdjust(true)}
-                        className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-white px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-low"
-                      >
-                        <RefreshCw size={12} />
-                        Kasverschil
-                      </button>
-                    }
-                  />
-
-                  <div className="mt-5 space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {TYPE_FILTERS.map((item) => (
-                        <button
-                          key={item}
-                          onClick={() => setTypeFilter(item)}
-                          className={cn('rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors', typeFilter === item ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {ACCOUNT_FILTERS.map((item) => (
-                        <button
-                          key={item}
-                          onClick={() => setAccountFilter(item)}
-                          className={cn('rounded-full border border-outline-variant px-3 py-1.5 text-xs font-medium transition-colors', accountFilter === item ? 'bg-surface-container-high text-on-surface' : 'bg-white text-on-surface-variant hover:bg-surface-container-low')}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </Panel>
-
-                <Panel>
-                  {loading ? (
-                    <div className="space-y-3">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-low" />
-                      ))}
-                    </div>
-                  ) : items.length === 0 ? (
-                    <EmptyPanel
-                      title="Geen transacties"
-                      description={`Je hebt nog geen transacties voor ${periodLabel(viewMode, currentDate)}.`}
-                      action={
-                        <button
-                          onClick={() => setShowAdd(true)}
-                          className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
-                        >
-                          Nieuwe toevoegen
-                        </button>
-                      }
-                    />
-                  ) : (
-                    <>
-                      <div className="space-y-2 lg:hidden">
-                        {items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => setSelectedTransaction(item)}
-                            className="group flex w-full items-center justify-between gap-4 rounded-xl border border-outline-variant bg-white p-4 text-left transition-colors hover:border-accent/30"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-on-surface">{item.title}</p>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-on-surface-variant">
-                                <span className="rounded-full bg-surface-container px-2 py-0.5">{accountLabel(item.account)}</span>
-                                <span>{item.category}</span>
-                                <span>{item.contact_name || item.status}</span>
-                                <span>{item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}</span>
-                              </div>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
-                                {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
-                              </p>
-                              <div className="mt-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <MoreHorizontal size={13} />
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent className="min-w-[12rem] rounded-2xl bg-white">
-                                    <DropdownMenuItem onSelect={() => copyItem(item)}>
-                                      <Copy size={13} />
-                                      <span>Kopie maken</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setEditingItem(item)}>
-                                      <Plus size={13} className="rotate-45" />
-                                      <span>Bewerken</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-[#a55a2c]" onSelect={() => deleteItem(item.id)}>
-                                      <Trash2 size={13} />
-                                      <span>Verwijderen</span>
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="mt-2 hidden lg:block" data-slot="frame">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Datum</TableHead>
-                              <TableHead>Omschrijving</TableHead>
-                              <TableHead>Rekening</TableHead>
-                              <TableHead>Categorie</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Bedrag</TableHead>
-                              <TableHead className="text-right">Acties</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {items.map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell className="text-on-surface-variant">
-                                  {item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  <button onClick={() => setSelectedTransaction(item)} className="max-w-[240px] truncate text-left text-on-surface hover:text-accent">
-                                    {item.title}
-                                  </button>
-                                </TableCell>
-                                <TableCell>{accountLabel(item.account)}</TableCell>
-                                <TableCell>{item.category}</TableCell>
-                                <TableCell className="text-on-surface-variant">{item.contact_name || item.status}</TableCell>
-                                <TableCell className={cn('text-right font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
-                                  {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface">
-                                        <MoreHorizontal size={13} />
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent className="min-w-[12rem] rounded-2xl bg-white">
-                                        <DropdownMenuItem onSelect={() => copyItem(item)}>
-                                          <Copy size={13} />
-                                          <span>Kopie maken</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setEditingItem(item)}>
-                                          <Plus size={13} className="rotate-45" />
-                                          <span>Bewerken</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-[#a55a2c]" onSelect={() => deleteItem(item.id)}>
-                                          <Trash2 size={13} />
-                                          <span>Verwijderen</span>
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </>
-                  )}
-                </Panel>
-              </TabsContent>
-
               <TabsContent value="add" className="mt-0 space-y-4">
                 <Panel tone="accent">
                   <PanelHeader
@@ -1007,9 +825,9 @@ export default function FinanceView() {
                   )}
                 </div>
               </Panel>
-            )}
+            </TabsContent>
 
-            {showAdjust && (
+            <TabsContent value="adjust" className="mt-0 space-y-4">
               <Panel tone="accent">
                 <PanelHeader
                   eyebrow="Kasverschil"
@@ -1053,8 +871,9 @@ export default function FinanceView() {
                   </button>
                 </div>
               </Panel>
-            )}
+            </TabsContent>
 
+            <TabsContent value="transactions" className="mt-0 space-y-4">
             <Panel tone="muted">
               <PanelHeader
                 eyebrow="Filters"
@@ -1240,9 +1059,11 @@ export default function FinanceView() {
                 </>
               )}
             </Panel>
+            </TabsContent>
 
-            {analyseResult && (
-              <Panel>
+            <TabsContent value="analyse" className="mt-0 space-y-4">
+              {analyseResult && (
+                <Panel>
                 <PanelHeader
                   eyebrow="Analyse"
                   title="AI financieel beeld"
@@ -1323,7 +1144,9 @@ export default function FinanceView() {
                   )}
                 </div>
               </Panel>
-            )}
+              )}
+            </TabsContent>
+          </Tabs>
           </div>
 
           <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">

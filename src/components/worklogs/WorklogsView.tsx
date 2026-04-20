@@ -391,7 +391,9 @@ export default function WorklogsView() {
 
     setForm({
       title: selectedLog.title,
-      duration_minutes: String(selectedLog.actual_duration_minutes || selectedLog.duration_minutes || ''),
+      date: selectedLog.date,
+      start_time: '',
+      end_time: '',
       context: selectedLog.context,
       description: selectedLog.description ?? '',
     })
