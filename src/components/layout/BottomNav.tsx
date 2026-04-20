@@ -29,7 +29,7 @@ export default function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 min-w-[52px] rounded-lg px-2 py-1.5 transition-all duration-150',
+                'relative flex flex-col items-center justify-center gap-1 min-w-[52px] rounded-lg px-2 py-1.5 transition-all duration-150',
                 active ? 'text-accent' : 'text-on-surface-variant'
               )}
             >

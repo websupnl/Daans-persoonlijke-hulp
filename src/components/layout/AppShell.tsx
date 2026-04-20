@@ -18,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className={[
         'min-h-dvh min-w-0',
-        'pb-[72px] md:pb-0',
+        'pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0',
         'md:ml-[var(--sidebar-width)]',
       ].join(' ')}>
         <div className="min-h-dvh">
