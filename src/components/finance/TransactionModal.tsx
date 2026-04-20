@@ -6,6 +6,7 @@ import { cn, formatCurrency } from '@/lib/utils'
 import AIActionButton from '@/components/ai/AIActionButton'
 import ContextInput from '@/components/ai/ContextInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 
 interface TransactionModalProps {
   isOpen: boolean
@@ -223,12 +224,12 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Persoonlijke Notitie</label>
             <div className="relative">
-              <textarea
+              <Textarea
                 value={form.user_notes}
                 onChange={e => setForm(p => ({ ...p, user_notes: e.target.value }))}
                 placeholder="Bijv: 'Lekkere lunch met Jan', 'Vliegticket vakantie'..."
                 rows={2}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all resize-none"
+                className="w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm focus-visible:ring-2 focus-visible:ring-pink-100"
               />
               <AlignLeft size={14} className="absolute right-4 top-4 text-gray-300 pointer-events-none" />
             </div>

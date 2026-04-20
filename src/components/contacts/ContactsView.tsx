@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, Mail, Phone, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -276,11 +277,11 @@ function ContactDetail({ detail }: { detail: Record<string, unknown> }) {
             {saving ? 'Opslaan...' : 'Opslaan'}
           </button>
         </div>
-        <textarea
+        <Textarea
           value={notesText}
           onChange={(e) => setNotesText(e.target.value)}
           placeholder="Voeg hier belangrijke details toe..."
-          className="mt-3 min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+          className="mt-3 min-h-[100px] resize-none rounded-lg border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface placeholder:text-on-surface-variant"
         />
       </Panel>
 

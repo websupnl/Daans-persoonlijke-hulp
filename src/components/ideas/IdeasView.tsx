@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
 import { EditableChip } from '@/components/ui/editable-chip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -126,11 +127,11 @@ export default function IdeasView() {
               title="Drop een idee"
               description="AI analyseert en scoort je idee automatisch."
             />
-            <textarea
+            <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Bijv: lokale leadmachine voor thuisbatterijen met offerteflow + AI opvolging..."
-              className="mt-4 min-h-[140px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+              className="mt-4 min-h-[140px] resize-none rounded-lg border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface placeholder:text-on-surface-variant"
             />
             <div className="mt-3">
               <button
@@ -269,26 +270,26 @@ function IdeaDetail({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
         <div className="space-y-3">
           <FieldPanel title="Ruwe input">
-            <textarea
+            <Textarea
               value={idea.raw_input}
               onChange={(e) => onUpdate(idea.id, { raw_input: e.target.value })}
-              className="min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[100px] resize-none rounded-lg border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface"
             />
           </FieldPanel>
 
           <FieldPanel title="AI-samenvatting">
-            <textarea
+            <Textarea
               value={idea.refined_summary || ''}
               onChange={(e) => onUpdate(idea.id, { refined_summary: e.target.value })}
-              className="min-h-[120px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[120px] resize-none rounded-lg border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface"
             />
           </FieldPanel>
 
           <FieldPanel title="Marktgat / oordeel">
-            <textarea
+            <Textarea
               value={idea.market_gap || ''}
               onChange={(e) => onUpdate(idea.id, { market_gap: e.target.value })}
-              className="min-h-[100px] w-full resize-none rounded-lg border border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface outline-none"
+              className="min-h-[100px] resize-none rounded-lg border-outline-variant bg-surface-container-low px-3.5 py-3 text-sm leading-6 text-on-surface"
             />
           </FieldPanel>
 

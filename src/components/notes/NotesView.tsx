@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, FileText, Pin, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, FileText, MoreHorizontal, Pin, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
 import { cn, formatRelative } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
-import AIContextButton from '@/components/ai/AIContextButton'
+import AIContextPanel from '@/components/ai/AIContextPanel'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/material-ui-dropdown-menu'
+import { Textarea } from '@/components/ui/interfaces-textarea'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 
 interface Note {
   id: number
@@ -72,9 +82,7 @@ export default function NotesView() {
     setSavingQuick(false)
   }
 
-  async function deleteNote(id: number, event: React.MouseEvent) {
-    event.preventDefault()
-    event.stopPropagation()
+  async function deleteNote(id: number) {
     await fetch(`/api/notes/${id}`, { method: 'DELETE' })
     setNotes((previous) => previous.filter((note) => note.id !== id))
   }
@@ -82,11 +90,46 @@ export default function NotesView() {
   const pinned = notes.filter((note) => note.pinned)
   const regular = notes.filter((note) => !note.pinned)
   const recent = notes.slice(0, 6)
+  const searchActions = useMemo<Action[]>(
+    () => [
+      {
+        id: 'command:new-note',
+        label: 'Nieuwe note',
+        icon: <Plus className="h-4 w-4 text-emerald-500" />,
+        description: 'Maak direct een lege notitie',
+        end: 'Command',
+      },
+      ...notes.slice(0, 12).map((note) => ({
+        id: `note:${note.id}`,
+        label: note.title,
+        icon: <FileText className="h-4 w-4 text-blue-500" />,
+        description: note.content_text?.slice(0, 60) || 'Open notitie',
+        end: note.pinned ? 'Pinned' : 'Note',
+      })),
+    ],
+    [notes]
+  )
 
   return (
     <PageShell
       title="Notities"
       subtitle={`${notes.length} notities.`}
+      desktopSearch={
+        <ActionSearchBar
+          actions={searchActions}
+          label="Zoek notities"
+          placeholder="Zoek note of actie..."
+          onActionSelect={(action) => {
+            if (action.id === 'command:new-note') {
+              createNote()
+              return
+            }
+            if (action.id.startsWith('note:')) {
+              router.push(`/notes/${action.id.split(':')[1]}`)
+            }
+          }}
+        />
+      }
       actions={
         <button
           onClick={() => createNote()}
@@ -113,11 +156,11 @@ export default function NotesView() {
               description="Eerst vastleggen, later uitwerken."
             />
 
-            <textarea
+            <Textarea
               value={quickNote}
               onChange={(event) => setQuickNote(event.target.value)}
               placeholder="Dump hier snel een idee, call note, losse gedachte of projectinzicht..."
-              className="mt-5 min-h-[180px] w-full resize-none rounded-xl border border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+              className="mt-5 min-h-[180px] resize-none rounded-xl border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
             />
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -216,10 +259,28 @@ export default function NotesView() {
                     description="Belangrijke notities bovenaan."
                   />
 
-                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
                     {pinned.map((note) => (
                       <NoteCard key={note.id} note={note} onDelete={deleteNote} />
                     ))}
+                  </div>
+
+                  <div className="mt-5 hidden lg:block" data-slot="frame">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Titel</TableHead>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Bijgewerkt</TableHead>
+                          <TableHead className="text-right">Acties</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pinned.map((note) => (
+                          <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 </Panel>
               )}
@@ -231,14 +292,33 @@ export default function NotesView() {
                   description="Kaarten mogen helpen scannen, maar moeten informatie dragen in plaats van alleen mooi te ogen."
                 />
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {regular.map((note) => (
-                    <NoteCard key={note.id} note={note} onDelete={deleteNote} />
-                  ))}
-                </div>
-              </Panel>
-            </>
-          )}
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
+                    {regular.map((note) => (
+                      <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                    ))}
+                  </div>
+
+                  <div className="mt-5 hidden lg:block" data-slot="frame">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Titel</TableHead>
+                          <TableHead>Snippet</TableHead>
+                          <TableHead>Tags</TableHead>
+                          <TableHead>Bijgewerkt</TableHead>
+                          <TableHead className="text-right">Acties</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {regular.map((note) => (
+                          <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Panel>
+              </>
+            )}
         </div>
       </div>
     </PageShell>
@@ -250,9 +330,10 @@ function NoteCard({
   onDelete,
 }: {
   note: Note
-  onDelete: (id: number, event: React.MouseEvent) => void
+  onDelete: (id: number) => void
 }) {
   const router = useRouter()
+  const [aiOpen, setAiOpen] = useState(false)
 
   return (
     <div
@@ -269,14 +350,26 @@ function NoteCard({
         <h3 className="line-clamp-2 pr-6 text-sm font-semibold leading-6 text-on-surface">
           {note.title}
         </h3>
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100" onClick={(event) => event.stopPropagation()}>
-          <AIContextButton type="note" title={note.title} content={note.content_text?.slice(0, 200)} id={note.id} />
-          <button
-            onClick={(event) => onDelete(note.id, event)}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
-          >
-            <Trash2 size={13} />
-          </button>
+        <div className="opacity-0 transition-opacity group-hover:opacity-100" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface">
+              <MoreHorizontal size={14} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="min-w-[12rem] rounded-2xl bg-white">
+              <DropdownMenuItem onSelect={() => setAiOpen(true)}>
+                <Sparkles size={13} />
+                <span>AI context</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-[#a55a2c]"
+                onSelect={() => onDelete(note.id)}
+              >
+                <Trash2 size={13} />
+                <span>Verwijderen</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -304,6 +397,74 @@ function NoteCard({
           </span>
         )}
       </div>
+      {aiOpen && (
+        <AIContextPanel
+          type="note"
+          title={note.title}
+          content={note.content_text?.slice(0, 200)}
+          id={note.id}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
     </div>
+  )
+}
+
+function NoteTableRow({
+  note,
+  onDelete,
+}: {
+  note: Note
+  onDelete: (id: number) => void
+}) {
+  const router = useRouter()
+  const [aiOpen, setAiOpen] = useState(false)
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        <button onClick={() => router.push(`/notes/${note.id}`)} className="max-w-[220px] truncate text-left text-on-surface hover:text-accent">
+          {note.title}
+        </button>
+      </TableCell>
+      <TableCell className="max-w-[220px] truncate text-on-surface-variant">
+        {note.project_title || note.content_text?.trim() || 'Lege note'}
+      </TableCell>
+      <TableCell>
+        <div className="flex max-w-[220px] flex-wrap gap-1">
+          {note.tags.length > 0 ? note.tags.slice(0, 3).map((tag) => (
+            <ActionPill key={tag}>{tag}</ActionPill>
+          )) : (
+            <span className="text-xs text-on-surface-variant">Geen tags</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-on-surface-variant">{formatRelative(note.updated_at)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+          >
+            <Sparkles size={13} />
+          </button>
+          <button
+            onClick={() => onDelete(note.id)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+        {aiOpen && (
+          <AIContextPanel
+            type="note"
+            title={note.title}
+            content={note.content_text?.slice(0, 200)}
+            id={note.id}
+            onClose={() => setAiOpen(false)}
+          />
+        )}
+      </TableCell>
+    </TableRow>
   )
 }

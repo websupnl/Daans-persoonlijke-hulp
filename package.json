@@ -13,8 +13,10 @@
     "test:unit": "node --import tsx --test src/lib/chat/tests/**/*.test.ts src/lib/finance/tests/**/*.test.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tiptap/extension-placeholder": "^2.5.0",

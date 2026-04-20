@@ -5,20 +5,24 @@ interface PageShellProps {
   title: string
   subtitle?: string
   actions?: ReactNode
+  desktopSearch?: ReactNode
   children: ReactNode
   className?: string
   compact?: boolean
 }
 
-export default function PageShell({ title, subtitle, actions, children, className, compact }: PageShellProps) {
+export default function PageShell({ title, subtitle, actions, desktopSearch, children, className, compact }: PageShellProps) {
   return (
     <div className={cn('mx-auto w-full max-w-content px-4 sm:px-6 lg:px-6', compact ? 'py-5' : 'py-6 sm:py-6', className)}>
-      <div className="page-shell-header sticky top-0 z-10 -mx-4 mb-6 flex flex-col gap-3 px-4 pb-4 pt-5 sm:-mx-6 sm:px-6 lg:px-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{title}</h1>
-          {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">{subtitle}</p>}
+      <div className="page-shell-header sticky top-0 z-10 -mx-4 mb-6 px-4 pb-4 pt-5 sm:-mx-6 sm:px-6 lg:px-6">
+        <div className={cn(desktopSearch ? 'flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)_auto] lg:items-start lg:gap-4' : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between')}>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{title}</h1>
+            {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">{subtitle}</p>}
+          </div>
+          {desktopSearch && <div className="hidden lg:block">{desktopSearch}</div>}
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
       <div className="space-y-4">{children}</div>

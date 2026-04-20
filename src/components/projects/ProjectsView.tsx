@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CheckSquare, Clock3, FileText, FolderOpen, Plus, Timer } from 'lucide-react'
 import { cn, PROJECT_COLORS } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 import AIContextButton from '@/components/ai/AIContextButton'
@@ -149,11 +150,11 @@ export default function ProjectsView() {
                   placeholder="Projectnaam"
                   className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
-                <textarea
+                <Textarea
                   value={form.description}
                   onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                   placeholder="Korte beschrijving"
-                  className="min-h-[120px] w-full resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="min-h-[120px] resize-none rounded-2xl border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
                 />
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Kleur</p>

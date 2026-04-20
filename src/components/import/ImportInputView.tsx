@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, FileText, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 
 type Step = 'input' | 'analyzing' | 'done'
 
@@ -183,12 +184,12 @@ export default function ImportInputView() {
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        <textarea
+        <Textarea
           value={text}
           onChange={e => { setText(e.target.value); setFile(null) }}
           placeholder="Plak hier een stuk tekst, dagboeknotitie, gesprekslog of dump..."
           rows={10}
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+          className="resize-none rounded-xl border-gray-200 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-blue-500"
         />
 
         <button

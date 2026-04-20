@@ -6,6 +6,7 @@ import { nl } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Smile, Zap, Plus, X, Sparkles, Send, LineChart, Lightbulb, BarChart3, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Panel, PanelHeader } from '@/components/ui/Panel'
 
@@ -329,14 +330,14 @@ export default function JournalView() {
               <div className="space-y-5">
                 <Panel>
                   <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Hoe was je dag?</p>
-                  <textarea
+                  <Textarea
                     value={entry.content}
                     onChange={(e) => {
                       setEntry((prev) => prev ? { ...prev, content: e.target.value } : prev)
                       debouncedSave({ content: e.target.value })
                     }}
                     placeholder="Schrijf rauw op wat er gebeurde, wat je dacht en wat opviel."
-                    className="min-h-[220px] w-full resize-none bg-transparent text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="min-h-[220px] resize-none border-0 bg-transparent px-0 py-0 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant shadow-none focus-visible:ring-0"
                   />
                   {saving && <p className="text-right text-[10px] text-on-surface-variant">Opslaan...</p>}
                 </Panel>
@@ -349,12 +350,12 @@ export default function JournalView() {
                     </div>
                     <p className="mb-3 text-sm leading-7 text-on-surface-variant">{aiQuestion}</p>
                     <div className="flex gap-2">
-                      <textarea
+                      <Textarea
                         value={aiAnswer}
                         onChange={(e) => setAiAnswer(e.target.value)}
                         placeholder="Jouw antwoord..."
                         rows={3}
-                        className="flex-1 resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                        className="flex-1 resize-none rounded-2xl border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
                       />
                       <div className="flex flex-col gap-2">
                         <button
@@ -377,14 +378,14 @@ export default function JournalView() {
 
                 <Panel>
                   <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/75">Hoogtepunten en lessen</p>
-                  <textarea
+                  <Textarea
                     value={entry.highlights || ''}
                     onChange={(e) => {
                       setEntry((prev) => prev ? { ...prev, highlights: e.target.value } : prev)
                       debouncedSave({ highlights: e.target.value })
                     }}
                     placeholder="Wat was het beste stuk van vandaag? Wat neem je mee naar morgen?"
-                    className="min-h-[120px] w-full resize-none bg-transparent text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                    className="min-h-[120px] resize-none border-0 bg-transparent px-0 py-0 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant shadow-none focus-visible:ring-0"
                   />
                 </Panel>
               </div>

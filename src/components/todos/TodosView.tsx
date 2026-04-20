@@ -17,6 +17,8 @@ import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { PriorityDot } from '@/components/ui/card'
 import AIContextButton from '@/components/ai/AIContextButton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 
 interface Todo {
   id: number
@@ -156,11 +158,69 @@ export default function TodosView() {
   const nextUp = [...openTodos]
     .sort((left, right) => (left.due_date || '9999').localeCompare(right.due_date || '9999'))
     .slice(0, 5)
+  const searchActions: Action[] = [
+    {
+      id: 'command:new-todo',
+      label: 'Nieuwe todo',
+      icon: <Plus className="h-4 w-4 text-emerald-500" />,
+      description: 'Snel taak toevoegen',
+      end: 'Command',
+    },
+    {
+      id: 'command:list-view',
+      label: 'Lijstweergave',
+      icon: <ListTodo className="h-4 w-4 text-blue-500" />,
+      description: 'Compact overzicht',
+      end: 'View',
+    },
+    {
+      id: 'command:board-view',
+      label: 'Boardweergave',
+      icon: <LayoutGrid className="h-4 w-4 text-violet-500" />,
+      description: 'Pipeline per kolom',
+      end: 'View',
+    },
+    ...todos.slice(0, 10).map((todo) => ({
+      id: `todo:${todo.id}`,
+      label: todo.title,
+      icon: <ListTodo className="h-4 w-4 text-amber-500" />,
+      description: `${todo.category} · ${todo.priority}`,
+      end: todo.completed ? 'Klaar' : 'Open',
+    })),
+  ]
 
   return (
     <PageShell
       title="Todo's"
       subtitle={`${openTodos.length} open taken. Dit scherm moet helpen kiezen wat nu telt, niet alleen een lijst langer maken.`}
+      desktopSearch={
+        <ActionSearchBar
+          actions={searchActions}
+          label="Zoek taken"
+          placeholder="Zoek todo of view..."
+          onActionSelect={(action) => {
+            if (action.id === 'command:new-todo') {
+              setShowAdd(true)
+              return
+            }
+            if (action.id === 'command:list-view') {
+              setViewMode('list')
+              return
+            }
+            if (action.id === 'command:board-view') {
+              setViewMode('board')
+              return
+            }
+            if (action.id.startsWith('todo:')) {
+              const found = todos.find((todo) => todo.id === Number(action.id.split(':')[1]))
+              if (!found) return
+              setViewMode('list')
+              setFilter(found.completed ? 'Afgerond' : 'Alles')
+              setCategory('alles')
+            }
+          }}
+        />
+      }
       actions={
         <>
           <div className="flex rounded-full border border-outline-variant bg-white p-1">
@@ -365,10 +425,82 @@ export default function TodosView() {
                 description="Een goede takenlijst laat in een oogopslag zien wat urgent is, wat context heeft en wat mag wachten."
                 className="px-2 pb-2"
               />
-              <div className="mt-2 space-y-1">
+              <div className="mt-2 space-y-1 lg:hidden">
                 {todos.map((todo) => (
                   <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
                 ))}
+              </div>
+              <div className="mt-2 hidden lg:block" data-slot="frame">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Taak</TableHead>
+                      <TableHead>Prioriteit</TableHead>
+                      <TableHead>Categorie</TableHead>
+                      <TableHead>Datum</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead className="text-right">Acties</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {todos.map((todo) => (
+                      <TableRow key={todo.id} data-state={todo.completed ? 'selected' : undefined}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => toggleTodo(todo.id, todo.completed)}
+                              className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                                todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
+                              )}
+                            >
+                              {todo.completed && <Check size={11} strokeWidth={3} />}
+                            </button>
+                            <span className={cn(todo.completed ? 'line-through text-on-surface-variant' : 'text-on-surface')}>
+                              {todo.title}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <PriorityDot priority={todo.priority} />
+                            <span className="capitalize text-on-surface-variant">{todo.priority}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="capitalize text-on-surface-variant">{todo.category}</TableCell>
+                        <TableCell className={cn(isOverdue(todo.due_date) && !todo.completed ? 'text-[#a55a2c]' : 'text-on-surface-variant')}>
+                          {todo.due_date ? formatDate(todo.due_date) : 'Geen datum'}
+                        </TableCell>
+                        <TableCell>
+                          {todo.project_title ? (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{
+                                background: `${todo.project_color ?? '#5a677b'}18`,
+                                color: todo.project_color ?? '#5a677b',
+                              }}
+                            >
+                              {todo.project_title}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">Geen project</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <AIContextButton type="todo" title={todo.title} id={todo.id} />
+                            <button
+                              onClick={() => deleteTodo(todo.id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </Panel>
           )}

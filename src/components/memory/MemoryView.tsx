@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Brain, Info, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 
@@ -183,11 +184,11 @@ export default function MemoryView() {
                   placeholder="Sleutel, bijvoorbeeld uurtarief of ochtendroutine"
                   className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                 />
-                <textarea
+                <Textarea
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
                   placeholder="Wat moet het systeem hierover onthouden?"
-                  className="min-h-[120px] w-full resize-none rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                  className="min-h-[120px] resize-none rounded-2xl border-outline-variant bg-white px-4 py-3 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
                 />
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="w-full rounded-2xl px-4 py-3 text-sm">

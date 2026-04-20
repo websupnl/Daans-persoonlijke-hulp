@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Check, Plus, Sparkles } from 'lucide-react'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 
@@ -90,11 +91,11 @@ export default function InboxView() {
               title="Snel toevoegen"
             />
             <form onSubmit={handleAdd} className="mt-4 space-y-3">
-              <textarea
+              <Textarea
                 value={newText}
                 onChange={(event) => setNewText(event.target.value)}
                 placeholder="Snel iets vastleggen: idee, follow-up, losse taak, belofte, notitie..."
-                className="min-h-[120px] w-full resize-none rounded-lg border border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="min-h-[120px] resize-none rounded-lg border-outline-variant bg-white px-3.5 py-3 text-sm leading-6 text-on-surface placeholder:text-on-surface-variant"
               />
               <button
                 type="submit"

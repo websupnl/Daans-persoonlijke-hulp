@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 
 interface AgendaEvent {
   id: number
@@ -113,11 +115,64 @@ export default function AgendaView() {
   const weeklyTodoDeadlines = todos.filter((t) => t.due_date)
   const weeklyItems = events.length + weeklyTodoDeadlines.length
   const todayEvents = eventsForDay(new Date()).length
+  const selectedDayRows = [
+    ...selectedEvents.map((event) => ({ kind: 'event' as const, id: `event-${event.id}`, sortKey: event.time ?? '99:99', event })),
+    ...selectedTodos.map((todo) => ({ kind: 'todo' as const, id: `todo-${todo.id}`, sortKey: '99:99', todo })),
+  ].sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+  const searchActions: Action[] = [
+    {
+      id: 'command:new-agenda-item',
+      label: 'Nieuw agenda-item',
+      icon: <Plus className="h-4 w-4 text-emerald-500" />,
+      description: 'Plan iets op deze dag',
+      end: 'Command',
+    },
+    {
+      id: 'command:today',
+      label: 'Ga naar vandaag',
+      icon: <CalendarDays className="h-4 w-4 text-blue-500" />,
+      description: 'Spring naar huidige week',
+      end: 'View',
+    },
+    ...selectedEvents.slice(0, 8).map((event) => ({
+      id: `event:${event.id}`,
+      label: event.title,
+      icon: <CalendarDays className="h-4 w-4 text-violet-500" />,
+      description: `${event.time || 'Hele dag'} · ${(TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen).label}`,
+      end: 'Event',
+    })),
+    ...selectedTodos.slice(0, 8).map((todo) => ({
+      id: `todo:${todo.id}`,
+      label: todo.title,
+      icon: <CheckSquare className="h-4 w-4 text-amber-500" />,
+      description: todo.priority,
+      end: 'Todo',
+    })),
+  ]
 
   return (
     <PageShell
       title="Agenda"
       subtitle={`Week van ${format(weekStart, 'd MMMM', { locale: nl })}.`}
+      desktopSearch={
+        <ActionSearchBar
+          actions={searchActions}
+          label="Zoek dagitems"
+          placeholder="Zoek item of navigeer..."
+          onActionSelect={(action) => {
+            if (action.id === 'command:new-agenda-item') {
+              setForm((current) => ({ ...current, date: format(selectedDay, 'yyyy-MM-dd') }))
+              setShowAdd(true)
+              return
+            }
+            if (action.id === 'command:today') {
+              const today = startOfWeek(new Date(), { weekStartsOn: 1 })
+              setWeekStart(today)
+              setSelectedDay(new Date())
+            }
+          }}
+        />
+      }
       actions={
         <>
           <button
@@ -305,54 +360,108 @@ export default function AgendaView() {
                 />
               ) : (
                 <>
-                  {selectedEvents.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Afspraken</p>
-                      {selectedEvents.map((event, index) => {
-                        const typeConfig = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen
-                        return (
-                          <div key={event.id}>
+                  <div className="space-y-3 lg:hidden">
+                    {selectedEvents.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Afspraken</p>
+                        {selectedEvents.map((event, index) => {
+                          const typeConfig = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen
+                          return (
+                            <div key={event.id}>
+                              {index > 0 && <Divider />}
+                              <div className="flex items-start gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
+                                <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', typeConfig.dot)} />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <p className="text-sm font-semibold text-on-surface">{event.title}</p>
+                                    <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
+                                      {typeConfig.label}
+                                    </span>
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-on-surface-variant">
+                                    {event.time || 'Hele dag'}{event.contact_name ? ` | ${event.contact_name}` : ''}
+                                  </p>
+                                </div>
+                                <button onClick={() => deleteEvent(event.id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {selectedTodos.length > 0 && (
+                      <div className={selectedEvents.length > 0 ? 'mt-3' : ''}>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Taken</p>
+                        {selectedTodos.map((todo, index) => (
+                          <div key={todo.id}>
                             {index > 0 && <Divider />}
-                            <div className="flex items-start gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
-                              <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', typeConfig.dot)} />
+                            <div className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
+                              <CheckSquare size={14} className="shrink-0 text-on-surface-variant" />
                               <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <p className="text-sm font-semibold text-on-surface">{event.title}</p>
+                                <p className="text-sm font-semibold text-on-surface">{todo.title}</p>
+                                <p className="text-xs text-on-surface-variant">{todo.priority}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="hidden lg:block" data-slot="frame">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Titel</TableHead>
+                          <TableHead>Moment</TableHead>
+                          <TableHead>Context</TableHead>
+                          <TableHead className="text-right">Acties</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedDayRows.map((row) => {
+                          if (row.kind === 'event') {
+                            const typeConfig = TYPE_CONFIG[row.event.type] ?? TYPE_CONFIG.algemeen
+                            return (
+                              <TableRow key={row.id}>
+                                <TableCell>
                                   <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
                                     {typeConfig.label}
                                   </span>
-                                </div>
-                                <p className="mt-0.5 text-xs text-on-surface-variant">
-                                  {event.time || 'Hele dag'}{event.contact_name ? ` | ${event.contact_name}` : ''}
-                                </p>
-                              </div>
-                              <button onClick={() => deleteEvent(event.id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500">
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                                </TableCell>
+                                <TableCell className="font-medium">{row.event.title}</TableCell>
+                                <TableCell>{row.event.time || 'Hele dag'}</TableCell>
+                                <TableCell className="text-on-surface-variant">{row.event.contact_name || row.event.description || '-'}</TableCell>
+                                <TableCell className="text-right">
+                                  <button onClick={() => deleteEvent(row.event.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-red-50 hover:text-red-500">
+                                    <Trash2 size={12} />
+                                  </button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          }
 
-                  {selectedTodos.length > 0 && (
-                    <div className={selectedEvents.length > 0 ? 'mt-3' : ''}>
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Taken</p>
-                      {selectedTodos.map((todo, index) => (
-                        <div key={todo.id}>
-                          {index > 0 && <Divider />}
-                          <div className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
-                            <CheckSquare size={14} className="shrink-0 text-on-surface-variant" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-on-surface">{todo.title}</p>
-                              <p className="text-xs text-on-surface-variant">{todo.priority}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                          return (
+                            <TableRow key={row.id}>
+                              <TableCell>
+                                <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Todo</span>
+                              </TableCell>
+                              <TableCell className="font-medium">{row.todo.title}</TableCell>
+                              <TableCell>{row.todo.due_date ? format(parseISO(row.todo.due_date), 'HH:mm', { locale: nl }) : 'Dagtaak'}</TableCell>
+                              <TableCell className="text-on-surface-variant capitalize">{row.todo.priority}</TableCell>
+                              <TableCell className="text-right">
+                                <CheckSquare size={14} className="ml-auto text-on-surface-variant" />
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </>
               )}
             </div>
@@ -360,7 +469,7 @@ export default function AgendaView() {
 
           <Panel tone="muted">
             <PanelHeader eyebrow="Deze week" title="Todos met datum" />
-            <div className="mt-3">
+            <div className="mt-3 lg:hidden">
               {weeklyTodoDeadlines.length === 0 ? (
                 <EmptyPanel title="Geen gedateerde todos" description="Geen taken met deadline deze week." />
               ) : (
@@ -378,6 +487,30 @@ export default function AgendaView() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+            <div className="mt-3 hidden lg:block" data-slot="frame">
+              {weeklyTodoDeadlines.length === 0 ? (
+                <EmptyPanel title="Geen gedateerde todos" description="Geen taken met deadline deze week." />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Taak</TableHead>
+                      <TableHead>Datum</TableHead>
+                      <TableHead>Prioriteit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {weeklyTodoDeadlines.slice(0, 6).map((todo) => (
+                      <TableRow key={todo.id}>
+                        <TableCell className="font-medium">{todo.title}</TableCell>
+                        <TableCell>{todo.due_date ? format(parseISO(todo.due_date), 'EEEE d MMM', { locale: nl }) : 'Geen datum'}</TableCell>
+                        <TableCell><ActionPill>{todo.priority}</ActionPill></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </div>
           </Panel>

@@ -18,6 +18,7 @@ import { formatCurrency, formatRelative } from '@/lib/utils'
 import { AICard, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
 import { LinkButton } from '@/components/ui/button'
 import { Tag } from '@/components/ui/card'
+import { DockDemo } from '@/components/ui/dock-two-demo'
 
 interface DashboardData {
   stats: {
@@ -168,6 +169,17 @@ export default function Dashboard() {
             </button>
           </div>
         </AICard>
+
+        <Panel tone="muted">
+          <PanelHeader
+            eyebrow="Snelle navigatie"
+            title="Spring direct naar je hoofdschermen"
+            description="Gebruik de dock voor de schermen waar je het vaakst tussen wisselt."
+          />
+          <div className="mt-4">
+            <DockDemo />
+          </div>
+        </Panel>
 
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel tone="muted">

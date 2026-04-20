@@ -1,29 +1,129 @@
-import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import type * as React from 'react'
 
-export function Table({ children, className }: { children: ReactNode; className?: string }) {
+export function Table({
+  className,
+  ...props
+}: React.ComponentProps<'table'>): React.ReactElement {
   return (
-    <div className="w-full overflow-auto">
-      <table className={cn('w-full text-sm', className)}>{children}</table>
+    <div className="relative w-full overflow-x-auto" data-slot="table-container">
+      <table
+        className={cn(
+          'w-full caption-bottom text-sm in-data-[slot=frame]:border-separate in-data-[slot=frame]:border-spacing-0',
+          className
+        )}
+        data-slot="table"
+        {...props}
+      />
     </div>
   )
 }
-export function TableHeader({ children }: { children: ReactNode }) {
-  return <thead className="border-b border-outline-variant">{children}</thead>
-}
-export function TableBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y divide-outline-variant">{children}</tbody>
-}
-export function TableRow({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn('hover:bg-surface-container-low transition-colors', className)}>{children}</tr>
-}
-export function TableHead({ children, className }: { children: ReactNode; className?: string }) {
+
+export function TableHeader({
+  className,
+  ...props
+}: React.ComponentProps<'thead'>): React.ReactElement {
   return (
-    <th className={cn('h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-on-surface-variant/60', className)}>
-      {children}
-    </th>
+    <thead
+      className={cn(
+        '[&_tr]:border-b in-data-[slot=frame]:*:[tr]:border-none in-data-[slot=frame]:*:[tr]:hover:bg-transparent in-data-[slot=frame]:**:[th]:h-9',
+        className
+      )}
+      data-slot="table-header"
+      {...props}
+    />
   )
 }
-export function TableCell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn('px-4 py-3 text-[13px] text-on-surface', className)}>{children}</td>
+
+export function TableBody({
+  className,
+  ...props
+}: React.ComponentProps<'tbody'>): React.ReactElement {
+  return (
+    <tbody
+      className={cn(
+        'relative [&_tr:last-child]:border-0 in-data-[slot=frame]:rounded-xl in-data-[slot=frame]:*:[tr]:border-0 in-data-[slot=frame]:*:[tr]:*:[td]:bg-background in-data-[slot=frame]:*:[tr]:*:[td]:bg-clip-padding in-data-[slot=frame]:*:[tr]:*:[td]:border-b in-data-[slot=frame]:*:[tr]:*:[td]:first:border-s in-data-[slot=frame]:*:[tr]:*:[td]:last:border-e in-data-[slot=frame]:*:[tr]:first:*:[td]:border-t in-data-[slot=frame]:*:[tr]:first:*:[td]:first:rounded-ss-xl in-data-[slot=frame]:*:[tr]:first:*:[td]:last:rounded-se-xl in-data-[slot=frame]:*:[tr]:hover:*:[td]:bg-transparent in-data-[slot=frame]:*:[tr]:data-[state=selected]:*:[td]:bg-muted/72 in-data-[slot=frame]:*:[tr]:last:*:[td]:first:rounded-es-xl in-data-[slot=frame]:*:[tr]:last:*:[td]:last:rounded-ee-xl before:pointer-events-none before:absolute before:inset-px before:rounded-[calc(var(--radius-xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/8%)] not-in-data-[slot=frame]:before:hidden',
+        className
+      )}
+      data-slot="table-body"
+      {...props}
+    />
+  )
+}
+
+export function TableFooter({
+  className,
+  ...props
+}: React.ComponentProps<'tfoot'>): React.ReactElement {
+  return (
+    <tfoot
+      className={cn(
+        'border-t bg-muted/72 font-medium [&>tr]:last:border-b-0 in-data-[slot=frame]:border-none in-data-[slot=frame]:bg-transparent in-data-[slot=frame]:*:[tr]:hover:bg-transparent',
+        className
+      )}
+      data-slot="table-footer"
+      {...props}
+    />
+  )
+}
+
+export function TableRow({
+  className,
+  ...props
+}: React.ComponentProps<'tr'>): React.ReactElement {
+  return (
+    <tr
+      className={cn(
+        'border-b transition-colors hover:bg-muted/72 data-[state=selected]:bg-muted/72 in-data-[slot=frame]:hover:bg-transparent in-data-[slot=frame]:data-[state=selected]:bg-transparent',
+        className
+      )}
+      data-slot="table-row"
+      {...props}
+    />
+  )
+}
+
+export function TableHead({
+  className,
+  ...props
+}: React.ComponentProps<'th'>): React.ReactElement {
+  return (
+    <th
+      className={cn(
+        'h-10 whitespace-nowrap px-2.5 text-left align-middle font-medium leading-none text-muted-foreground has-[[role=checkbox]]:w-px has-[[role=checkbox]]:pe-0',
+        className
+      )}
+      data-slot="table-head"
+      {...props}
+    />
+  )
+}
+
+export function TableCell({
+  className,
+  ...props
+}: React.ComponentProps<'td'>): React.ReactElement {
+  return (
+    <td
+      className={cn(
+        'whitespace-nowrap p-2.5 align-middle leading-none has-[[role=checkbox]]:pe-0 in-data-[slot=frame]:first:p-[calc(--spacing(2.5)-1px)] in-data-[slot=frame]:last:p-[calc(--spacing(2.5)-1px)]',
+        className
+      )}
+      data-slot="table-cell"
+      {...props}
+    />
+  )
+}
+
+export function TableCaption({
+  className,
+  ...props
+}: React.ComponentProps<'caption'>): React.ReactElement {
+  return (
+    <caption
+      className={cn('mt-4 text-sm text-muted-foreground in-data-[slot=frame]:my-4', className)}
+      data-slot="table-caption"
+      {...props}
+    />
+  )
 }

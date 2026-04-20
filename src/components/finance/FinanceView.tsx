@@ -10,6 +10,7 @@ import {
   Copy,
   Euro,
   Loader2,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Sparkles,
@@ -31,6 +32,16 @@ import {
 import { nl } from 'date-fns/locale'
 import { cn, formatCurrency } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { Textarea } from '@/components/ui/interfaces-textarea'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/material-ui-dropdown-menu'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, MetricTile, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import TransactionModal from './TransactionModal'
@@ -462,12 +473,74 @@ export default function FinanceView() {
   const biggestExpense = [...expenseItems].sort((left, right) => right.amount - left.amount)[0]
   const currentBalance = balances.reduce((sum, balance) => sum + (balance.balance || 0), 0)
   const maxMonthly = monthlyData.reduce((max, item) => Math.max(max, item.income, item.expenses), 1)
+  const searchActions = useMemo<Action[]>(
+    () => [
+      {
+        id: 'command:new-transaction',
+        label: 'Nieuwe transactie',
+        icon: <Plus className="h-4 w-4 text-emerald-500" />,
+        description: 'Nieuwe regel toevoegen',
+        end: 'Command',
+      },
+      {
+        id: 'command:import',
+        label: 'Import openen',
+        icon: <Upload className="h-4 w-4 text-blue-500" />,
+        description: 'CSV of AI import',
+        end: 'Command',
+      },
+      {
+        id: 'command:analyse',
+        label: 'Financiële analyse',
+        icon: <Sparkles className="h-4 w-4 text-violet-500" />,
+        description: 'Laat AI meekijken',
+        end: 'Command',
+      },
+      ...items.slice(0, 12).map((item) => ({
+        id: `transaction:${item.id}`,
+        label: item.title,
+        icon: <Euro className={`h-4 w-4 ${item.type === 'inkomst' ? 'text-emerald-500' : 'text-[#a55a2c]'}`} />,
+        description: `${accountLabel(item.account)} · ${item.category}`,
+        end: formatCurrency(item.amount),
+      })),
+    ],
+    [items]
+  )
 
   return (
     <>
       <PageShell
         title="Financien"
         subtitle={`Deze pagina moet je geldbeeld versimpelen: snel zien waar geld lekt, wat binnenkomt en welke transacties aandacht nodig hebben in ${periodLabel(viewMode, currentDate)}.`}
+        desktopSearch={
+          <ActionSearchBar
+            actions={searchActions}
+            label="Zoek transacties"
+            placeholder="Zoek transactie of actie..."
+            onActionSelect={(action) => {
+              if (action.id === 'command:new-transaction') {
+                setShowAdd(true)
+                setShowImport(false)
+                setShowAdjust(false)
+                return
+              }
+              if (action.id === 'command:import') {
+                setShowImport(true)
+                setShowAdd(false)
+                setShowAdjust(false)
+                return
+              }
+              if (action.id === 'command:analyse') {
+                void runAnalyse()
+                return
+              }
+              if (action.id.startsWith('transaction:')) {
+                const found = items.find((item) => item.id === Number(action.id.split(':')[1]))
+                if (found) setSelectedTransaction(found)
+              }
+            }}
+          />
+        }
         actions={
           <>
             <div className="flex rounded-full border border-outline-variant bg-white p-1">
@@ -681,11 +754,11 @@ export default function FinanceView() {
                     </div>
                   ) : (
                     <>
-                      <textarea
+                      <Textarea
                         value={importText}
                         onChange={(event) => setImportText(event.target.value)}
                         placeholder="Plak hier ruwe banktekst of PDF-export"
-                        className="min-h-[180px] w-full resize-none rounded-xl border border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface outline-none placeholder:text-on-surface-variant"
+                        className="min-h-[180px] resize-none rounded-xl border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
                       />
                       <button
                         onClick={handleAiParse}
@@ -859,65 +932,124 @@ export default function FinanceView() {
                   description="Dat kan betekenen dat je filters scherp staan, of dat er voor deze periode gewoon weinig beweging was."
                 />
               ) : (
-                <div className="mt-2 space-y-1">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedTransaction(item)}
-                      className="group block w-full rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-container-low"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-start gap-2">
-                            <p className="text-sm font-semibold text-on-surface">{item.title}</p>
-                            <ActionPill>{item.category}</ActionPill>
-                            <ActionPill>{accountLabel(item.account)}</ActionPill>
+                <>
+                  <div className="mt-2 space-y-1 lg:hidden">
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setSelectedTransaction(item)}
+                        className="group block w-full rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-surface-container-low"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start gap-2">
+                              <p className="text-sm font-semibold text-on-surface">{item.title}</p>
+                              <ActionPill>{item.category}</ActionPill>
+                              <ActionPill>{accountLabel(item.account)}</ActionPill>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+                              <span>{item.contact_name || item.status}</span>
+                              <span>{item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}</span>
+                            </div>
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
-                            <span>{item.contact_name || item.status}</span>
-                            <span>{item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}</span>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
-                            {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
-                          </p>
-                          <div className="mt-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                copyItem(item)
-                              }}
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
-                            >
-                              <Copy size={13} />
-                            </button>
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                setEditingItem(item)
-                              }}
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
-                            >
-                              <Plus size={13} className="rotate-45" />
-                            </button>
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                deleteItem(item.id)
-                              }}
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                          <div className="shrink-0 text-right">
+                            <p className={cn('text-sm font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
+                              {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
+                            </p>
+                            <div className="mt-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <MoreHorizontal size={13} />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="min-w-[12rem] rounded-2xl bg-white">
+                                  <DropdownMenuItem onSelect={() => copyItem(item)}>
+                                    <Copy size={13} />
+                                    <span>Kopie maken</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setEditingItem(item)}>
+                                    <Plus size={13} className="rotate-45" />
+                                    <span>Bewerken</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-[#a55a2c]" onSelect={() => deleteItem(item.id)}>
+                                    <Trash2 size={13} />
+                                    <span>Verwijderen</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 hidden lg:block" data-slot="frame">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Datum</TableHead>
+                          <TableHead>Omschrijving</TableHead>
+                          <TableHead>Rekening</TableHead>
+                          <TableHead>Categorie</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Bedrag</TableHead>
+                          <TableHead className="text-right">Acties</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-on-surface-variant">
+                              {item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <button onClick={() => setSelectedTransaction(item)} className="max-w-[240px] truncate text-left text-on-surface hover:text-accent">
+                                {item.title}
+                              </button>
+                            </TableCell>
+                            <TableCell>{accountLabel(item.account)}</TableCell>
+                            <TableCell>{item.category}</TableCell>
+                            <TableCell className="text-on-surface-variant">{item.contact_name || item.status}</TableCell>
+                            <TableCell className={cn('text-right font-bold', item.type === 'inkomst' ? 'text-emerald-600' : 'text-[#a55a2c]')}>
+                              {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface">
+                                    <MoreHorizontal size={13} />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent className="min-w-[12rem] rounded-2xl bg-white">
+                                    <DropdownMenuItem onSelect={() => copyItem(item)}>
+                                      <Copy size={13} />
+                                      <span>Kopie maken</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setEditingItem(item)}>
+                                      <Plus size={13} className="rotate-45" />
+                                      <span>Bewerken</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-[#a55a2c]" onSelect={() => deleteItem(item.id)}>
+                                      <Trash2 size={13} />
+                                      <span>Verwijderen</span>
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </Panel>
 

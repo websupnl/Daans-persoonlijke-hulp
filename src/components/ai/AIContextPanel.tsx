@@ -16,6 +16,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2, Check, FolderOpen, Clock, FileText, Lightbulb, Sparkles, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Textarea } from '@/components/ui/interfaces-textarea'
 
 interface Suggestion {
   id: string
@@ -252,12 +253,12 @@ export default function AIContextPanel({ type, title, content, id, onClose }: AI
                 {/* Optional note */}
                 <div>
                   <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1.5">Extra context (optioneel)</p>
-                  <textarea
+                  <Textarea
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder="Voeg toe wat de AI moet weten..."
                     rows={2}
-                    className="w-full bg-surface-container-low rounded-xl px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant resize-none focus:outline-none focus:ring-1 focus:ring-pink-300"
+                    className="resize-none rounded-xl border-0 bg-surface-container-low px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus-visible:ring-1 focus-visible:ring-pink-300"
                   />
                 </div>
               </>
