@@ -117,13 +117,13 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between border-b border-gray-100">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md" style={{ background: GRAD }}>
               <CreditCard size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Transactie Details</h2>
+              <h2 className="text-base sm:text-lg font-bold text-gray-800">Transactie Details</h2>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">ID: {transaction.id}</p>
             </div>
           </div>
@@ -133,7 +133,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-5 max-h-[70vh] overflow-y-auto">
           {/* Title & Amount */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -141,7 +141,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
               <input
                 value={form.title}
                 onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
               />
             </div>
             <div className="space-y-1.5">
@@ -150,7 +150,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
                 type="number"
                 value={form.amount}
                 onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
               />
             </div>
           </div>
@@ -181,7 +181,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
                   type="date"
                   value={form.due_date}
                   onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all appearance-none"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all appearance-none"
                 />
                 <Calendar size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               </div>
@@ -210,7 +210,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Categorie</label>
               <Select value={form.category} onValueChange={value => setForm(p => ({ ...p, category: value }))}>
-                <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50 px-4 py-2.5 text-sm focus:ring-pink-100">
+                <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50 px-4 py-2 sm:py-2.5 text-sm focus:ring-pink-100">
                   <SelectValue placeholder="Categorie" />
                 </SelectTrigger>
                 <SelectContent>
@@ -229,7 +229,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
                 onChange={e => setForm(p => ({ ...p, user_notes: e.target.value }))}
                 placeholder="Bijv: 'Lekkere lunch met Jan', 'Vliegticket vakantie'..."
                 rows={2}
-                className="w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm focus-visible:ring-2 focus-visible:ring-pink-100"
+                className="w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-2 sm:py-3 text-sm focus-visible:ring-2 focus-visible:ring-pink-100"
               />
               <AlignLeft size={14} className="absolute right-4 top-4 text-gray-300 pointer-events-none" />
             </div>
@@ -248,13 +248,13 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
                   value={form.subcategory}
                   onChange={e => setForm(p => ({ ...p, subcategory: e.target.value }))}
                   placeholder="Ingegeven door AI..."
-                  className="w-full bg-gray-50/50 border border-gray-100 rounded-2xl px-4 py-2 text-xs focus:outline-none transition-all"
+                  className="w-full bg-gray-50/50 border border-gray-100 rounded-2xl px-4 py-1.5 sm:py-2 text-xs focus:outline-none transition-all"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Status</label>
                 <Select value={form.status} onValueChange={value => setForm(p => ({ ...p, status: value }))}>
-                  <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50/50 px-4 py-2 text-xs">
+                  <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50/50 px-4 py-1.5 sm:py-2 text-xs">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -268,7 +268,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
 
         {/* AI Context Input */}
         {transaction && (
-          <div className="px-6 py-4 bg-blue-50 border-t border-blue-100">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 bg-blue-50 border-t border-blue-100">
             <ContextInput
               itemId={transaction.id}
               itemType="transaction"
@@ -279,7 +279,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
         )}
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { if (confirm('Weet je het zeker?')) onDelete(transaction.id); onClose() }}
@@ -301,14 +301,14 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-all"
+              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-all"
             >
               Annuleer
             </button>
             <button
               onClick={handleSave}
               disabled={loading || !form.title.trim()}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-2xl text-white text-sm font-bold shadow-lg transition-all hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 rounded-2xl text-white text-sm font-bold shadow-lg transition-all hover:opacity-90 disabled:opacity-50"
               style={{ background: GRAD }}
             >
               {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
