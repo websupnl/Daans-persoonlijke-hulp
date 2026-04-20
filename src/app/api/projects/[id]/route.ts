@@ -1,11 +1,16 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+<<<<<<< Updated upstream
 import { queryOne, execute, query } from '@/lib/db'
+=======
+import { query, queryOne, execute } from '@/lib/db'
+>>>>>>> Stashed changes
 import { logActivity } from '@/lib/activity'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id)
+<<<<<<< Updated upstream
   const [project, todos, notes, worklogs, finance] = await Promise.all([
     queryOne(`
       SELECT p.*,
@@ -23,6 +28,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   ])
   if (!project) return NextResponse.json({ error: 'Niet gevonden' }, { status: 404 })
   return NextResponse.json({ data: project, todos, notes, worklogs, finance })
+=======
+  const project = await queryOne<Record<string, unknown>>('SELECT * FROM projects WHERE id = $1', [id])
+  if (!project) return NextResponse.json({ error: 'Project niet gevonden' }, { status: 404 })
+
+  const [todos, notes, worklogs] = await Promise.all([
+    query(`SELECT id, title, priority, due_date::text, completed, category FROM todos WHERE project_id = $1 ORDER BY completed, due_date NULLS LAST`, [id]),
+    query(`SELECT id, title, updated_at FROM notes WHERE project_id = $1 ORDER BY updated_at DESC`, [id]),
+    query(`SELECT id, title, date::text, COALESCE(actual_duration_minutes, duration_minutes) as minutes, context FROM work_logs WHERE project_id = $1 ORDER BY date DESC LIMIT 20`, [id]),
+  ])
+
+  const totalMinutes = worklogs.reduce((s, w) => s + Number((w as { minutes: number }).minutes || 0), 0)
+
+  return NextResponse.json({
+    data: { ...project, todos, notes, worklogs, totalMinutes }
+  })
+>>>>>>> Stashed changes
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

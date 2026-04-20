@@ -413,6 +413,7 @@ export async function initSchema(): Promise<void> {
   await pool.query(`
     ALTER TABLE finance_items ADD COLUMN IF NOT EXISTS account TEXT DEFAULT 'privé';
     ALTER TABLE habits ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1;
+<<<<<<< Updated upstream
     ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring TEXT;
   `)
   await pool.query(`
@@ -731,6 +732,9 @@ export async function initSchema(): Promise<void> {
       ('onboarding_completed', 'false'),
       ('theme', 'light')
     ON CONFLICT (key) DO NOTHING;
+=======
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none';
+>>>>>>> Stashed changes
   `)
 }
 

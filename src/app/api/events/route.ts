@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
 
   sql += `) ORDER BY e.date ASC, e.time ASC NULLS LAST`
 
+<<<<<<< Updated upstream
   const events = await query<any>(sql, params)
   
   const startRange = date ? new Date(date) : (from ? new Date(from) : new Date())
@@ -77,6 +78,42 @@ export async function GET(req: NextRequest) {
   })
 
   return NextResponse.json({ data: expanded })
+=======
+  const baseEvents = await query(sql, params)
+
+  // Expand weekly recurring events into requested range
+  let expandedEvents = [...baseEvents]
+  if (from && to) {
+    const recurringBase = await query(`
+      SELECT e.*, TO_CHAR(e.date, 'YYYY-MM-DD') as date, p.title as project_title, c.name as contact_name
+      FROM events e
+      LEFT JOIN projects p ON e.project_id = p.id
+      LEFT JOIN contacts c ON e.contact_id = c.id
+      WHERE e.recurrence = 'weekly' AND e.date < $1
+    `, [from])
+
+    const fromDate = new Date(from)
+    const toDate = new Date(to)
+
+    for (const ev of recurringBase) {
+      const baseDate = new Date(String((ev as { date: string }).date))
+      let next = new Date(baseDate)
+      // Advance to the first occurrence >= from
+      while (next < fromDate) next.setDate(next.getDate() + 7)
+      while (next <= toDate) {
+        const dateStr = next.toISOString().split('T')[0]
+        // Only add if not already returned (avoid duplication with base events in range)
+        const alreadyExists = expandedEvents.some(e => (e as { id: number; date: string }).id === (ev as { id: number }).id && (e as { date: string }).date === dateStr)
+        if (!alreadyExists) {
+          expandedEvents.push({ ...ev, date: dateStr, _recurring: true })
+        }
+        next.setDate(next.getDate() + 7)
+      }
+    }
+  }
+
+  return NextResponse.json({ data: expandedEvents })
+>>>>>>> Stashed changes
 }
 
 export async function POST(req: NextRequest) {
