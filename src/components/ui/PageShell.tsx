@@ -9,12 +9,13 @@ interface PageShellProps {
   title: string
   subtitle?: string
   actions?: ReactNode
+  desktopSearch?: ReactNode
   children: ReactNode
   className?: string
   compact?: boolean
 }
 
-export default function PageShell({ title, subtitle, actions, children, compact }: PageShellProps) {
+export default function PageShell({ title, subtitle, actions, desktopSearch, children, compact }: PageShellProps) {
   return (
     <Container maxWidth="xl" sx={{ py: compact ? 2.5 : 3, px: { xs: 2, sm: 3 } }}>
       <Box
@@ -51,8 +52,9 @@ export default function PageShell({ title, subtitle, actions, children, compact 
               </Typography>
             )}
           </Box>
-          {actions && (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
+          {(desktopSearch || actions) && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'flex-start', sm: 'flex-end' }} alignItems="center">
+              {desktopSearch && <Box sx={{ minWidth: { sm: 260 }, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>{desktopSearch}</Box>}
               {actions}
             </Stack>
           )}

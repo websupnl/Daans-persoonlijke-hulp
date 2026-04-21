@@ -22,7 +22,7 @@ function mapSize(size: Size): 'small' | 'medium' | 'large' {
   return 'medium'
 }
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
   variant?: Variant
   size?: Size
   children?: ReactNode
@@ -87,7 +87,7 @@ export function IconButton({
   label: string
   variant?: Variant
   className?: string
-} & ButtonHTMLAttributes<HTMLButtonElement>) {
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'>) {
   const color = variant === 'danger' || variant === 'destructive' ? 'error' : variant === 'primary' || variant === 'default' ? 'primary' : 'default'
   return (
     <MuiIconButton aria-label={label} color={color as any} className={className} {...props}>

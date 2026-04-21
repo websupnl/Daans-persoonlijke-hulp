@@ -1,6 +1,7 @@
 'use client'
 
 import { createTheme, alpha } from '@mui/material/styles'
+import type {} from '@mui/x-data-grid/themeAugmentation'
 
 export const appTheme = createTheme({
   palette: {

@@ -197,7 +197,7 @@ function cleanActionTitle(value: string): string {
 }
 
 function parseDeterministicCommand(userMessage: string): AICommandResult | null {
-  const normalized = userMessage.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  const normalized = userMessage.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
   const todoMatch =
     userMessage.match(/\b(?:zet|plaats|doe|voeg)\s+(.+?)\s+(?:in|op|aan)\s+(?:mijn\s+)?(?:todo(?:lijst)?|to-do(?:lijst)?|takenlijst|taken)\b/i) ||
