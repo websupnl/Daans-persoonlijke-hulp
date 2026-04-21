@@ -34,7 +34,7 @@ interface DebugAction {
 
 interface DebugInfo {
   summary?: string
-  actions: DebugAction[]
+  actions?: DebugAction[]
   requires_confirmation?: boolean
   failed?: number
 }
@@ -57,10 +57,26 @@ const examples = [
 
 const actionLabels: Record<string, { label: string; color: 'primary' | 'success' | 'warning' | 'secondary' | 'info' | 'error' }> = {
   todo_create: { label: 'Taak aangemaakt', color: 'primary' },
+  todo_update: { label: 'Taak bijgewerkt', color: 'primary' },
+  todo_complete: { label: 'Taak afgerond', color: 'success' },
   grocery_create: { label: 'Boodschap toegevoegd', color: 'success' },
   finance_create_expense: { label: 'Uitgave opgeslagen', color: 'warning' },
+  finance_create_income: { label: 'Inkomst opgeslagen', color: 'success' },
+  event_create: { label: 'Agenda-item aangemaakt', color: 'info' },
   worklog_create: { label: 'Uren gelogd', color: 'info' },
+  note_create: { label: 'Notitie aangemaakt', color: 'secondary' },
+  journal_create: { label: 'Dagboek bijgewerkt', color: 'secondary' },
+  habit_log: { label: 'Gewoonte gelogd', color: 'success' },
   memory_store: { label: 'Geheugen bijgewerkt', color: 'secondary' },
+  inbox_capture: { label: 'Inbox-item opgeslagen', color: 'info' },
+}
+
+function parseStreamData(line: string) {
+  try {
+    return JSON.parse(line.slice(6))
+  } catch {
+    return null
+  }
 }
 
 function getActionTitle(action: DebugAction) {
@@ -79,29 +95,65 @@ function ThinkingState({ status }: { status: string }) {
   )
 }
 
+function ActionSummary({ debugInfo }: { debugInfo?: DebugInfo }) {
+  const actions = debugInfo?.actions ?? []
+  const successful = actions.filter((action) => action.result?.success === true).length
+  const failed = actions.filter((action) => action.result?.success === false).length
+
+  if (!debugInfo?.requires_confirmation && actions.length === 0) return null
+
+  return (
+    <Box
+      sx={{
+        mt: 1.25,
+        p: 1.25,
+        borderRadius: 1,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'var(--surface-container-low)',
+      }}
+    >
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap alignItems="center">
+        {debugInfo?.requires_confirmation ? (
+          <Chip size="small" color="warning" label={`${actions.length} actie(s) wachten op bevestiging`} />
+        ) : (
+          <Chip size="small" color={failed > 0 ? 'warning' : 'success'} label={`${successful}/${actions.length} uitgevoerd`} />
+        )}
+        {failed > 0 && <Chip size="small" color="error" variant="outlined" label={`${failed} mislukt`} />}
+        {debugInfo?.summary && (
+          <Typography variant="caption" color="text.secondary" sx={{ flexBasis: '100%', letterSpacing: 0 }}>
+            {debugInfo.summary}
+          </Typography>
+        )}
+      </Stack>
+    </Box>
+  )
+}
+
 function ActionCard({ action }: { action: DebugAction }) {
   const spec = actionLabels[action.type] ?? { label: action.type, color: 'primary' as const }
   const failed = action.result?.success === false
+  const pending = !action.result
 
   return (
-    <Paper
+    <Box
       sx={{
-        mt: 1.5,
+        mt: 1,
         p: 1.5,
         border: '1px solid',
         borderColor: 'divider',
         borderLeft: '4px solid',
-        borderLeftColor: failed ? 'error.main' : `${spec.color}.main`,
-        borderRadius: 2,
+        borderLeftColor: failed ? 'error.main' : pending ? 'warning.main' : `${spec.color}.main`,
+        borderRadius: 1,
         bgcolor: 'background.paper',
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
         <Box sx={{ minWidth: 0 }}>
           <Stack direction="row" spacing={1} alignItems="center">
-            {failed ? <ErrorOutlineIcon color="error" fontSize="small" /> : <CheckCircleIcon color={spec.color as any} fontSize="small" />}
+            {failed ? <ErrorOutlineIcon color="error" fontSize="small" /> : <CheckCircleIcon color={pending ? 'warning' : spec.color as any} fontSize="small" />}
             <Typography variant="overline" color="text.secondary">
-              {spec.label}
+              {pending ? 'Wacht op bevestiging' : spec.label}
             </Typography>
           </Stack>
           <Typography variant="body2" fontWeight={800} sx={{ mt: 0.5 }}>
@@ -122,7 +174,7 @@ function ActionCard({ action }: { action: DebugAction }) {
           )}
         </Box>
       </Stack>
-    </Paper>
+    </Box>
   )
 }
 
@@ -199,6 +251,10 @@ export default function ChatView() {
         }),
       })
 
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null)
+        throw new Error(errorPayload?.error?.message || errorPayload?.message || 'Chat request mislukt')
+      }
       if (!response.body) throw new Error('Geen stream')
 
       const reader = response.body.getReader()
@@ -223,10 +279,10 @@ export default function ChatView() {
           const line = event.split('\n').find((entry) => entry.startsWith('data: '))
           if (!line) continue
 
-          const data = JSON.parse(line.slice(6))
+          const data = parseStreamData(line)
+          if (!data) continue
           if (data.type === 'status') {
-            if (String(data.text).includes('Acties')) setLoadingStatus('Actie uitvoeren...')
-            else setLoadingStatus('Interpreteren...')
+            setLoadingStatus(String(data.text || 'Bezig...'))
           }
           if (data.type === 'debug') debugInfo = data.data
           if (data.type === 'text') {
@@ -261,10 +317,15 @@ export default function ChatView() {
           { id: Date.now() + 3, role: 'assistant', content: assistantText, created_at: new Date().toISOString(), debugInfo, streaming: false },
         ])
       }
-    } catch {
+    } catch (error) {
       setMessages((current) => [
         ...current,
-        { id: Date.now() + 2, role: 'error', content: 'Er ging iets fout. Je bericht is bewaard.', created_at: new Date().toISOString() },
+        {
+          id: Date.now() + 2,
+          role: 'error',
+          content: error instanceof Error ? error.message : 'Ik kon dit bericht niet afronden. Probeer het opnieuw.',
+          created_at: new Date().toISOString(),
+        },
       ])
     } finally {
       setLoading(false)
@@ -333,7 +394,7 @@ export default function ChatView() {
       <Paper sx={{ borderRadius: 0, borderBottom: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 1.5, position: 'sticky', top: 0, zIndex: 10 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-            <Box sx={{ width: 38, height: 38, borderRadius: 999, display: 'grid', placeItems: 'center', color: 'common.white', background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 1, display: 'grid', placeItems: 'center', color: 'common.white', background: 'var(--brand-gradient)' }}>
               <AutoAwesomeIcon fontSize="small" />
             </Box>
             <Box sx={{ minWidth: 0 }}>
@@ -347,6 +408,7 @@ export default function ChatView() {
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
+            {loading && <Chip size="small" color="info" variant="outlined" label={loadingStatus} />}
             <Chip size="small" color="primary" variant="outlined" label={`${contextCount} context-items`} />
             <IconButton onClick={resetChat} aria-label="Nieuw gesprek">
               <RestartAltIcon />
@@ -359,7 +421,7 @@ export default function ChatView() {
         <Container maxWidth="md" sx={{ py: 3 }}>
           <Stack spacing={2}>
             {showExamples && (
-              <Paper sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+              <Paper sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <AutoAwesomeIcon color="secondary" fontSize="small" />
                   <Typography variant="overline" color="text.secondary">
@@ -382,7 +444,7 @@ export default function ChatView() {
               return (
                 <Stack key={message.id} direction="row" justifyContent={isUser ? 'flex-end' : 'flex-start'} spacing={1.5}>
                   {!isUser && (
-                    <Box sx={{ width: 32, height: 32, mt: 0.5, borderRadius: 999, flexShrink: 0, display: { xs: 'none', sm: 'grid' }, placeItems: 'center', color: 'common.white', background: isError ? 'error.main' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+                    <Box sx={{ width: 32, height: 32, mt: 0.5, borderRadius: 1, flexShrink: 0, display: { xs: 'none', sm: 'grid' }, placeItems: 'center', color: 'common.white', background: isError ? 'error.main' : 'var(--brand-gradient)' }}>
                       {isError ? <ErrorOutlineIcon fontSize="small" /> : <AutoAwesomeIcon fontSize="small" />}
                     </Box>
                   )}
@@ -393,7 +455,7 @@ export default function ChatView() {
                         py: 1.5,
                         border: isUser ? 'none' : '1px solid',
                         borderColor: isError ? 'error.light' : 'divider',
-                        borderRadius: isUser ? '18px 18px 6px 18px' : '6px 18px 18px 18px',
+                        borderRadius: isUser ? '12px 12px 4px 12px' : '4px 12px 12px 12px',
                         bgcolor: isUser ? 'text.primary' : isError ? 'error.light' : 'background.paper',
                         color: isUser ? 'common.white' : 'text.primary',
                       }}
@@ -412,6 +474,7 @@ export default function ChatView() {
                           dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content || '...') }}
                         />
                       )}
+                      {!isUser && <ActionSummary debugInfo={message.debugInfo} />}
                       {!isUser && message.debugInfo?.actions?.map((action, index) => (
                         <ActionCard key={`${message.id}-${index}`} action={action} />
                       ))}
@@ -466,7 +529,7 @@ export default function ChatView() {
               </Stack>
             )}
             {imageAttachment && (
-              <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
+              <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
                 <Stack direction="row" spacing={1.25} alignItems="center">
                   <Box
                     component="img"
@@ -484,7 +547,7 @@ export default function ChatView() {
                 </Stack>
               </Paper>
             )}
-            <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 3, bgcolor: '#fafafb' }}>
+            <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: '#fafafb' }}>
               <Stack direction="row" spacing={1} alignItems="flex-end">
                 <IconButton aria-label="Maak foto of upload bon" onClick={() => fileInputRef.current?.click()}>
                   <AttachFileIcon fontSize="small" />

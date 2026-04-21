@@ -11,10 +11,17 @@
   --surface-raised: #ffffff;
   --surface-inset: #f4f4f5;
   --surface-hover: #f9f9fa;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f9f9fa;
+  --surface-container: #f3f3f5;
+  --surface-container-high: #ebebef;
+  --surface-container-highest: #e2e2e9;
   --border: #ebebef;
   --border-strong: #d8d8df;
+  --border-focus: rgba(95, 159, 161, 0.35);
   --text-primary: #0f0f10;
   --text-secondary: #62626e;
+  --text-tertiary: #9898a6;
   
   --brand-start: #a8cecf;
   --brand-end: #e6ae8c;
@@ -31,9 +38,18 @@
   
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-focus: 0 0 0 3px var(--border-focus);
 }
 
-html, body {
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
   font-family: 'Manrope', system-ui, sans-serif;
   background: var(--bg-app);
   color: var(--text-primary);
@@ -46,10 +62,61 @@ body {
     radial-gradient(circle at 92% 2%, rgba(230, 174, 140, 0.10), transparent 32rem),
     var(--bg-app);
   min-height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(168, 206, 207, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bfc0c8;
+}
+
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* Custom UI Helpers */
 .card-base {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -80,7 +147,10 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Transitions */
-* {
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiPaper-root,
+.MuiChip-root,
+.MuiListItemButton-root {
   transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }

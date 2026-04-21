@@ -30,7 +30,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
           width: 520,
           height: 260,
           pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(168,206,207,0.18), transparent 68%)',
+          background: 'radial-gradient(circle, rgba(168,206,207,0.12), transparent 68%)',
           filter: 'blur(6px)',
           zIndex: -1,
           display: { xs: 'none', md: 'block' },
@@ -47,7 +47,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
           px: { xs: 2, sm: 3 },
           py: 2.25,
           background:
-            'linear-gradient(90deg, rgba(168,206,207,0.20), rgba(230,174,140,0.14)), rgba(247,247,248,0.9)',
+            'linear-gradient(90deg, rgba(168,206,207,0.14), rgba(230,174,140,0.10)), rgba(247,247,248,0.94)',
           backdropFilter: 'blur(18px)',
           borderBottom: '1px solid',
           borderColor: 'divider',
@@ -68,11 +68,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
               component="h1"
               sx={{
                 display: 'inline-block',
-                background: 'var(--brand-gradient-fallback)',
-                backgroundImage: 'var(--brand-gradient)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                color: 'text.primary',
               }}
             >
               {title}

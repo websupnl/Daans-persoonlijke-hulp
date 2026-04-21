@@ -40,6 +40,9 @@ export function StatTile({
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
         '&::before': accent ? {
           content: '""',
           position: 'absolute',
@@ -51,7 +54,7 @@ export function StatTile({
         } : undefined
       }}
     >
-      <Stack direction="row" spacing={1.5} alignItems="center">
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
         <Box 
           sx={{ 
             width: 42, 
@@ -65,7 +68,7 @@ export function StatTile({
         >
           {icon}
         </Box>
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography 
             variant="caption" 
             color="text.secondary" 

@@ -49,7 +49,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   await ensureWorkspaceColumns(['chat_messages'])
   const workspace = getWorkspaceFromRequest(req)
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return jsonFail('CHAT_INVALID_JSON', 'Ongeldige chat request', 400, undefined, req)
+  }
   const { message, sessionKey, imageBase64, imageType } = body
 
   if (!message?.trim() && !imageBase64) {
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
           [message || '[afbeelding]', '[]', workspace]
         ).catch(console.error)
 
-        send({ type: 'status', text: 'Bericht begrijpen...' })
+        send({ type: 'status', phase: 'parse', text: 'Bericht begrijpen...' })
 
         const aiResult = await parseCommandWithAI(
           message?.trim() || 'Analyseer deze afbeelding',
@@ -86,7 +89,9 @@ export async function POST(req: NextRequest) {
 
         const hasActions = aiResult.actions.length > 0 && !aiResult.requires_confirmation
         if (hasActions) {
-          send({ type: 'status', text: 'Acties uitvoeren...' })
+          send({ type: 'status', phase: 'execute', text: 'Acties uitvoeren...' })
+        } else if (aiResult.requires_confirmation) {
+          send({ type: 'status', phase: 'confirm', text: 'Bevestiging voorbereiden...' })
         }
 
         const actionResults = hasActions
@@ -116,6 +121,8 @@ export async function POST(req: NextRequest) {
         }
 
         send({ type: 'debug', data: debugInfo })
+
+        send({ type: 'status', phase: 'respond', text: 'Antwoord maken...' })
 
         const responseText = generateAIResponse(aiResult, actionResults, aiResult.requires_confirmation)
 
