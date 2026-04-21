@@ -154,7 +154,7 @@ export default function AgendaView() {
       <Stack spacing={3}>
         <AIBriefing 
           title="Agenda Briefing"
-          briefing={aiSummary || "Je agenda wordt geanalyseerd voor slimme inzichten..."}
+          briefing={aiSummary || "Je agenda wordt geanalyseerd for slimme inzichten..."}
           score={dayEvents.length > 5 ? 40 : 85}
         />
 
@@ -167,7 +167,7 @@ export default function AgendaView() {
 
         <Grid container spacing={3}>
           {/* Kalender sectie */}
-          <Grid item xs={12} lg={7}>
+          <Grid size={{ xs: 12, lg: 7 }}>
             <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, mb: 1 }}>
                 {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (

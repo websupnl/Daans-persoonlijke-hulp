@@ -166,7 +166,7 @@ export default function ChatView() {
       // Clear URL parameter without reload
       window.history.replaceState({}, '', '/chat')
     }
-  }, [initialLoad, initialQuery])
+  }, [initialLoad, initialQuery, sendMessage])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
