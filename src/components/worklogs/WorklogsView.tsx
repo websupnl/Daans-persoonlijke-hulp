@@ -202,7 +202,7 @@ export default function WorklogsView() {
           <ModuleStats stats={[
             { icon: <ClockIcon />, label: 'Vandaag', value: formatDuration(todayMinutes), helper: 'Totaal gelogd', accent: 'brand' },
             { icon: <TimerIcon />, label: 'Deze week', value: formatDuration(weekMinutes), helper: 'Totaal gewerkt', tone: 'default' },
-            { icon: <ZapIcon />, label: 'Productiviteit', value: '8.4', helper: 'Gemiddelde score', tone: 'good' },
+            { icon: <BoltIcon />, label: 'Productiviteit', value: '8.4', helper: 'Gemiddelde score', tone: 'good' },
             { icon: <ClockIcon />, label: 'Sessies', value: logs.length, helper: 'Logs vandaag', tone: 'default' },
           ]} />
 

@@ -178,7 +178,7 @@ export default function ChatView() {
     setShowScrollDown(element.scrollHeight - element.scrollTop - element.clientHeight > 160)
   }, [])
 
-  async function sendMessage(text?: string) {
+  const sendMessage = useCallback(async (text?: string) => {
     const message = (text ?? input).trim()
     if ((!message && !imageAttachment) || loading) return
 
@@ -278,7 +278,7 @@ export default function ChatView() {
       setLoading(false)
       inputRef.current?.focus()
     }
-  }
+  }, [input, imageAttachment, loading])
 
   async function handleImageSelect(file?: File) {
     if (!file) return
