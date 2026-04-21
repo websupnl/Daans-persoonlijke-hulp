@@ -21,32 +21,33 @@ export default function LoginForm({ hasQuickUnlock }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/'
-  
-  const [tenant, setTenant] = useState('')
+
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant, password }),
+        body: JSON.stringify({ password, next }),
       })
 
-      if (res.ok) {
-        router.push(next)
+      if (response.ok) {
+        const data = await response.json().catch(() => null)
+        router.push(data?.redirectTo || next)
         router.refresh()
-      } else {
-        const data = await res.json()
-        setError(data.error || 'Inloggen mislukt. Controleer je gegevens.')
+        return
       }
-    } catch (err) {
+
+      const data = await response.json().catch(() => null)
+      setError(data?.error || 'Inloggen mislukt. Controleer je wachtwoord.')
+    } catch {
       setError('Er is een onbekende fout opgetreden.')
     } finally {
       setLoading(false)
@@ -74,7 +75,7 @@ export default function LoginForm({ hasQuickUnlock }: LoginFormProps) {
               width: 56,
               height: 56,
               background: 'var(--brand-gradient)',
-              mb: 1
+              mb: 1,
             }}
           >
             <LockIcon sx={{ fontSize: 28 }} />
@@ -96,45 +97,70 @@ export default function LoginForm({ hasQuickUnlock }: LoginFormProps) {
         <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
           <Stack spacing={2.5}>
             <TextField
-              label="Workspace"
-              placeholder="Bijv. websup of privé"
-              fullWidth
-              value={tenant}
-              onChange={(e) => setTenant(e.target.value.toLowerCase())}
-              required
-              variant="outlined"
-              autoFocus
-            />
-            <TextField
               label="Wachtwoord"
+              placeholder="Voer je wachtwoord in"
               type="password"
               fullWidth
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               required
               variant="outlined"
+              autoFocus
+              autoComplete="current-password"
+              disabled={loading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  minHeight: 56,
+                  borderRadius: 1,
+                  bgcolor: 'background.default',
+                  transition: 'box-shadow .18s ease, background-color .18s ease',
+                  '&:hover': {
+                    bgcolor: 'background.paper',
+                  },
+                  '&.Mui-focused': {
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 0 0 4px rgba(95,159,161,0.14)',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  fontWeight: 750,
+                },
+              }}
             />
-            
+
             <Button
               type="submit"
               variant="contained"
               size="large"
               disabled={loading}
-              sx={{ 
-                py: 1.5, 
+              sx={{
+                py: 1.5,
                 fontWeight: 800,
                 fontSize: 16,
                 boxShadow: '0 8px 16px -4px rgba(95,159,161,0.25)',
                 '&:hover': {
                   boxShadow: '0 12px 20px -4px rgba(95,159,161,0.35)',
-                }
+                },
               }}
             >
-              {loading ? <Spinner className="h-5 w-5" /> : 'Inloggen'}
+              {loading ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Spinner className="h-4 w-4" />
+                  <span>Inloggen...</span>
+                </Stack>
+              ) : (
+                'Inloggen'
+              )}
             </Button>
 
+            {hasQuickUnlock && (
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                Dit apparaat is herkend.
+              </Typography>
+            )}
+
             <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', mt: 1 }}>
-              Beveiligde toegang · © {new Date().getFullYear()} LeefKompas
+              Beveiligde toegang - {new Date().getFullYear()} LeefKompas
             </Typography>
           </Stack>
         </Box>
