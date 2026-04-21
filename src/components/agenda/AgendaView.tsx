@@ -232,7 +232,7 @@ export default function AgendaView() {
           </Grid>
 
           {/* Dag-overzicht sectie */}
-          <Grid item xs={12} lg={5}>
+          <Grid size={{ xs: 12, lg: 5 }}>
             <Paper sx={{ height: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
                 <Typography variant="h6" sx={{ fontWeight: 850 }}>

@@ -158,7 +158,7 @@ export default function SettingsView() {
           </Grid>
 
           {/* Notificaties */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider', height: '100%' }}>
               <Stack spacing={3}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', fontSize: 11 }}>Notificaties</Typography>

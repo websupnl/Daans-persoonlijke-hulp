@@ -130,7 +130,7 @@ export default function Dashboard() {
 
         <Grid container spacing={3}>
           {/* Linker kolom: Taken & Transacties */}
-          <Grid item xs={12} lg={8}>
+          <Grid size={{ xs: 12, lg: 8 }}>
             <Stack spacing={3}>
               <Paper sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

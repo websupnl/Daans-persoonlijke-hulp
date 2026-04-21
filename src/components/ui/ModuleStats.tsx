@@ -89,7 +89,7 @@ export default function ModuleStats({ stats }: { stats: StatTileProps[] }) {
   return (
     <Grid container spacing={2}>
       {stats.map((stat, index) => (
-        <Grid item xs={12} sm={6} lg={3} key={index}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={index}>
           <StatTile {...stat} />
         </Grid>
       ))}
