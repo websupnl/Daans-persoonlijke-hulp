@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import AppThemeProvider from '@/theme/AppThemeProvider'
 
 export const metadata: Metadata = {
   title: 'Persoonlijke Hulp',
@@ -28,8 +29,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl">
-      <body className="antialiased">
-        {children}
+      <body>
+        <AppThemeProvider>
+          {children}
+        </AppThemeProvider>
       </body>
     </html>
   )

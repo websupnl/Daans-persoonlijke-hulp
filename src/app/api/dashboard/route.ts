@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  await ensureWorkspaceColumns(['todos', 'notes'])
+  const workspace = getWorkspaceFromRequest(req)
+
   const todoStats = await queryOne<{ total: number; open: number; due_today: number; overdue: number }>(`
     SELECT
       COUNT(*) as total,
@@ -11,9 +15,10 @@ export async function GET() {
       SUM(CASE WHEN completed = 0 AND due_date::date = CURRENT_DATE THEN 1 ELSE 0 END) as due_today,
       SUM(CASE WHEN completed = 0 AND due_date::date < CURRENT_DATE THEN 1 ELSE 0 END) as overdue
     FROM todos
-  `)
+    WHERE workspace = $1
+  `, [workspace])
 
-  const noteStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM notes')
+  const noteStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM notes WHERE workspace = $1', [workspace])
   const contactStats = await queryOne<{ total: number }>('SELECT COUNT(*) as total FROM contacts')
 
   const financeStats = await queryOne<{ open_amount: number; open_invoices: number; month_income: number; month_expenses: number }>(`
@@ -38,17 +43,17 @@ export async function GET() {
   const urgentTodos = await query(`
     SELECT t.*, p.color as project_color, p.title as project_title
     FROM todos t LEFT JOIN projects p ON t.project_id = p.id
-    WHERE t.completed = 0 AND (
+    WHERE t.workspace = $1 AND t.completed = 0 AND (
       t.due_date::date <= CURRENT_DATE + INTERVAL '1 day' OR t.priority = 'hoog'
     )
     ORDER BY CASE t.priority WHEN 'hoog' THEN 0 ELSE 1 END, t.due_date ASC
     LIMIT 8
-  `)
+  `, [workspace])
 
   // Recente notes
   const recentNotes = await query(`
-    SELECT id, title, updated_at FROM notes ORDER BY updated_at DESC LIMIT 5
-  `)
+    SELECT id, title, updated_at FROM notes WHERE workspace = $1 ORDER BY updated_at DESC LIMIT 5
+  `, [workspace])
 
   // Open facturen
   const openInvoices = await query(`

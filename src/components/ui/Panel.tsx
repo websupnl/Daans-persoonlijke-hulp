@@ -1,24 +1,36 @@
 import { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import Link from 'next/link'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
+import LinearProgress from '@mui/material/LinearProgress'
+import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined'
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined'
 
 type PanelTone = 'default' | 'muted' | 'accent' | 'inverse' | 'warning' | 'ai' | 'success'
 type PanelPadding = 'sm' | 'md' | 'lg' | 'none'
 
-const toneClasses: Record<PanelTone, string> = {
-  default: 'card-base bg-surface',
-  muted: 'border border-border bg-surface-inset',
-  accent: 'card-accent',
-  inverse: 'border border-text-primary bg-text-primary text-text-inverse',
-  warning: 'card-warning',
-  ai: 'card-ai',
-  success: 'card-success',
+const toneSx: Record<PanelTone, object> = {
+  default: { bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' },
+  muted: { bgcolor: '#fafafb', border: '1px solid', borderColor: 'divider' },
+  accent: { bgcolor: 'primary.light', border: '1px solid', borderColor: 'primary.100', borderLeft: '4px solid', borderLeftColor: 'primary.main' },
+  inverse: { bgcolor: 'text.primary', color: 'common.white' },
+  warning: { bgcolor: 'warning.light', border: '1px solid', borderColor: '#fcd34d', borderLeft: '4px solid', borderLeftColor: 'warning.main' },
+  ai: { bgcolor: 'secondary.light', border: '1px solid', borderColor: '#ddd6fe', borderLeft: '4px solid', borderLeftColor: 'secondary.main' },
+  success: { bgcolor: 'success.light', border: '1px solid', borderColor: '#6ee7b7', borderLeft: '4px solid', borderLeftColor: 'success.main' },
 }
 
-const paddingClasses: Record<PanelPadding, string> = {
-  none: '',
-  sm: 'p-4',
-  md: 'p-5',
-  lg: 'p-6',
+const paddingSx: Record<PanelPadding, number> = {
+  none: 0,
+  sm: 2,
+  md: 2.5,
+  lg: 3,
 }
 
 export function Panel({
@@ -35,17 +47,18 @@ export function Panel({
   interactive?: boolean
 }) {
   return (
-    <section
-      className={cn(
-        'rounded-lg',
-        toneClasses[tone],
-        paddingClasses[padding],
-        interactive && 'cursor-pointer transition-all duration-base ease-calm hover:-translate-y-0.5 hover:shadow-sm',
-        className
-      )}
+    <Paper
+      className={className}
+      sx={{
+        ...toneSx[tone],
+        p: paddingSx[padding],
+        borderRadius: 2,
+        transition: '160ms ease',
+        ...(interactive && { cursor: 'pointer', '&:hover': { transform: 'translateY(-1px)', boxShadow: 2 } }),
+      }}
     >
       {children}
-    </section>
+    </Paper>
   )
 }
 
@@ -63,14 +76,24 @@ export function PanelHeader({
   className?: string
 }) {
   return (
-    <div className={cn('flex items-start justify-between gap-4', className)}>
-      <div className="min-w-0">
-        {eyebrow && <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{eyebrow}</p>}
-        <h2 className="mt-1 text-lg font-semibold tracking-tight text-text-primary">{title}</h2>
-        {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-text-secondary">{description}</p>}
-      </div>
-      {action && <div className="shrink-0">{action}</div>}
-    </div>
+    <Stack className={className} direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
+      <Box sx={{ minWidth: 0 }}>
+        {eyebrow && (
+          <Typography variant="overline" color="text.disabled">
+            {eyebrow}
+          </Typography>
+        )}
+        <Typography variant="h4" component="h2">
+          {title}
+        </Typography>
+        {description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 760 }}>
+            {description}
+          </Typography>
+        )}
+      </Box>
+      {action && <Box sx={{ flexShrink: 0 }}>{action}</Box>}
+    </Stack>
   )
 }
 
@@ -88,28 +111,33 @@ export function AICard({
   confidence?: 'Hoog' | 'Gemiddeld' | 'Laag'
 }) {
   return (
-    <div className={cn('bg-ai-briefing rounded-lg border border-ai-muted border-l-[3px] border-l-ai p-5', className)}>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-base leading-none text-ai">✦</span>
-          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
-        </div>
-        {confidence && (
-          <span
-            className={cn(
-              'rounded-pill px-3 py-1 text-xs font-medium',
-              confidence === 'Hoog' && 'bg-success-subtle text-success',
-              confidence === 'Gemiddeld' && 'bg-warning-subtle text-warning',
-              confidence === 'Laag' && 'bg-surface-inset text-text-secondary'
-            )}
-          >
-            {confidence}
-          </span>
-        )}
-      </div>
-      <div className="text-base leading-7 text-text-primary">{children}</div>
-      {generatedAt && <p className="mt-3 text-xs text-text-tertiary">Gegenereerd {generatedAt}</p>}
-    </div>
+    <Card
+      className={className}
+      sx={{
+        p: 2.5,
+        borderLeft: '4px solid',
+        borderLeftColor: 'secondary.main',
+        background: 'radial-gradient(circle at left center, rgba(124,58,237,0.12), transparent 28%), linear-gradient(135deg, #f8f7ff 0%, #f5f3ff 100%)',
+      }}
+    >
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ mb: 1.5 }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <AutoAwesomeIcon color="secondary" fontSize="small" />
+          <Typography variant="overline" color="text.secondary">
+            {label}
+          </Typography>
+        </Stack>
+        {confidence && <Chip size="small" label={confidence} color={confidence === 'Hoog' ? 'success' : confidence === 'Gemiddeld' ? 'warning' : 'default'} />}
+      </Stack>
+      <Typography variant="body1" sx={{ lineHeight: 1.8 }}>
+        {children}
+      </Typography>
+      {generatedAt && (
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5 }}>
+          Gegenereerd {generatedAt}
+        </Typography>
+      )}
+    </Card>
   )
 }
 
@@ -130,30 +158,27 @@ export function InsightBlock({
   actionHref?: string
   className?: string
 }) {
-  const icons: Record<InsightType, string> = {
-    warning: '⚠',
-    positive: '✦',
-    suggestion: '💡',
-  }
-  const iconColors: Record<InsightType, string> = {
-    warning: 'text-warning',
-    positive: 'text-ai',
-    suggestion: 'text-accent',
-  }
+  const icon = type === 'warning' ? <ErrorOutlineIcon color="warning" /> : type === 'suggestion' ? <LightbulbOutlinedIcon color="primary" /> : <AutoAwesomeIcon color="secondary" />
 
   return (
-    <div className={cn('flex items-start gap-3 border-b border-border py-3 last:border-0', className)}>
-      <span className={cn('mt-0.5 shrink-0 text-base leading-none', iconColors[type])}>{icons[type]}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-text-primary">{title}</p>
-        {detail && <p className="mt-0.5 text-sm text-text-secondary">{detail}</p>}
-        {action && actionHref && (
-          <a href={actionHref} className="mt-1 inline-block text-sm font-medium text-accent transition-colors hover:text-accent-hover">
-            {action} →
-          </a>
+    <Stack className={className} direction="row" spacing={1.5} sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ mt: 0.25 }}>{icon}</Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="body2" fontWeight={750}>
+          {title}
+        </Typography>
+        {detail && (
+          <Typography variant="body2" color="text.secondary">
+            {detail}
+          </Typography>
         )}
-      </div>
-    </div>
+        {action && actionHref && (
+          <Button component={Link} href={actionHref} size="small" sx={{ mt: 0.5, px: 0 }}>
+            {action} →
+          </Button>
+        )}
+      </Box>
+    </Stack>
   )
 }
 
@@ -166,49 +191,48 @@ export function StatStrip({
     value: ReactNode
     meta?: ReactNode
     accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'orange' | 'pink'
-    mobileHidden?: boolean
   }>
   className?: string
 }) {
-  const accentColors: Record<string, string> = {
-    blue: 'text-accent',
-    violet: 'text-ai',
-    green: 'text-success',
-    red: 'text-error',
-    amber: 'text-warning',
-    orange: 'text-orange-500',
-    pink: 'text-pink-500',
+  const colors: Record<string, string> = {
+    blue: 'primary.main',
+    violet: 'secondary.main',
+    green: 'success.main',
+    red: 'error.main',
+    amber: 'warning.main',
+    orange: 'warning.main',
+    pink: 'secondary.main',
   }
 
   return (
-    <div className={cn('grid gap-3 sm:grid-cols-2 xl:grid-cols-4', className)}>
-      {stats.map((stat, i) => (
-        <div key={i} className={cn('card-base flex min-w-0 flex-col justify-center rounded-lg bg-surface px-4 py-4', stat.mobileHidden && 'hidden sm:flex')}>
-          <p className="truncate text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{stat.label}</p>
-          <div className={cn('mt-2 text-2xl font-bold leading-none tracking-tight', stat.accent ? accentColors[stat.accent] : 'text-text-primary')}>
+    <Box className={className} sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' } }}>
+      {stats.map((stat, index) => (
+        <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="overline" color="text.disabled">
+            {stat.label}
+          </Typography>
+          <Typography variant="h2" sx={{ color: stat.accent ? colors[stat.accent] : 'text.primary', mt: 0.5 }}>
             {stat.value}
-          </div>
-          {stat.meta && <p className="mt-1 truncate text-xs text-text-secondary">{stat.meta}</p>}
-        </div>
+          </Typography>
+          {stat.meta && (
+            <Typography variant="caption" color="text.secondary">
+              {stat.meta}
+            </Typography>
+          )}
+        </Paper>
       ))}
-    </div>
+    </Box>
   )
 }
 
-export function SectionHeader({
-  title,
-  action,
-  className,
-}: {
-  title: string
-  action?: ReactNode
-  className?: string
-}) {
+export function SectionHeader({ title, action, className }: { title: string; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex items-center justify-between', className)}>
-      <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{title}</p>
-      {action && <div className="text-xs text-text-secondary">{action}</div>}
-    </div>
+    <Stack className={className} direction="row" alignItems="center" justifyContent="space-between">
+      <Typography variant="overline" color="text.disabled">
+        {title}
+      </Typography>
+      {action && <Box>{action}</Box>}
+    </Stack>
   )
 }
 
@@ -228,21 +252,33 @@ export function MetricTile({
   className?: string
 }) {
   return (
-    <div className={cn('card-base rounded-lg bg-surface p-4', className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
-          <div className="mt-2 flex items-end gap-1.5 text-2xl font-bold leading-none tracking-tight text-text-primary">
-            {value}
-            {trend === 'up' && <span className="mb-0.5 text-sm text-success">↑</span>}
-            {trend === 'down' && <span className="mb-0.5 text-sm text-error">↓</span>}
-            {trend === 'flat' && <span className="mb-0.5 text-sm text-text-tertiary">—</span>}
-          </div>
-          {meta && <div className="mt-1.5 text-xs text-text-secondary">{meta}</div>}
-        </div>
-        {icon && <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-inset text-text-secondary">{icon}</div>}
-      </div>
-    </div>
+    <Paper className={className} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Stack direction="row" spacing={2} justifyContent="space-between">
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="overline" color="text.disabled">
+            {label}
+          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="flex-end">
+            <Typography variant="h2">{value}</Typography>
+            {trend && (
+              <Typography variant="body2" color={trend === 'up' ? 'success.main' : trend === 'down' ? 'error.main' : 'text.disabled'} sx={{ pb: 0.5 }}>
+                {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '—'}
+              </Typography>
+            )}
+          </Stack>
+          {meta && (
+            <Typography variant="caption" color="text.secondary">
+              {meta}
+            </Typography>
+          )}
+        </Box>
+        {icon && (
+          <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: '#f4f4f5', color: 'text.secondary', display: 'grid', placeItems: 'center' }}>
+            {icon}
+          </Box>
+        )}
+      </Stack>
+    </Paper>
   )
 }
 
@@ -258,27 +294,25 @@ export function EmptyPanel({
   className?: string
 }) {
   return (
-    <div className={cn('card-ghost rounded-lg bg-surface/50 px-5 py-8 text-center', className)}>
-      <p className="text-lg font-semibold text-text-primary">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-secondary">{description}</p>
-      {action && <div className="mt-4">{action}</div>}
-    </div>
+    <Paper className={className} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2, bgcolor: '#fafafb' }}>
+      <Typography variant="h4">{title}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mx: 'auto', maxWidth: 360 }}>
+        {description}
+      </Typography>
+      {action && <Box sx={{ mt: 2 }}>{action}</Box>}
+    </Paper>
   )
 }
 
-export function ActionPill({
-  children,
-  className,
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  return <span className={cn('inline-flex items-center rounded-pill border border-border bg-surface px-3 py-1 text-xs font-medium text-text-secondary', className)}>{children}</span>
+export function ActionPill({ children, className }: { children: ReactNode; className?: string }) {
+  return <Chip className={className} size="small" label={children} variant="outlined" />
 }
 
-export function Divider({ className }: { className?: string }) {
-  return <hr className={cn('border-t border-border', className)} />
+export function DividerLine({ className }: { className?: string }) {
+  return <Divider className={className} />
 }
+
+export { DividerLine as Divider }
 
 export function SystemActionBubble({
   icon,
@@ -296,19 +330,27 @@ export function SystemActionBubble({
   className?: string
 }) {
   return (
-    <div className={cn('my-2 flex justify-center', className)}>
-      <div className="flex max-w-[65%] items-center gap-2.5 rounded-lg border border-border bg-surface px-4 py-3 shadow-xs">
-        <span className="shrink-0 text-ai">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-text-primary">{title}</p>
-          {detail && <p className="mt-0.5 text-xs text-text-secondary">{detail}</p>}
-        </div>
-        {onUndo && (
-          <button onClick={onUndo} className="shrink-0 text-xs font-medium text-accent transition-colors hover:text-accent-hover">
-            {undoLabel}
-          </button>
-        )}
-      </div>
-    </div>
+    <Stack className={className} alignItems="center" sx={{ my: 1 }}>
+      <Paper sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderLeft: '4px solid', borderLeftColor: 'primary.main', borderRadius: 2, maxWidth: 520 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="body2" fontWeight={800}>
+              {title}
+            </Typography>
+            {detail && (
+              <Typography variant="caption" color="text.secondary">
+                {detail}
+              </Typography>
+            )}
+          </Box>
+          {onUndo && (
+            <Button size="small" onClick={onUndo}>
+              {undoLabel}
+            </Button>
+          )}
+        </Stack>
+      </Paper>
+    </Stack>
   )
 }

@@ -2,41 +2,39 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  ArrowRight,
-  BookOpen,
-  CalendarDays,
-  CheckSquare,
-  Euro,
-  HeartPulse,
-  MessageSquare,
-  NotebookPen,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Container from '@mui/material/Container'
+import Grid from '@mui/material/Grid'
+import IconButton from '@mui/material/IconButton'
+import LinearProgress from '@mui/material/LinearProgress'
+import Paper from '@mui/material/Paper'
+import Skeleton from '@mui/material/Skeleton'
+import Stack from '@mui/material/Stack'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
+import EuroIcon from '@mui/icons-material/Euro'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { formatCurrency, formatRelative } from '@/lib/utils'
-import { AICard, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
-import { LinkButton } from '@/components/ui/button'
-import { Tag } from '@/components/ui/card'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface DashboardData {
   stats: {
     todos: { total: number; open: number; dueToday: number; overdue: number }
     finance: { openInvoices: number; openAmount: number; monthIncome: number; monthExpenses: number }
   }
-  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string }>
+  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_title?: string }>
   recentFinance: Array<{ id: number; title: string; amount: number; type: string; category: string; created_at: string }>
   inboxCount: number
-}
-
-interface ActivityItem {
-  id: number
-  action: string
-  summary: string
-  entity_type: string
-  created_at: string
 }
 
 interface EventItem {
@@ -44,14 +42,8 @@ interface EventItem {
   title: string
   date: string
   time?: string | null
+  type?: string
 }
-
-const quickLogOptions = [
-  { icon: HeartPulse, label: 'Stemming', href: '/journal' },
-  { icon: Sparkles, label: 'Energie', href: '/journal' },
-  { icon: NotebookPen, label: 'Notitie', href: '/notes' },
-  { icon: CheckSquare, label: 'Taak', href: '/todos' },
-]
 
 function greeting() {
   const hour = new Date().getHours()
@@ -60,68 +52,102 @@ function greeting() {
   return 'Goedenavond'
 }
 
-function briefingText(data: DashboardData | null) {
-  if (!data) return 'Je briefing wordt samengesteld.'
-
-  const parts: string[] = []
-  if (data.urgentTodos.length > 0) {
-    parts.push(`Je hebt vandaag ${data.urgentTodos.length} focuspunten openstaan.`)
-  }
-  if (data.stats.todos.overdue > 0) {
-    parts.push(`${data.stats.todos.overdue} taken zijn over datum.`)
-  }
-  if (data.stats.finance.monthExpenses > 0) {
-    parts.push(`Je uitgaven deze maand staan op ${formatCurrency(data.stats.finance.monthExpenses)}.`)
-  }
-  if (data.inboxCount > 0) {
-    parts.push(`Daarnaast wachten ${data.inboxCount} inbox-items nog op triage.`)
-  }
-
-  return parts.length > 0
-    ? parts.join(' ')
-    : 'Vandaag oogt rustig. Gebruik de ruimte om bewust één belangrijk ding af te ronden.'
+function fallbackBriefing(data: DashboardData | null) {
+  if (!data) return 'Je basisdata is geladen. De AI-briefing wordt op de achtergrond opgehaald.'
+  const signals: string[] = []
+  if (data.stats.todos.dueToday > 0) signals.push(`${data.stats.todos.dueToday} taken vragen vandaag aandacht`)
+  if (data.stats.todos.overdue > 0) signals.push(`${data.stats.todos.overdue} taken zijn over datum`)
+  if (data.stats.finance.monthExpenses > 0) signals.push(`uitgaven deze maand: ${formatCurrency(data.stats.finance.monthExpenses)}`)
+  if (data.inboxCount > 0) signals.push(`${data.inboxCount} inbox-items wachten`)
+  return signals.length ? signals.join(' · ') : 'Geen acute signalen. Kies bewust één focusblok voor vandaag.'
 }
 
-function activityTone(entityType: string) {
-  if (entityType === 'todo') return 'bg-accent'
-  if (entityType === 'finance') return 'bg-warning'
-  if (entityType === 'journal') return 'bg-success'
-  return 'bg-info'
+function priorityColor(priority: string): 'error' | 'warning' | 'success' | 'default' {
+  if (priority === 'hoog') return 'error'
+  if (priority === 'medium') return 'warning'
+  if (priority === 'laag') return 'success'
+  return 'default'
+}
+
+function KpiCard({
+  label,
+  value,
+  helper,
+  icon,
+  color = 'primary.main',
+}: {
+  label: string
+  value: string | number
+  helper: string
+  icon: React.ReactNode
+  color?: string
+}) {
+  return (
+    <Paper sx={{ p: 2.25, border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" spacing={2}>
+        <Box>
+          <Typography variant="overline" color="text.disabled">
+            {label}
+          </Typography>
+          <Typography variant="h1" sx={{ mt: 0.5 }}>
+            {value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {helper}
+          </Typography>
+        </Box>
+        <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: '#f4f4f5', color, display: 'grid', placeItems: 'center' }}>
+          {icon}
+        </Box>
+      </Stack>
+    </Paper>
+  )
 }
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
-  const [activity, setActivity] = useState<ActivityItem[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [aiSummary, setAiSummary] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [baseLoading, setBaseLoading] = useState(true)
+  const [aiLoading, setAiLoading] = useState(false)
 
-  async function load() {
-    setLoading(true)
+  async function loadBase() {
+    setBaseLoading(true)
     try {
-      const [dashboardRes, activityRes, eventRes, summaryRes] = await Promise.all([
+      const [dashboardRes, eventRes] = await Promise.all([
         fetch('/api/dashboard').then((response) => response.json()),
-        fetch('/api/activity?limit=6').then((response) => response.json()).catch(() => ({ data: [] })),
         fetch(`/api/events?date=${new Date().toISOString().split('T')[0]}`).then((response) => response.json()).catch(() => ({ data: [] })),
-        fetch('/api/ai/summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'dashboard' }),
-        }).then((response) => response.json()).catch(() => ({ summary: null })),
       ])
-
       setData(dashboardRes)
-      setActivity(activityRes.data || [])
-      setEvents((eventRes.data || []).slice(0, 4))
-      setAiSummary(summaryRes.summary ?? null)
+      setEvents((eventRes.data || []).slice(0, 8))
     } finally {
-      setLoading(false)
+      setBaseLoading(false)
+    }
+  }
+
+  async function loadAiBriefing() {
+    setAiLoading(true)
+    try {
+      const summaryRes = await fetch('/api/ai/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'dashboard' }),
+      }).then((response) => response.json())
+      setAiSummary(summaryRes.summary ?? null)
+    } catch {
+      setAiSummary(null)
+    } finally {
+      setAiLoading(false)
     }
   }
 
   useEffect(() => {
-    load()
+    loadBase()
   }, [])
+
+  useEffect(() => {
+    if (!baseLoading) loadAiBriefing()
+  }, [baseLoading])
 
   const dateLabel = useMemo(
     () =>
@@ -135,177 +161,248 @@ export default function Dashboard() {
     []
   )
 
-  if (loading) {
+  if (baseLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-content flex-col gap-4 px-4 py-6 sm:px-6">
-        <div className="h-36 animate-pulse rounded-lg bg-surface" />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="h-44 animate-pulse rounded-lg bg-surface" />
-          <div className="h-44 animate-pulse rounded-lg bg-surface" />
-          <div className="h-44 animate-pulse rounded-lg bg-surface" />
-        </div>
-        <div className="h-48 animate-pulse rounded-lg bg-surface" />
-      </div>
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Stack spacing={2.5}>
+          <Skeleton variant="rounded" height={118} />
+          <Grid container spacing={2}>
+            {[0, 1, 2, 3].map((item) => (
+              <Grid item xs={12} sm={6} lg={3} key={item}>
+                <Skeleton variant="rounded" height={132} />
+              </Grid>
+            ))}
+          </Grid>
+          <Skeleton variant="rounded" height={360} />
+        </Stack>
+      </Container>
     )
   }
 
   return (
-    <div className="mx-auto w-full max-w-content px-4 py-6 sm:px-6">
-      <div className="mb-6">
-        <p className="text-3xl font-extrabold tracking-tight text-text-primary">
-          {greeting()}, Daan.
-        </p>
-        <p className="mt-2 text-sm text-text-secondary">{dateLabel}</p>
-      </div>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Stack spacing={2.5}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ xs: 'stretch', md: 'flex-start' }}>
+          <Box>
+            <Typography variant="h1">{greeting()}, Daan.</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+              {dateLabel}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button component={Link} href="/chat" variant="contained" startIcon={<AutoAwesomeIcon />}>
+              Vraag AI
+            </Button>
+            <IconButton onClick={() => { loadBase(); loadAiBriefing() }} aria-label="Vernieuw dashboard">
+              <RefreshIcon />
+            </IconButton>
+          </Stack>
+        </Stack>
 
-      <div className="space-y-4">
-        <AICard label="AI Briefing" generatedAt={new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}>
-          {aiSummary ?? briefingText(data)}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <LinkButton href="/todos" variant="ghost" size="sm">Bekijk taken</LinkButton>
-            <LinkButton href="/finance" variant="ghost" size="sm">Bekijk financiën</LinkButton>
-            <button onClick={load} className="focus-ring inline-flex items-center gap-2 rounded-pill bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary">
-              <RefreshCw size={12} />
-              Vernieuwen
-            </button>
-          </div>
-        </AICard>
+        <Paper
+          sx={{
+            p: 2.5,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderLeft: '4px solid',
+            borderLeftColor: 'secondary.main',
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f7ff 100%)',
+          }}
+        >
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <AutoAwesomeIcon color="secondary" fontSize="small" />
+                <Typography variant="overline" color="text.secondary">
+                  AI briefing
+                </Typography>
+                {aiLoading && <Chip size="small" label="wordt bijgewerkt" color="secondary" variant="outlined" />}
+              </Stack>
+              <Typography variant="body1" sx={{ mt: 1, maxWidth: 980, lineHeight: 1.8 }}>
+                {aiSummary ?? fallbackBriefing(data)}
+              </Typography>
+              {aiLoading && <LinearProgress color="secondary" sx={{ mt: 2, maxWidth: 360 }} />}
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <Button component={Link} href="/todos" variant="outlined" endIcon={<ArrowForwardIcon />}>
+                Taken
+              </Button>
+              <Button component={Link} href="/finance" variant="outlined" endIcon={<ArrowForwardIcon />}>
+                Financiën
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
-        <Tabs defaultValue="focus">
-          <ScrollArea className="w-full whitespace-nowrap">
-            <TabsList>
-              <TabsTrigger value="focus">Focus</TabsTrigger>
-              <TabsTrigger value="plan">Vandaag</TabsTrigger>
-              <TabsTrigger value="capture">Quick log</TabsTrigger>
-            </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} lg={3}>
+            <KpiCard label="Open taken" value={data?.stats.todos.open ?? 0} helper={`${data?.stats.todos.dueToday ?? 0} vandaag`} icon={<CheckCircleOutlineIcon />} />
+          </Grid>
+          <Grid item xs={12} sm={6} lg={3}>
+            <KpiCard label="Over datum" value={data?.stats.todos.overdue ?? 0} helper="Moet terug naar nul" color="error.main" icon={<CheckCircleOutlineIcon />} />
+          </Grid>
+          <Grid item xs={12} sm={6} lg={3}>
+            <KpiCard label="Maanduitgaven" value={formatCurrency(data?.stats.finance.monthExpenses ?? 0)} helper="Deze maand" color="warning.main" icon={<EuroIcon />} />
+          </Grid>
+          <Grid item xs={12} sm={6} lg={3}>
+            <KpiCard label="Afspraken" value={events.length} helper="Vandaag gepland" color="info.main" icon={<CalendarMonthIcon />} />
+          </Grid>
+        </Grid>
 
-          <TabsContent value="focus">
-            <Panel tone="muted">
-              <PanelHeader eyebrow="Focus vandaag" title="Belangrijkste taken" />
-              <div className="mt-4 space-y-3">
-                {data?.urgentTodos.slice(0, 3).map((todo) => (
-                  <Link key={todo.id} href="/todos" className="block rounded-lg bg-surface px-4 py-3 transition-colors hover:bg-surface-hover">
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1 h-4 w-4 rounded-full border border-border-strong" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-text-primary">{todo.title}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <Tag color="gray">{todo.priority}</Tag>
-                          {todo.due_date && <Tag color="blue">{todo.due_date}</Tag>}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-                {(!data || data.urgentTodos.length === 0) && (
-                  <EmptyPanel title="Geen focustaken" description="Er staat nu niets urgents bovenaan." />
-                )}
-              </div>
-            </Panel>
-          </TabsContent>
+        <Grid container spacing={2}>
+          <Grid item xs={12} lg={7}>
+            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
+                <Box>
+                  <Typography variant="h4">Focus taken</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Tabelgericht overzicht van wat vandaag aandacht vraagt.
+                  </Typography>
+                </Box>
+                <Button component={Link} href="/todos" size="small" endIcon={<ArrowForwardIcon />}>
+                  Alles bekijken
+                </Button>
+              </Stack>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Taak</TableCell>
+                    <TableCell>Prioriteit</TableCell>
+                    <TableCell>Project</TableCell>
+                    <TableCell>Deadline</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(data?.urgentTodos ?? []).slice(0, 8).map((todo) => (
+                    <TableRow key={todo.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={750}>
+                          {todo.title}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="small" label={todo.priority} color={priorityColor(todo.priority)} />
+                      </TableCell>
+                      <TableCell>{todo.project_title || '—'}</TableCell>
+                      <TableCell>{todo.due_date || 'Geen'}</TableCell>
+                    </TableRow>
+                  ))}
+                  {(data?.urgentTodos ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                          Geen focus taken voor vandaag.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
 
-          <TabsContent value="plan">
-            <Panel tone="muted">
-              <PanelHeader eyebrow="Agenda" title="Vandaag gepland" />
-              <div className="mt-4 space-y-3">
-                {events.length > 0 ? events.map((event) => (
-                  <div key={event.id} className="rounded-lg bg-surface px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">
-                      {event.time || 'Hele dag'}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-text-primary">{event.title}</p>
-                  </div>
-                )) : (
-                  <EmptyPanel title="Geen afspraken" description="Je agenda is vandaag nog leeg." />
-                )}
-              </div>
-            </Panel>
-          </TabsContent>
+          <Grid item xs={12} lg={5}>
+            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
+                <Box>
+                  <Typography variant="h4">Agenda vandaag</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Compact, scanbaar, zonder extra cards.
+                  </Typography>
+                </Box>
+                <Button component={Link} href="/agenda" size="small" endIcon={<ArrowForwardIcon />}>
+                  Agenda
+                </Button>
+              </Stack>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Tijd</TableCell>
+                    <TableCell>Afspraak</TableCell>
+                    <TableCell>Type</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {events.map((event) => (
+                    <TableRow key={`${event.id}-${event.date}-${event.time}`} hover>
+                      <TableCell>{event.time || 'Hele dag'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={750}>
+                          {event.title}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{event.type || 'algemeen'}</TableCell>
+                    </TableRow>
+                  ))}
+                  {events.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3}>
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                          Geen afspraken vandaag.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+        </Grid>
 
-          <TabsContent value="capture">
-            <Panel tone="muted">
-              <PanelHeader eyebrow="Quick log" title="Leg iets vast" />
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {quickLogOptions.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="rounded-lg bg-surface px-4 py-4 transition-colors hover:bg-surface-hover"
-                  >
-                    <item.icon size={18} className="text-text-secondary" />
-                    <p className="mt-3 text-sm font-semibold text-text-primary">{item.label}</p>
-                  </Link>
-                ))}
-              </div>
-            </Panel>
-          </TabsContent>
-        </Tabs>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Panel>
-            <PanelHeader eyebrow="Recente activiteit" title="Laatste 24 uur" />
-            <div className="mt-4 space-y-4">
-              {activity.length > 0 ? activity.map((item) => (
-                <div key={item.id} className="flex items-start gap-3">
-                  <span className={`mt-1.5 h-2 w-2 rounded-full ${activityTone(item.entity_type)}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex gap-3">
-                      <span className="w-14 shrink-0 text-xs text-text-tertiary">{formatRelative(item.created_at)}</span>
-                      <p className="text-sm text-text-primary">{item.summary || item.action}</p>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <EmptyPanel title="Nog geen activiteit" description="Zodra de AI of jij iets vastlegt, verschijnt het hier." />
+        <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
+            <Box>
+              <Typography variant="h4">Recente transacties</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Minder card design, meer helderheid in rijen en kolommen.
+              </Typography>
+            </Box>
+            <Button component={Link} href="/finance" size="small" endIcon={<ArrowForwardIcon />}>
+              Financiën
+            </Button>
+          </Stack>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Omschrijving</TableCell>
+                <TableCell>Categorie</TableCell>
+                <TableCell>Datum</TableCell>
+                <TableCell align="right">Bedrag</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(data?.recentFinance ?? []).map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={750}>
+                      {item.title}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip size="small" label={item.category || 'overig'} variant="outlined" />
+                  </TableCell>
+                  <TableCell>{formatRelative(item.created_at)}</TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" fontWeight={800} color={item.type === 'inkomst' ? 'success.main' : 'text.primary'}>
+                      {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(data?.recentFinance ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                      Nog geen recente transacties.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
               )}
-            </div>
-          </Panel>
-
-          <div className="space-y-4">
-            <Panel>
-              <PanelHeader eyebrow="Vandaag in cijfers" title="Snelle status" />
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-lg bg-surface-inset px-4 py-3">
-                  <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Taken</p>
-                  <p className="mt-2 text-2xl font-bold text-text-primary">{data?.stats.todos.open ?? 0}</p>
-                </div>
-                <div className="rounded-lg bg-surface-inset px-4 py-3">
-                  <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Uitgaven</p>
-                  <p className="mt-2 text-2xl font-bold text-text-primary">{formatCurrency(data?.stats.finance.monthExpenses ?? 0)}</p>
-                </div>
-                <div className="rounded-lg bg-surface-inset px-4 py-3">
-                  <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Open facturen</p>
-                  <p className="mt-2 text-2xl font-bold text-text-primary">{data?.stats.finance.openInvoices ?? 0}</p>
-                </div>
-              </div>
-            </Panel>
-
-            <Panel tone="ai">
-              <PanelHeader eyebrow="Dagelijks" title="Ga verder waar je was" />
-              <div className="mt-4 space-y-2">
-                <LinkButton href="/chat" variant="ai" size="md" className="w-full justify-between">
-                  <span className="inline-flex items-center gap-2"><MessageSquare size={16} /> Chat</span>
-                  <ArrowRight size={14} />
-                </LinkButton>
-                <LinkButton href="/journal" variant="secondary" size="md" className="w-full justify-between">
-                  <span className="inline-flex items-center gap-2"><BookOpen size={16} /> Dagboek</span>
-                  <ArrowRight size={14} />
-                </LinkButton>
-                <LinkButton href="/finance" variant="secondary" size="md" className="w-full justify-between">
-                  <span className="inline-flex items-center gap-2"><Euro size={16} /> Financiën</span>
-                  <ArrowRight size={14} />
-                </LinkButton>
-                <LinkButton href="/agenda" variant="secondary" size="md" className="w-full justify-between">
-                  <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> Agenda</span>
-                  <ArrowRight size={14} />
-                </LinkButton>
-              </div>
-            </Panel>
-          </div>
-        </div>
-      </div>
-    </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Stack>
+    </Container>
   )
 }

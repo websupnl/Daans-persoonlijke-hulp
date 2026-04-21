@@ -2,8 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare } from 'lucide-react'
-import Sidebar from './Sidebar'
+import Box from '@mui/material/Box'
+import Fab from '@mui/material/Fab'
+import Tooltip from '@mui/material/Tooltip'
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined'
+import Sidebar, { drawerWidth } from './Sidebar'
 import BottomNav from './BottomNav'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -11,26 +14,43 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isChat = pathname === '/chat'
 
   return (
-    <div className="min-h-dvh bg-background text-text-primary">
+    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', color: 'text.primary' }}>
       <Sidebar />
-
-      <main className="min-h-dvh min-w-0 bg-background pb-[calc(72px+env(safe-area-inset-bottom))] md:ml-[var(--sidebar-w)] md:pb-0">
-        <div className="min-h-dvh bg-background">
-          {children}
-        </div>
-      </main>
-
+      <Box
+        component="main"
+        sx={{
+          minHeight: '100dvh',
+          pb: { xs: 'calc(72px + env(safe-area-inset-bottom))', md: 0 },
+          ml: { md: `${drawerWidth}px` },
+        }}
+      >
+        {children}
+      </Box>
       <BottomNav />
 
       {!isChat && (
-        <Link
-          href="/chat"
-          className="fixed bottom-[calc(88px+env(safe-area-inset-bottom))] right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
-          title="Chat met AI"
-        >
-          <MessageSquare size={24} />
-        </Link>
+        <Tooltip title="Open chat">
+          <Fab
+            component={Link}
+            href="/chat"
+            color="primary"
+            variant="extended"
+            sx={{
+              display: { xs: 'none', md: 'inline-flex' },
+              position: 'fixed',
+              right: 24,
+              bottom: 24,
+              zIndex: 1200,
+              gap: 1,
+              fontWeight: 800,
+              boxShadow: 3,
+            }}
+          >
+            <ChatBubbleOutlineIcon fontSize="small" />
+            Chat
+          </Fab>
+        </Tooltip>
       )}
-    </div>
+    </Box>
   )
 }

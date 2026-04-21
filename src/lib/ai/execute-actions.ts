@@ -1,6 +1,7 @@
 import { queryOne, execute, query } from '../db'
 import { logActivity, syncEntityLinks } from '../activity'
 import { AIAction } from './action-schema'
+import { ensureWorkspaceColumns, normalizeWorkspace, WorkspaceId } from '../workspace'
 
 // Converts Dutch relative date words to YYYY-MM-DD if needed
 function resolveDutchDate(date: string): string | null {
@@ -66,17 +67,25 @@ export interface ActionResult {
   error?: string
 }
 
+interface ExecuteActionOptions {
+  workspace?: WorkspaceId | string | null
+}
+
 export async function executeActions(
-  actions: AIAction[]
+  actions: AIAction[],
+  options: ExecuteActionOptions = {}
 ): Promise<ActionResult[]> {
   const results: ActionResult[] = []
+  const workspace = normalizeWorkspace(options.workspace)
+
+  await ensureWorkspaceColumns(['todos', 'notes'])
 
   console.log(`[executeActions] Starting execution of ${actions.length} actions:`, actions.map(a => a.type))
 
   for (const action of actions) {
     try {
       console.log(`[executeActions] Executing action:`, action.type, action.payload)
-      const result = await executeSingleAction(action)
+      const result = await executeSingleAction(action, { workspace })
       console.log(`[executeActions] Action result:`, result)
       results.push(result)
     } catch (err) {
@@ -94,7 +103,8 @@ export async function executeActions(
 }
 
 async function executeSingleAction(
-  action: AIAction
+  action: AIAction,
+  options: { workspace: WorkspaceId }
 ): Promise<ActionResult> {
   console.log(`[executeSingleAction] Starting action execution for:`, action.type, action.payload)
   
@@ -109,10 +119,10 @@ async function executeSingleAction(
       console.log(`[executeSingleAction] About to insert todo:`, { title, description, priority, due_date, category, project_id })
       
       const row = await queryOne<{ id: number }>(`
-        INSERT INTO todos (title, description, priority, due_date, category, project_id)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO todos (title, description, priority, due_date, category, project_id, workspace)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
-      `, [title, description ?? null, priority ?? 'medium', due_date ?? null, category ?? 'overig', project_id ?? null])
+      `, [title, description ?? null, priority ?? 'medium', due_date ?? null, category ?? 'overig', project_id ?? null, options.workspace])
       
       console.log(`[executeSingleAction] Todo insert result:`, row)
       
@@ -135,20 +145,20 @@ async function executeSingleAction(
       if (entries.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
       const setClauses = entries.map(([k], idx) => `${k} = $${idx + 1}`)
       const values = entries.map(([, v]) => v)
-      await execute(`UPDATE todos SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1}`, [...values, id])
+      await execute(`UPDATE todos SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1} AND workspace = $${entries.length + 2}`, [...values, id, options.workspace])
       return { type: action.type, success: true, data: { id } }
     }
 
     case 'todo_delete': {
       const { id } = action.payload as any
-      await execute(`DELETE FROM todos WHERE id = $1`, [id])
+      await execute(`DELETE FROM todos WHERE id = $1 AND workspace = $2`, [id, options.workspace])
       return { type: action.type, success: true, data: { id } }
     }
 
     case 'todo_delete_many': {
       const { ids } = action.payload as any
       if (!ids.length) return { type: action.type, success: true, data: { count: 0 } }
-      await execute(`DELETE FROM todos WHERE id = ANY($1)`, [ids])
+      await execute(`DELETE FROM todos WHERE id = ANY($1) AND workspace = $2`, [ids, options.workspace])
       return { type: action.type, success: true, data: { count: ids.length } }
     }
 
@@ -156,11 +166,11 @@ async function executeSingleAction(
       const { title_search } = action.payload
       const todo = await queryOne<{ id: number; title: string }>(`
         SELECT id, title FROM todos 
-        WHERE (title ILIKE $1 OR $1 ILIKE '%' || title || '%') AND completed = 0::smallint 
+        WHERE workspace = $2 AND (title ILIKE $1 OR $1 ILIKE '%' || title || '%') AND completed = 0::smallint
         LIMIT 1
-      `, [`%${title_search}%`])
+      `, [`%${title_search}%`, options.workspace])
       if (!todo) return { type: action.type, success: false, error: `Geen open taak gevonden voor "${title_search}"` }
-      await execute(`UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1`, [todo.id])
+      await execute(`UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1 AND workspace = $2`, [todo.id, options.workspace])
       return { type: action.type, success: true, data: { id: todo.id, title: todo.title } }
     }
 
@@ -179,11 +189,11 @@ async function executeSingleAction(
       // Smart side-effect: auto-complete related todo
       const relatedTodo = await queryOne<{ id: number; title: string }>(`
         SELECT id, title FROM todos 
-        WHERE completed = 0::smallint AND (title ILIKE $1 OR $1 ILIKE '%' || title || '%')
+        WHERE workspace = $2 AND completed = 0::smallint AND (title ILIKE $1 OR $1 ILIKE '%' || title || '%')
         LIMIT 1
-      `, [title])
+      `, [title, options.workspace])
       if (relatedTodo) {
-        await execute('UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [relatedTodo.id])
+        await execute('UPDATE todos SET completed = 1::smallint, completed_at = NOW(), updated_at = NOW() WHERE id = $1 AND workspace = $2', [relatedTodo.id, options.workspace])
         await logActivity({
           entityType: 'todo',
           entityId: relatedTodo.id,
@@ -281,9 +291,9 @@ async function executeSingleAction(
       const tagsJson = JSON.stringify(tags ?? [])
       const contentText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       const row = await queryOne<{ id: number }>(`
-        INSERT INTO notes (title, content, content_text, tags, project_id)
-        VALUES ($1, $2, $3, $4, $5) RETURNING id
-      `, [title, content, contentText, tagsJson, project_id ?? null])
+        INSERT INTO notes (title, content, content_text, tags, project_id, workspace)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+      `, [title, content, contentText, tagsJson, project_id ?? null, options.workspace])
       await logActivity({ entityType: 'note', entityId: row?.id, action: 'created', title, summary: 'Note aangemaakt via AI' })
       return { type: action.type, success: true, data: { id: row?.id, title } }
     }
@@ -301,7 +311,8 @@ async function executeSingleAction(
       }
       if (values.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
       values.push(id)
-      await execute(`UPDATE notes SET ${updates.join(', ')} WHERE id = $${i}`, values)
+      values.push(options.workspace)
+      await execute(`UPDATE notes SET ${updates.join(', ')} WHERE id = $${i} AND workspace = $${i + 1}`, values)
       return { type: action.type, success: true, data: { id, title } }
     }
 

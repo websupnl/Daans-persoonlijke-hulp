@@ -1,32 +1,66 @@
 import { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import Box from '@mui/material/Box'
+import Breadcrumbs from '@mui/material/Breadcrumbs'
+import Container from '@mui/material/Container'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
 
 interface PageShellProps {
   title: string
   subtitle?: string
   actions?: ReactNode
-  desktopSearch?: ReactNode
   children: ReactNode
   className?: string
   compact?: boolean
 }
 
-export default function PageShell({ title, subtitle, actions, desktopSearch, children, className, compact }: PageShellProps) {
+export default function PageShell({ title, subtitle, actions, children, compact }: PageShellProps) {
   return (
-    <div className={cn('mx-auto w-full max-w-content px-4 sm:px-6 lg:px-6', compact ? 'py-5' : 'py-6 sm:py-6', className)}>
-      <div className="page-shell-header sticky top-0 z-10 -mx-4 mb-6 px-4 pb-4 pt-5 sm:-mx-6 sm:px-6 lg:px-6">
-        <div className={cn(desktopSearch ? 'flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)_auto] lg:items-start lg:gap-4' : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between')}>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">{title}</h1>
-            {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">{subtitle}</p>}
-          </div>
-          {desktopSearch && <div className="hidden lg:block">{desktopSearch}</div>}
-          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
-        </div>
-      </div>
+    <Container maxWidth="xl" sx={{ py: compact ? 2.5 : 3, px: { xs: 2, sm: 3 } }}>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          mx: { xs: -2, sm: -3 },
+          mb: 3,
+          px: { xs: 2, sm: 3 },
+          py: 2,
+          bgcolor: 'rgba(247,247,248,0.92)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 0.75, display: { xs: 'none', sm: 'flex' } }}>
+          <Typography variant="caption" color="text.secondary">
+            Daan
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {title}
+          </Typography>
+        </Breadcrumbs>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'flex-start' }} justifyContent="space-between">
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h2" component="h1">
+              {title}
+            </Typography>
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 760 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          {actions && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
+              {actions}
+            </Stack>
+          )}
+        </Stack>
+      </Box>
 
-      <div className="space-y-4">{children}</div>
-    </div>
+      <Stack spacing={2.5}>{children}</Stack>
+    </Container>
   )
 }
 
@@ -34,7 +68,6 @@ export function PageSection({
   title,
   action,
   children,
-  className,
 }: {
   title?: string
   action?: ReactNode
@@ -42,18 +75,30 @@ export function PageSection({
   className?: string
 }) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <Stack spacing={1.25}>
       {title && (
-        <div className="flex items-center justify-between px-0.5">
-          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{title}</p>
-          {action && <div className="text-xs text-text-secondary">{action}</div>}
-        </div>
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Typography variant="overline" color="text.disabled">
+            {title}
+          </Typography>
+          {action && <Box>{action}</Box>}
+        </Stack>
       )}
       {children}
-    </div>
+    </Stack>
   )
 }
 
 export function StatsRow({ children, cols = 2 }: { children: ReactNode; cols?: 2 | 4 }) {
-  return <div className={cn('grid gap-3', cols === 4 ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2')}>{children}</div>
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 1.5,
+        gridTemplateColumns: { xs: '1fr 1fr', lg: cols === 4 ? 'repeat(4, minmax(0, 1fr))' : '1fr 1fr' },
+      }}
+    >
+      {children}
+    </Box>
+  )
 }

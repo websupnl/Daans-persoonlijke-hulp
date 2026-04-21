@@ -1,27 +1,25 @@
 import { ReactNode, ButtonHTMLAttributes, forwardRef } from 'react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import MuiButton from '@mui/material/Button'
+import MuiIconButton from '@mui/material/IconButton'
+import MuiChip from '@mui/material/Chip'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'ai' | 'default' | 'destructive' | 'outline'
 type Size = 'sm' | 'md' | 'lg' | 'default' | 'icon'
 
-const variantClasses: Record<Variant, string> = {
-  primary: 'bg-accent text-text-inverse hover:bg-accent-hover',
-  default: 'bg-accent text-text-inverse hover:bg-accent-hover',
-  secondary: 'border border-border-strong bg-surface text-text-primary hover:bg-surface-hover',
-  outline: 'border border-border-strong bg-transparent text-text-primary hover:bg-surface-hover',
-  ghost: 'bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
-  danger: 'bg-error text-text-inverse hover:bg-red-600',
-  destructive: 'bg-error text-text-inverse hover:bg-red-600',
-  ai: 'button-ai-shimmer bg-gradient text-text-inverse hover:opacity-95',
+function mapVariant(variant: Variant): { variant: 'text' | 'outlined' | 'contained'; color: 'primary' | 'error' | 'inherit' | 'secondary' } {
+  if (variant === 'danger' || variant === 'destructive') return { variant: 'contained', color: 'error' }
+  if (variant === 'secondary' || variant === 'outline') return { variant: 'outlined', color: 'inherit' }
+  if (variant === 'ghost') return { variant: 'text', color: 'inherit' }
+  if (variant === 'ai') return { variant: 'contained', color: 'secondary' }
+  return { variant: 'contained', color: 'primary' }
 }
 
-const sizeClasses: Record<Size, string> = {
-  sm: 'h-7 rounded-md px-3 text-sm gap-1.5',
-  md: 'h-9 rounded-md px-4 text-sm gap-2',
-  lg: 'h-11 rounded-lg px-5 text-base gap-2',
-  default: 'h-9 rounded-md px-4 text-sm gap-2',
-  icon: 'h-9 w-9 rounded-md',
+function mapSize(size: Size): 'small' | 'medium' | 'large' {
+  if (size === 'sm') return 'small'
+  if (size === 'lg') return 'large'
+  return 'medium'
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -34,21 +32,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'default', size = 'default', className, children, disabled, ...props }, ref) => {
+    const mapped = mapVariant(variant)
     return (
-      <button
+      <MuiButton
         ref={ref}
         disabled={disabled}
-        className={cn(
-          'focus-ring inline-flex items-center justify-center font-semibold transition-all duration-base ease-calm select-none',
-          'focus-visible:outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40',
-          variantClasses[variant],
-          sizeClasses[size],
-          className
-        )}
+        variant={mapped.variant}
+        color={mapped.color}
+        size={mapSize(size)}
+        className={className}
         {...props}
       >
+        {variant === 'ai' && <AutoAwesomeIcon sx={{ mr: 1 }} fontSize="small" />}
         {children}
-      </button>
+      </MuiButton>
     )
   }
 )
@@ -69,20 +66,13 @@ export function LinkButton({
   children: ReactNode
   iconRight?: ReactNode
 }) {
+  const mapped = mapVariant(variant)
   return (
-    <Link
-      href={href}
-      className={cn(
-        'focus-ring inline-flex items-center justify-center font-semibold transition-all duration-base ease-calm select-none',
-        'focus-visible:outline-none',
-        variantClasses[variant],
-        sizeClasses[size],
-        className
-      )}
-    >
+    <MuiButton component={Link} href={href} variant={mapped.variant} color={mapped.color} size={mapSize(size)} className={className}>
+      {variant === 'ai' && <AutoAwesomeIcon sx={{ mr: 1 }} fontSize="small" />}
       {children}
-      {iconRight && <span className="ml-1">{iconRight}</span>}
-    </Link>
+      {iconRight}
+    </MuiButton>
   )
 }
 
@@ -98,54 +88,29 @@ export function IconButton({
   variant?: Variant
   className?: string
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  const color = variant === 'danger' || variant === 'destructive' ? 'error' : variant === 'primary' || variant === 'default' ? 'primary' : 'default'
   return (
-    <button
-      aria-label={label}
-      className={cn(
-        'focus-ring inline-flex h-9 w-9 items-center justify-center rounded-md transition-all duration-base ease-calm',
-        'focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40',
-        variantClasses[variant],
-        className
-      )}
-      {...props}
-    >
+    <MuiIconButton aria-label={label} color={color as any} className={className} {...props}>
       {icon}
-    </button>
+    </MuiIconButton>
   )
 }
 
 type ChipColor = 'default' | 'blue' | 'green' | 'amber' | 'red' | 'violet'
 
-const chipColors: Record<ChipColor, string> = {
-  default: 'bg-surface-inset text-text-secondary',
-  blue: 'border border-accent-muted bg-accent-subtle text-accent',
-  green: 'border border-success/10 bg-success-subtle text-success',
-  amber: 'border border-warning-border bg-warning-subtle text-warning',
-  red: 'border border-red-200 bg-error-subtle text-error',
-  violet: 'border border-ai-muted bg-ai-subtle text-ai',
+const chipColorMap: Record<ChipColor, any> = {
+  default: 'default',
+  blue: 'primary',
+  green: 'success',
+  amber: 'warning',
+  red: 'error',
+  violet: 'secondary',
 }
 
-export function Chip({
-  children,
-  color = 'default',
-  className,
-}: {
-  children: ReactNode
-  color?: ChipColor
-  className?: string
-}) {
-  return (
-    <span className={cn('inline-flex items-center rounded-pill px-3 py-1 text-xs font-medium', chipColors[color], className)}>
-      {children}
-    </span>
-  )
+export function Chip({ children, color = 'default', className }: { children: ReactNode; color?: ChipColor; className?: string }) {
+  return <MuiChip className={className} size="small" color={chipColorMap[color]} label={children} variant={color === 'default' ? 'outlined' : 'filled'} />
 }
 
 export function AIChip({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span className={cn('inline-flex items-center gap-1 rounded-pill border border-ai-muted bg-ai-subtle px-3 py-1 text-xs font-medium text-ai', className)}>
-      <span className="text-[10px] leading-none">✦</span>
-      {children}
-    </span>
-  )
+  return <MuiChip className={className} size="small" color="secondary" icon={<AutoAwesomeIcon />} label={children} />
 }

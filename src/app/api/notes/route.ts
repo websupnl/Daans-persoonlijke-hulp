@@ -5,9 +5,12 @@ import { query, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { generateTags, rankNotesByQuery } from '@/lib/ai/note-utils'
 import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureWorkspaceColumns(['notes'])
+    const workspace = getWorkspaceFromRequest(req)
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const smart = searchParams.get('smart') === 'true'
@@ -20,31 +23,38 @@ export async function GET(req: NextRequest) {
 
     if (search) {
       sql = `
-      SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
-      FROM notes n
-      LEFT JOIN projects p ON n.project_id = p.id
-      LEFT JOIN contacts c ON n.contact_id = c.id
-      WHERE (n.title ILIKE $${i} OR n.content_text ILIKE $${i})
-      ORDER BY n.pinned DESC, n.updated_at DESC
-    `
-      params.push(`%${search}%`)
+        SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
+        FROM notes n
+        LEFT JOIN projects p ON n.project_id = p.id
+        LEFT JOIN contacts c ON n.contact_id = c.id
+        WHERE n.workspace = $${i++} AND (n.title ILIKE $${i} OR n.content_text ILIKE $${i})
+        ORDER BY n.pinned DESC, n.updated_at DESC
+      `
+      params.push(workspace, `%${search}%`)
     } else {
       sql = `
-      SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
-      FROM notes n
-      LEFT JOIN projects p ON n.project_id = p.id
-      LEFT JOIN contacts c ON n.contact_id = c.id
-      WHERE 1=1
-    `
-      if (projectId) { sql += ` AND n.project_id = $${i++}`; params.push(parseInt(projectId)) }
-      if (tag) { sql += ` AND n.tags LIKE $${i++}`; params.push(`%"${tag}"%`) }
+        SELECT n.*, p.title as project_title, p.color as project_color, c.name as contact_name
+        FROM notes n
+        LEFT JOIN projects p ON n.project_id = p.id
+        LEFT JOIN contacts c ON n.contact_id = c.id
+        WHERE n.workspace = $${i++}
+      `
+      params.push(workspace)
+      if (projectId) {
+        sql += ` AND n.project_id = $${i++}`
+        params.push(parseInt(projectId))
+      }
+      if (tag) {
+        sql += ` AND n.tags LIKE $${i++}`
+        params.push(`%"${tag}"%`)
+      }
       sql += ' ORDER BY n.pinned DESC, n.updated_at DESC'
     }
 
     let notes = (await query<Record<string, unknown>>(sql, params)).map((n) => ({
       ...n,
       tags: JSON.parse(n.tags as string || '[]'),
-      content: n.content, // Ensure content is available for ranking
+      content: n.content,
     }))
 
     if (smart && search) {
@@ -59,28 +69,34 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureWorkspaceColumns(['notes'])
+    const workspace = getWorkspaceFromRequest(req)
     const body = await req.json()
     let { title, content, content_text, tags, project_id, contact_id, pinned } = body
 
-  // Auto-tagging if no tags provided
     if ((!tags || tags.length === 0) && content_text) {
-      const aiTags = await generateTags(content_text)
-      if (aiTags.length > 0) tags = aiTags
+      try {
+        const aiTags = await generateTags(content_text)
+        if (aiTags.length > 0) tags = aiTags
+      } catch (error) {
+        console.warn('[/api/notes] AI-tagging overgeslagen:', error)
+      }
     }
 
     const note = await queryOne<Record<string, unknown>>(`
-    INSERT INTO notes (title, content, content_text, tags, project_id, contact_id, pinned)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING *
-  `, [
-    title || 'Naamloze note',
-    content || '',
-    content_text || '',
-    JSON.stringify(tags || []),
-    project_id || null,
-    contact_id || null,
-    pinned ? 1 : 0,
-  ])
+      INSERT INTO notes (title, content, content_text, tags, project_id, contact_id, pinned, workspace)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      title || 'Naamloze note',
+      content || '',
+      content_text || '',
+      JSON.stringify(tags || []),
+      project_id || null,
+      contact_id || null,
+      pinned ? 1 : 0,
+      workspace,
+    ])
 
     if (note?.id) {
       await syncEntityLinks({

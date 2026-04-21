@@ -118,6 +118,9 @@ export async function parseCommandWithAI(
 
 Huidig irritatieniveau: ${ctx.irritationLevel}/10`
 
+  const deterministic = parseDeterministicCommand(userMessage)
+  if (deterministic) return deterministic
+
   const client = getOpenAIClient()
 
   // Bouw user content op — met of zonder afbeelding
@@ -144,7 +147,7 @@ Huidig irritatieniveau: ${ctx.irritationLevel}/10`
     })
 
     const raw = response.choices[0]?.message?.content
-    if (!raw) return null
+    if (!raw) return parseDeterministicCommand(userMessage)
 
     const parsed = JSON.parse(raw)
     let validated = AICommandResultSchema.safeParse(parsed)
@@ -175,12 +178,73 @@ Huidig irritatieniveau: ${ctx.irritationLevel}/10`
 
     if (!validated.success) {
       console.error('AI output validation failed:', validated.error)
-      return null
+      return parseDeterministicCommand(userMessage)
     }
 
     return validated.data
   } catch (err) {
     console.error('AI parse error:', err)
-    return null
+    return parseDeterministicCommand(userMessage)
   }
+}
+
+function cleanActionTitle(value: string): string {
+  return value
+    .replace(/^[\s:"'`.,-]+/, '')
+    .replace(/[\s:"'`.,-]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseDeterministicCommand(userMessage: string): AICommandResult | null {
+  const normalized = userMessage.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+
+  const todoMatch =
+    userMessage.match(/\b(?:zet|plaats|doe|voeg)\s+(.+?)\s+(?:in|op|aan)\s+(?:mijn\s+)?(?:todo(?:lijst)?|to-do(?:lijst)?|takenlijst|taken)\b/i) ||
+    userMessage.match(/\b(?:maak|voeg)\s+(?:een\s+)?taak(?:\s+aan)?[:\s-]+(.+)$/i) ||
+    userMessage.match(/\b(?:todo|taak)[:\s-]+(.+)$/i)
+
+  if (todoMatch?.[1]) {
+    const title = cleanActionTitle(todoMatch[1])
+    if (title) {
+      return {
+        summary: `Ik heb "${title}" aan je takenlijst toegevoegd.`,
+        confidence: 0.92,
+        requires_confirmation: false,
+        actions: [
+          {
+            type: 'todo_create',
+            payload: {
+              title,
+              priority: normalized.includes('belangrijk') || normalized.includes('hoog') ? 'hoog' : 'medium',
+              category: normalized.includes('bouma') ? 'werk' : normalized.includes('websup') ? 'werk' : 'overig',
+            },
+          },
+        ],
+        memory_candidates: [],
+      }
+    }
+  }
+
+  const groceryMatch =
+    userMessage.match(/\b(?:boodschappen|boodschappenlijst)[:\s-]+(.+)$/i) ||
+    userMessage.match(/\b(?:voeg|zet)\s+(.+?)\s+(?:toe\s+)?(?:aan|op|in)\s+(?:mijn\s+)?boodschappen(?:lijst)?\b/i)
+
+  if (groceryMatch?.[1]) {
+    const rawItems = groceryMatch[1].split(/,|\ben\b/gi).map(cleanActionTitle).filter(Boolean)
+    if (rawItems.length > 0) {
+      return {
+        summary: `Ik heb ${rawItems.map((item) => `"${item}"`).join(', ')} aan je boodschappen toegevoegd.`,
+        confidence: 0.9,
+        requires_confirmation: false,
+        actions: rawItems.map((title) => ({
+          type: 'grocery_create',
+          payload: { title, category: 'overig' },
+        })),
+        memory_candidates: [],
+      }
+    }
+  }
+
+  return null
 }

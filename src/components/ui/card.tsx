@@ -1,24 +1,38 @@
 import { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import Box from '@mui/material/Box'
+import MuiCard from '@mui/material/Card'
+import CardContentBase from '@mui/material/CardContent'
+import CardHeaderBase from '@mui/material/CardHeader'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('card-base rounded-lg bg-surface', className)}>{children}</div>
+  return <MuiCard className={className}>{children}</MuiCard>
 }
 
 export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('p-5 pb-0', className)}>{children}</div>
+  return <Box className={className} sx={{ p: 2.5, pb: 0 }}>{children}</Box>
 }
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <h3 className={cn('text-md font-semibold text-text-primary', className)}>{children}</h3>
+  return (
+    <Typography className={className} variant="h4" component="h3">
+      {children}
+    </Typography>
+  )
 }
 
 export function CardDescription({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn('mt-1 text-sm text-text-secondary', className)}>{children}</p>
+  return (
+    <Typography className={className} variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+      {children}
+    </Typography>
+  )
 }
 
 export function CardContent({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('p-5', className)}>{children}</div>
+  return <CardContentBase className={className}>{children}</CardContentBase>
 }
 
 interface CardProps {
@@ -30,111 +44,77 @@ interface CardProps {
 
 export function CardLow({ children, className, onClick, compact }: CardProps) {
   return (
-    <div
+    <MuiCard
+      className={className}
       onClick={onClick}
-      className={cn(
-        'overflow-hidden rounded-lg bg-surface-inset',
-        compact ? 'p-3' : 'p-4',
-        onClick && 'cursor-pointer transition-colors duration-base ease-calm hover:bg-surface-hover',
-        className
-      )}
+      sx={{
+        p: compact ? 1.5 : 2,
+        bgcolor: '#fafafb',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick ? { bgcolor: '#f4f4f5' } : undefined,
+      }}
     >
       {children}
-    </div>
+    </MuiCard>
   )
 }
 
-export function Row({
-  children,
-  className,
-  onClick,
-  active,
-}: {
-  children: ReactNode
-  className?: string
-  onClick?: () => void
-  active?: boolean
-}) {
+export function Row({ children, className, onClick, active }: { children: ReactNode; className?: string; onClick?: () => void; active?: boolean }) {
   return (
-    <div
+    <Box
+      className={className}
       onClick={onClick}
-      className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-fast ease-calm',
-        active ? 'bg-surface-inset' : 'hover:bg-surface-hover',
-        onClick && 'cursor-pointer',
-        className
-      )}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        borderRadius: 2,
+        px: 1.5,
+        py: 1.25,
+        bgcolor: active ? '#f4f4f5' : 'transparent',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': { bgcolor: '#f9f9fa' },
+      }}
     >
       {children}
-    </div>
+    </Box>
   )
 }
 
-export function StatChip({
-  label,
-  value,
-  sub,
-  accent,
-  className,
-}: {
-  label: string
-  value: string | number
-  sub?: string
-  accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber'
-  className?: string
-}) {
-  const accentClass: Record<string, string> = {
-    blue: 'text-accent',
-    violet: 'text-ai',
-    green: 'text-success',
-    red: 'text-error',
-    amber: 'text-warning',
-  }
-
+export function StatChip({ label, value, sub, accent, className }: { label: string; value: string | number; sub?: string; accent?: 'blue' | 'violet' | 'green' | 'red' | 'amber'; className?: string }) {
+  const color = accent === 'green' ? 'success.main' : accent === 'red' ? 'error.main' : accent === 'amber' ? 'warning.main' : accent === 'violet' ? 'secondary.main' : accent === 'blue' ? 'primary.main' : 'text.primary'
   return (
-    <div className={cn('card-base rounded-lg bg-surface px-3 py-3', className)}>
-      <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">{label}</p>
-      <p className={cn('mt-1 text-2xl font-bold leading-none', accentClass[accent ?? ''] ?? 'text-text-primary')}>
+    <MuiCard className={className} sx={{ p: 2 }}>
+      <Typography variant="overline" color="text.disabled">
+        {label}
+      </Typography>
+      <Typography variant="h2" sx={{ color }}>
         {value}
-      </p>
-      {sub && <p className="mt-1 text-xs text-text-secondary">{sub}</p>}
-    </div>
+      </Typography>
+      {sub && (
+        <Typography variant="caption" color="text.secondary">
+          {sub}
+        </Typography>
+      )}
+    </MuiCard>
   )
 }
 
-export function Tag({
-  children,
-  color,
-  className,
-}: {
-  children: ReactNode
-  color?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'gray' | 'orange' | 'pink'
-  className?: string
-}) {
-  const colors: Record<string, string> = {
-    orange: 'bg-orange-50 text-orange-600',
-    pink: 'bg-pink-50 text-pink-600',
-    violet: 'bg-ai-subtle text-ai',
-    blue: 'bg-accent-subtle text-accent',
-    green: 'bg-success-subtle text-success',
-    red: 'bg-error-subtle text-error',
-    amber: 'bg-warning-subtle text-warning',
-    gray: 'bg-surface-inset text-text-secondary',
+export function Tag({ children, color, className }: { children: ReactNode; color?: 'blue' | 'violet' | 'green' | 'red' | 'amber' | 'gray' | 'orange' | 'pink'; className?: string }) {
+  const mapped: Record<string, any> = {
+    blue: 'primary',
+    violet: 'secondary',
+    green: 'success',
+    red: 'error',
+    amber: 'warning',
+    orange: 'warning',
+    pink: 'secondary',
+    gray: 'default',
   }
-
-  return (
-    <span className={cn('inline-flex items-center rounded-pill px-2.5 py-1 text-2xs font-semibold', colors[color ?? 'gray'], className)}>
-      {children}
-    </span>
-  )
+  return <Chip className={className} size="small" label={children} color={mapped[color ?? 'gray']} variant={color === 'gray' || !color ? 'outlined' : 'filled'} />
 }
 
 export function PriorityDot({ priority }: { priority: 'hoog' | 'medium' | 'laag' | string }) {
-  const colors: Record<string, string> = {
-    hoog: 'bg-error',
-    medium: 'bg-warning',
-    laag: 'bg-success',
-  }
-
-  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', colors[priority] ?? 'bg-border-strong')} />
+  const color = priority === 'hoog' ? 'error.main' : priority === 'medium' ? 'warning.main' : priority === 'laag' ? 'success.main' : 'divider'
+  return <Box component="span" sx={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, bgcolor: color, flexShrink: 0 }} />
 }
