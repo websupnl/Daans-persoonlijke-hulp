@@ -56,7 +56,7 @@ export const appTheme = createTheme({
     divider: '#ebebef',
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 4,
   },
   spacing: 8,
   typography: {
@@ -110,7 +110,7 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           minHeight: 36,
-          borderRadius: 10,
+          borderRadius: 4,
           paddingInline: theme.spacing(2),
           boxShadow: 'none',
         }),
@@ -143,6 +143,7 @@ export const appTheme = createTheme({
         root: ({ theme }) => ({
           borderColor: theme.palette.divider,
           backgroundImage: 'none',
+          borderRadius: 4,
         }),
       },
     },
@@ -153,7 +154,7 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 14,
+          borderRadius: 4,
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }),
       },
@@ -167,7 +168,7 @@ export const appTheme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: ({ theme }) => ({
-          borderRadius: 10,
+          borderRadius: 4,
           backgroundColor: theme.palette.background.paper,
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: theme.palette.primary.main,
@@ -182,7 +183,7 @@ export const appTheme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 999,
+          borderRadius: 4,
           fontWeight: 700,
         },
         filledPrimary: {
@@ -225,6 +226,7 @@ export const appTheme = createTheme({
         root: ({ theme }) => ({
           borderColor: theme.palette.divider,
           backgroundColor: theme.palette.background.paper,
+          borderRadius: 4,
           '& .MuiDataGrid-columnHeaders': {
             backgroundColor: '#fafafb',
           },
@@ -241,7 +243,7 @@ export const appTheme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: 18,
+          borderRadius: 6,
         },
       },
     },
@@ -250,6 +252,7 @@ export const appTheme = createTheme({
         paper: ({ theme }) => ({
           borderColor: theme.palette.divider,
           backgroundImage: 'none',
+          borderRadius: 0,
         }),
       },
     },

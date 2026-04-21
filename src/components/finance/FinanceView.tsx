@@ -1,50 +1,28 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import {
-  AlertTriangle,
-  ArrowRight,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Euro,
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  Trash2,
-  Upload,
-} from 'lucide-react'
-import {
-  addDays,
-  addMonths,
-  addWeeks,
-  endOfDay,
-  endOfMonth,
-  endOfWeek,
-  format,
-  startOfDay,
-  startOfMonth,
-  startOfWeek,
-} from 'date-fns'
-import { nl } from 'date-fns/locale'
-import { cn, formatCurrency } from '@/lib/utils'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
-import { Textarea } from '@/components/ui/interfaces-textarea'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/material-ui-dropdown-menu'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import PageShell from '@/components/ui/PageShell'
-import { ActionPill, Divider, EmptyPanel, MetricTile, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import AIBriefing from '@/components/ui/AIBriefing'
+import ModuleStats from '@/components/ui/ModuleStats'
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import ButtonGroup from '@mui/material/ButtonGroup'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import AlertTriangle from '@mui/icons-material/ReportProblem'
+import Euro from '@mui/icons-material/Euro'
+import Plus from '@mui/icons-material/Add'
+import ChevronLeft from '@mui/icons-material/ChevronLeft'
+import ChevronRight from '@mui/icons-material/ChevronRight'
+import MoreHorizontal from '@mui/icons-material/MoreHoriz'
+import Sparkles from '@mui/icons-material/AutoAwesome'
 import TransactionModal from './TransactionModal'
 import AIContextButton from '@/components/ai/AIContextButton'
 
@@ -143,9 +121,9 @@ const TYPE_FILTERS = ['Alles', 'Inkomsten', 'Uitgaven'] as const
 const ACCOUNT_FILTERS = ['Alle rekeningen', 'Prive', 'Zakelijk', 'Spaar Prive', 'Spaar Zakelijk'] as const
 const ACCOUNT_VALUES: Record<string, string | null> = {
   'Alle rekeningen': null,
-  Prive: 'privÃ©',
+  Prive: 'privé',
   Zakelijk: 'zakelijk',
-  'Spaar Prive': 'spaar-privÃ©',
+  'Spaar Prive': 'spaar-privé',
   'Spaar Zakelijk': 'spaar-zakelijk',
 }
 const CATEGORY_OPTIONS = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding', 'buffer', 'btw', 'sparen']
@@ -157,8 +135,8 @@ const CONFIDENCE_TEXT: Record<'high' | 'medium' | 'low', string> = {
 }
 
 function accountLabel(account: string) {
-  if (account === 'privÃ©') return 'Prive'
-  if (account === 'spaar-privÃ©') return 'Spaar Prive'
+  if (account === 'privé') return 'Prive'
+  if (account === 'spaar-privé') return 'Spaar Prive'
   if (account === 'spaar-zakelijk') return 'Spaar Zakelijk'
   if (account === 'zakelijk') return 'Zakelijk'
   return account
@@ -197,10 +175,10 @@ export default function FinanceView() {
     amount: '',
     due_date: '',
     category: 'overig',
-    account: 'privÃ©',
+    account: 'privé',
   })
   const [editingItem, setEditingItem] = useState<FinanceItem | null>(null)
-  const [adjustForm, setAdjustForm] = useState({ account: 'privÃ©', actual_balance: '' })
+  const [adjustForm, setAdjustForm] = useState({ account: 'privé', actual_balance: '' })
 
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [analyseResult, setAnalyseResult] = useState<AnalyseResult | null>(null)
@@ -210,7 +188,7 @@ export default function FinanceView() {
   const [importMethod, setImportMethod] = useState<'csv' | 'ai'>('csv')
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importText, setImportText] = useState('')
-  const [importAccount, setImportAccount] = useState('privÃ©')
+  const [importAccount, setImportAccount] = useState('privé')
   const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; total: number } | null>(null)
@@ -300,7 +278,7 @@ export default function FinanceView() {
       body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 }),
     })
 
-    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
+    setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
     setEditingItem(null)
     setShowAdd(false)
     fetchData()
@@ -350,7 +328,7 @@ export default function FinanceView() {
         balance: parseFloat(adjustForm.actual_balance),
       }),
     })
-    setAdjustForm({ account: 'privÃ©', actual_balance: '' })
+    setAdjustForm({ account: 'privé', actual_balance: '' })
     setShowAdjust(false)
     fetchData()
   }
@@ -599,7 +577,7 @@ export default function FinanceView() {
               onClick={() => {
                 setShowAdd((value) => !value)
                 setEditingItem(null)
-                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privÃ©' })
+                setForm({ type: 'uitgave', title: '', amount: '', due_date: '', category: 'overig', account: 'privé' })
                 setShowImport(false)
                 setShowAdjust(false)
               }}
@@ -1178,7 +1156,7 @@ export default function FinanceView() {
 
               <div className="mt-4">
                 {[
-                  { account: 'privÃ©', calc: stats?.total_balance_prive || 0 },
+                  { account: 'privé', calc: stats?.total_balance_prive || 0 },
                   { account: 'zakelijk', calc: stats?.total_balance_zakelijk || 0 },
                 ].map((entry, index) => {
                   const actual = balances.find((balance) => balance.account === entry.account)

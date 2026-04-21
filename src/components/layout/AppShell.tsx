@@ -6,7 +6,7 @@ import Box from '@mui/material/Box'
 import Fab from '@mui/material/Fab'
 import Tooltip from '@mui/material/Tooltip'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined'
-import Sidebar, { drawerWidth } from './Sidebar'
+import TopNav from './TopNav'
 import BottomNav from './BottomNav'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -19,16 +19,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         minHeight: '100dvh',
         color: 'text.primary',
         background:
-          'radial-gradient(circle at top left, rgba(168, 206, 207, 0.24), transparent 34%), radial-gradient(circle at bottom right, rgba(230, 174, 140, 0.18), transparent 30%), #f7f7f8',
+          'radial-gradient(circle at top left, rgba(168, 206, 207, 0.12), transparent 34%), radial-gradient(circle at bottom right, rgba(230, 174, 140, 0.10), transparent 30%), #f7f7f8',
       }}
     >
-      <Sidebar />
+      <TopNav />
       <Box
         component="main"
         sx={{
           minHeight: '100dvh',
-          pb: { xs: 'calc(72px + env(safe-area-inset-bottom))', md: 0 },
-          ml: { md: `${drawerWidth}px` },
+          pb: { xs: 'calc(72px + env(safe-area-inset-bottom))', md: 4 },
         }}
       >
         {children}

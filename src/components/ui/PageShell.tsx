@@ -18,15 +18,15 @@ interface PageShellProps {
 export default function PageShell({ title, subtitle, actions, desktopSearch, children, compact }: PageShellProps) {
   return (
     <Container
-      maxWidth="xl"
+      maxWidth={false}
       sx={{
         py: compact ? 2.5 : 3,
-        px: { xs: 2, sm: 3 },
+        px: { xs: 2, sm: 3, lg: 5 },
         position: 'relative',
         '&::before': {
           content: '""',
           position: 'fixed',
-          inset: '0 auto auto 232px',
+          inset: '0 auto auto 0',
           width: 520,
           height: 260,
           pointerEvents: 'none',
