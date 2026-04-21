@@ -6,6 +6,7 @@ import { GroceryItem } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 export default function GroceryView() {
   const [items, setItems] = useState<GroceryItem[]>([])
@@ -13,6 +14,7 @@ export default function GroceryView() {
   const [newItemTitle, setNewItemTitle] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [adding, setAdding] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<GroceryItem | null>(null)
 
   useEffect(() => {
     fetchItems()
@@ -60,7 +62,10 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !item.completed }),
       })
-      if (res.ok) setItems(items.filter((i) => i.id !== item.id))
+      if (res.ok) {
+        setSelectedItem((current) => current?.id === item.id ? null : current)
+        setItems(items.filter((i) => i.id !== item.id))
+      }
     } catch (err) {
       console.error(err)
     }
@@ -70,7 +75,10 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
     if (!confirm('Weet je het zeker?')) return
     try {
       const res = await fetch(`/api/groceries/${id}`, { method: 'DELETE' })
-      if (res.ok) setItems(items.filter((i) => i.id !== id))
+      if (res.ok) {
+        setSelectedItem((current) => current?.id === id ? null : current)
+        setItems(items.filter((i) => i.id !== id))
+      }
     } catch (err) {
       console.error(err)
     }
@@ -136,9 +144,12 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
                 {items.map((item, index) => (
                   <div key={item.id}>
                     {index > 0 && <Divider />}
-                    <div className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-container-low/50">
+                    <div
+                      onClick={() => setSelectedItem(item)}
+                      className="group flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-container-low/50"
+                    >
                       <button
-                        onClick={() => toggleComplete(item)}
+                        onClick={(event) => { event.stopPropagation(); toggleComplete(item) }}
                         className={cn(
                           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
                           item.completed
@@ -155,7 +166,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
                         {item.quantity && <p className="text-xs text-on-surface-variant">{item.quantity}</p>}
                       </div>
                       <button
-                        onClick={() => deleteItem(item.id)}
+                        onClick={(event) => { event.stopPropagation(); deleteItem(item.id) }}
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                       >
                         <Trash2 size={12} />
@@ -168,6 +179,23 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
           </div>
         </Panel>
       </div>
+      <AppDetailDrawer
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        eyebrow="Boodschap"
+        title={selectedItem?.title}
+        subtitle="Item op je boodschappenlijst."
+        status={selectedItem?.completed ? 'Gekocht' : 'Nog kopen'}
+        fields={[
+          { label: 'Aantal', value: selectedItem?.quantity || '-' },
+          { label: 'Categorie', value: selectedItem?.category || 'overig' },
+          { label: 'Status', value: selectedItem?.completed ? 'Afgerond' : 'Open' },
+        ]}
+        actions={selectedItem ? [
+          { label: selectedItem.completed ? 'Terugzetten' : 'Afvinken', variant: 'contained', onClick: () => toggleComplete(selectedItem) },
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteItem(selectedItem.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }

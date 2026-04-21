@@ -9,6 +9,7 @@ import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface MemoryItem {
   id: number
@@ -49,6 +50,7 @@ export default function MemoryView() {
   const [showAdd, setShowAdd] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [genResult, setGenResult] = useState<string | null>(null)
+  const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null)
 
   async function load() {
     const response = await fetch('/api/memory')
@@ -79,6 +81,7 @@ export default function MemoryView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
+    setSelectedMemory((current) => current?.id === id ? null : current)
     load()
   }
 
@@ -190,7 +193,11 @@ export default function MemoryView() {
 
                   <div className="mt-5 grid gap-3 md:grid-cols-2">
                     {items.map((memory) => (
-                      <div key={memory.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-4">
+                      <div
+                        key={memory.id}
+                        onClick={() => setSelectedMemory(memory)}
+                        className="cursor-pointer rounded-xl border border-outline-variant bg-white/70 px-4 py-4 transition-colors hover:bg-white"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-on-surface">
@@ -201,7 +208,7 @@ export default function MemoryView() {
                             </span>
                           </div>
                           <button
-                            onClick={() => remove(memory.id)}
+                            onClick={(event) => { event.stopPropagation(); remove(memory.id) }}
                             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
                           >
                             <Trash2 size={14} />
@@ -324,6 +331,22 @@ export default function MemoryView() {
           </Panel>
         </TabsContent>
       </Tabs>
+      <AppDetailDrawer
+        open={!!selectedMemory}
+        onClose={() => setSelectedMemory(null)}
+        eyebrow="Memory"
+        title={selectedMemory?.key.replace(/_/g, ' ')}
+        subtitle={selectedMemory?.value}
+        status={selectedMemory ? CATEGORY_LABELS[selectedMemory.category] ?? selectedMemory.category : undefined}
+        fields={[
+          { label: 'Categorie', value: selectedMemory ? CATEGORY_LABELS[selectedMemory.category] ?? selectedMemory.category : '-' },
+          { label: 'Zekerheid', value: selectedMemory ? `${Math.round(selectedMemory.confidence * 100)}%` : '-' },
+          { label: 'Laatst bevestigd', value: selectedMemory?.last_reinforced_at ? formatRelative(selectedMemory.last_reinforced_at) : 'Onbekend' },
+        ]}
+        actions={selectedMemory ? [
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => remove(selectedMemory.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }

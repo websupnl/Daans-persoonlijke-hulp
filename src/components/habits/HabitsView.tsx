@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { format, subDays } from 'date-fns'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Habit {
   id: number
@@ -25,6 +26,7 @@ export default function HabitsView() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null)
   const [form, setForm] = useState({ name: '', icon: '⭐', color: '#ec4899', frequency: 'dagelijks', description: '' })
 
   const last28 = Array.from({ length: 28 }, (_, i) => format(subDays(new Date(), 27 - i), 'yyyy-MM-dd'))
@@ -40,6 +42,7 @@ export default function HabitsView() {
 
   async function deleteHabit(id: number) {
     await fetch(`/api/habits/${id}`, { method: 'DELETE' })
+    setSelectedHabit((current) => current?.id === id ? null : current)
     fetchHabits()
   }
 
@@ -173,9 +176,12 @@ export default function HabitsView() {
                 habits.map((habit, index) => (
                   <div key={habit.id}>
                     {index > 0 && <Divider />}
-                    <div className="group flex flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/50">
+                    <div
+                      onClick={() => setSelectedHabit(habit)}
+                      className="group flex cursor-pointer flex-wrap items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/50"
+                    >
                       <button
-                        onClick={() => toggleHabit(habit)}
+                        onClick={(event) => { event.stopPropagation(); toggleHabit(habit) }}
                         className={cn(
                           'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
                           habit.completedToday
@@ -216,7 +222,7 @@ export default function HabitsView() {
                           })}
                         </div>
                         <button
-                          onClick={() => deleteHabit(habit.id)}
+                          onClick={(event) => { event.stopPropagation(); deleteHabit(habit.id) }}
                           className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                         >
                           <Trash2 size={12} />
@@ -258,6 +264,24 @@ export default function HabitsView() {
           </Panel>
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedHabit}
+        onClose={() => setSelectedHabit(null)}
+        eyebrow="Gewoonte"
+        title={selectedHabit ? `${selectedHabit.icon} ${selectedHabit.name}` : 'Gewoonte'}
+        subtitle={selectedHabit?.description || 'Ritme, streak en recente logs.'}
+        status={selectedHabit?.completedToday ? 'Vandaag gedaan' : 'Vandaag open'}
+        fields={[
+          { label: 'Frequentie', value: selectedHabit?.frequency },
+          { label: 'Streak', value: selectedHabit ? `${selectedHabit.streak} dagen` : '-' },
+          { label: 'Logs', value: selectedHabit?.logs?.length ?? '-' },
+          { label: 'Status vandaag', value: selectedHabit?.completedToday ? 'Afgevinkt' : 'Nog te doen' },
+        ]}
+        actions={selectedHabit ? [
+          { label: selectedHabit.completedToday ? 'Terugdraaien' : 'Vandaag afvinken', variant: 'contained', onClick: () => toggleHabit(selectedHabit) },
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteHabit(selectedHabit.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }

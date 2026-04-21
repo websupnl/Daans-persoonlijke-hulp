@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 type SearchResults = Record<string, Array<Record<string, unknown>>>
 
@@ -38,6 +39,7 @@ export default function SearchView() {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<SearchResults>({})
   const [loading, setLoading] = useState(false)
+  const [selectedResult, setSelectedResult] = useState<{ group: string; item: Record<string, unknown> } | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -112,7 +114,10 @@ export default function SearchView() {
                   {items.slice(0, 8).map((item, index) => (
                     <div key={`${group}-${index}`}>
                       {index > 0 && <Divider />}
-                      <div className="rounded-lg px-2 py-2.5 hover:bg-surface-container-low/60">
+                      <div
+                        onClick={() => setSelectedResult({ group, item })}
+                        className="cursor-pointer rounded-lg px-2 py-2.5 hover:bg-surface-container-low/60"
+                      >
                         <p className="text-sm font-semibold text-on-surface">
                           {String(item.title || item.name || item.key || item.content || item.role || 'Resultaat')}
                         </p>
@@ -128,6 +133,20 @@ export default function SearchView() {
           )}
         </div>
       )}
+      <AppDetailDrawer
+        open={!!selectedResult}
+        onClose={() => setSelectedResult(null)}
+        eyebrow={selectedResult ? GROUP_LABELS[selectedResult.group] || selectedResult.group : 'Resultaat'}
+        title={selectedResult ? String(selectedResult.item.title || selectedResult.item.name || selectedResult.item.key || selectedResult.item.content || selectedResult.item.role || 'Resultaat') : 'Resultaat'}
+        subtitle={selectedResult ? String(selectedResult.item.summary || selectedResult.item.company || selectedResult.item.category || selectedResult.item.type || selectedResult.item.context || selectedResult.item.value || '') : undefined}
+        status={selectedResult?.group}
+        primaryHref={selectedResult ? GROUP_LINKS[selectedResult.group] || '/' : undefined}
+        primaryLabel="Open module"
+        fields={selectedResult ? Object.entries(selectedResult.item)
+          .filter(([key]) => !['title', 'name', 'summary', 'content'].includes(key))
+          .slice(0, 8)
+          .map(([key, value]) => ({ label: key, value: typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-') })) : []}
+      />
     </PageShell>
   )
 }

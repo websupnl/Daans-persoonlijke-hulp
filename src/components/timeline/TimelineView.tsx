@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Activity } from 'lucide-react'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface ActivityItem {
   id: number
@@ -39,6 +40,7 @@ export default function TimelineView() {
   const [items, setItems] = useState<ActivityItem[]>([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [selectedItem, setSelectedItem] = useState<ActivityItem | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -93,7 +95,11 @@ export default function TimelineView() {
             />
           ) : (
             items.map((item) => (
-              <div key={item.id} className="rounded-xl border border-outline-variant bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)]">
+              <div
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="cursor-pointer rounded-xl border border-outline-variant bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)] transition-colors hover:bg-surface-container-low"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TYPE_COLORS[item.entity_type] ?? 'bg-surface-container-low text-on-surface-variant'}`}>
                     {item.entity_type}
@@ -110,6 +116,29 @@ export default function TimelineView() {
           )}
         </div>
       </Panel>
+      <AppDetailDrawer
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        eyebrow="Activiteit"
+        title={selectedItem?.title}
+        subtitle={selectedItem?.summary || 'Gebeurtenis in je persoonlijke systeem.'}
+        status={selectedItem?.entity_type}
+        fields={[
+          { label: 'Actie', value: selectedItem?.action },
+          { label: 'Type', value: selectedItem?.entity_type },
+          { label: 'Entity ID', value: selectedItem?.entity_id ?? '-' },
+          { label: 'Moment', value: selectedItem?.created_at ? new Date(selectedItem.created_at).toLocaleString('nl-NL') : '-' },
+        ]}
+      >
+        {selectedItem && Object.keys(selectedItem.metadata || {}).length > 0 && (
+          <Panel tone="muted">
+            <PanelHeader eyebrow="Metadata" title="Extra context" />
+            <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-xs leading-5 text-on-surface-variant">
+              {JSON.stringify(selectedItem.metadata, null, 2)}
+            </pre>
+          </Panel>
+        )}
+      </AppDetailDrawer>
     </PageShell>
   )
 }

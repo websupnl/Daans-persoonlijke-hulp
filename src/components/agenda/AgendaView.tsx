@@ -18,6 +18,7 @@ import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface AgendaEvent {
   id: number
@@ -63,6 +64,7 @@ export default function AgendaView() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [loading, setLoading] = useState(true)
+  const [selectedItem, setSelectedItem] = useState<{ kind: 'event'; event: AgendaEvent } | { kind: 'todo'; todo: Todo } | null>(null)
 
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
 
@@ -98,6 +100,7 @@ export default function AgendaView() {
   async function deleteEvent(id: number) {
     await fetch(`/api/events/${id}`, { method: 'DELETE' })
     setEvents((prev) => prev.filter((e) => e.id !== id))
+    setSelectedItem((current) => current?.kind === 'event' && current.event.id === id ? null : current)
   }
 
   function eventsForDay(day: Date) {
@@ -169,6 +172,16 @@ export default function AgendaView() {
               const today = startOfWeek(new Date(), { weekStartsOn: 1 })
               setWeekStart(today)
               setSelectedDay(new Date())
+              return
+            }
+            if (action.id.startsWith('event:')) {
+              const found = selectedEvents.find((event) => event.id === Number(action.id.split(':')[1]))
+              if (found) setSelectedItem({ kind: 'event', event: found })
+              return
+            }
+            if (action.id.startsWith('todo:')) {
+              const found = selectedTodos.find((todo) => todo.id === Number(action.id.split(':')[1]))
+              if (found) setSelectedItem({ kind: 'todo', todo: found })
             }
           }}
         />
@@ -369,7 +382,10 @@ export default function AgendaView() {
                           return (
                             <div key={event.id}>
                               {index > 0 && <Divider />}
-                              <div className="flex items-start gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
+                              <div
+                                onClick={() => setSelectedItem({ kind: 'event', event })}
+                                className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50"
+                              >
                                 <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', typeConfig.dot)} />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-1.5">
@@ -382,7 +398,7 @@ export default function AgendaView() {
                                     {event.time || 'Hele dag'}{event.contact_name ? ` | ${event.contact_name}` : ''}
                                   </p>
                                 </div>
-                                <button onClick={() => deleteEvent(event.id)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500">
+                                <button onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event.id) }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500">
                                   <Trash2 size={12} />
                                 </button>
                               </div>
@@ -398,7 +414,10 @@ export default function AgendaView() {
                         {selectedTodos.map((todo, index) => (
                           <div key={todo.id}>
                             {index > 0 && <Divider />}
-                            <div className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50">
+                            <div
+                              onClick={() => setSelectedItem({ kind: 'todo', todo })}
+                              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50"
+                            >
                               <CheckSquare size={14} className="shrink-0 text-on-surface-variant" />
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-on-surface">{todo.title}</p>
@@ -427,7 +446,7 @@ export default function AgendaView() {
                           if (row.kind === 'event') {
                             const typeConfig = TYPE_CONFIG[row.event.type] ?? TYPE_CONFIG.algemeen
                             return (
-                              <TableRow key={row.id}>
+                              <TableRow key={row.id} onClick={() => setSelectedItem({ kind: 'event', event: row.event })} className="cursor-pointer">
                                 <TableCell>
                                   <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
                                     {typeConfig.label}
@@ -437,7 +456,7 @@ export default function AgendaView() {
                                 <TableCell>{row.event.time || 'Hele dag'}</TableCell>
                                 <TableCell className="text-on-surface-variant">{row.event.contact_name || row.event.description || '-'}</TableCell>
                                 <TableCell className="text-right">
-                                  <button onClick={() => deleteEvent(row.event.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-red-50 hover:text-red-500">
+                                  <button onClick={(event) => { event.stopPropagation(); deleteEvent(row.event.id) }} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-red-50 hover:text-red-500">
                                     <Trash2 size={12} />
                                   </button>
                                 </TableCell>
@@ -446,12 +465,12 @@ export default function AgendaView() {
                           }
 
                           return (
-                            <TableRow key={row.id}>
+                            <TableRow key={row.id} onClick={() => setSelectedItem({ kind: 'todo', todo: row.todo })} className="cursor-pointer">
                               <TableCell>
                                 <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Todo</span>
                               </TableCell>
                               <TableCell className="font-medium">{row.todo.title}</TableCell>
-                              <TableCell>{row.todo.due_date ? format(parseISO(row.todo.due_date), 'HH:mm', { locale: nl }) : 'Dagtaak'}</TableCell>
+                              <TableCell>Dagtaak</TableCell>
                               <TableCell className="text-on-surface-variant capitalize">{row.todo.priority}</TableCell>
                               <TableCell className="text-right">
                                 <CheckSquare size={14} className="ml-auto text-on-surface-variant" />
@@ -476,7 +495,10 @@ export default function AgendaView() {
                 weeklyTodoDeadlines.slice(0, 6).map((todo, index) => (
                   <div key={todo.id}>
                     {index > 0 && <Divider />}
-                    <div className="flex items-center justify-between rounded-lg px-2 py-2.5">
+                    <div
+                      onClick={() => setSelectedItem({ kind: 'todo', todo })}
+                      className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2.5 hover:bg-white/70"
+                    >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-on-surface">{todo.title}</p>
                         <p className="text-xs text-on-surface-variant">
@@ -503,7 +525,7 @@ export default function AgendaView() {
                   </TableHeader>
                   <TableBody>
                     {weeklyTodoDeadlines.slice(0, 6).map((todo) => (
-                      <TableRow key={todo.id}>
+                      <TableRow key={todo.id} onClick={() => setSelectedItem({ kind: 'todo', todo })} className="cursor-pointer">
                         <TableCell className="font-medium">{todo.title}</TableCell>
                         <TableCell>{todo.due_date ? format(parseISO(todo.due_date), 'EEEE d MMM', { locale: nl }) : 'Geen datum'}</TableCell>
                         <TableCell><ActionPill>{todo.priority}</ActionPill></TableCell>
@@ -516,6 +538,29 @@ export default function AgendaView() {
           </Panel>
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        eyebrow={selectedItem?.kind === 'event' ? 'Agenda' : 'Taakdeadline'}
+        title={selectedItem?.kind === 'event' ? selectedItem.event.title : selectedItem?.todo.title}
+        subtitle={selectedItem?.kind === 'event' ? selectedItem.event.description : 'Taak met datum in je agenda.'}
+        status={selectedItem?.kind === 'event' ? (TYPE_CONFIG[selectedItem.event.type] ?? TYPE_CONFIG.algemeen).label : selectedItem?.todo.priority}
+        primaryHref={selectedItem?.kind === 'todo' ? '/todos' : undefined}
+        primaryLabel="Open taken"
+        fields={selectedItem?.kind === 'event' ? [
+          { label: 'Datum', value: format(parseISO(selectedItem.event.date), 'EEEE d MMMM yyyy', { locale: nl }) },
+          { label: 'Moment', value: selectedItem.event.time || 'Hele dag' },
+          { label: 'Duur', value: `${selectedItem.event.duration || 0} min` },
+          { label: 'Context', value: selectedItem.event.contact_name || '-' },
+        ] : selectedItem?.kind === 'todo' ? [
+          { label: 'Datum', value: selectedItem.todo.due_date ? format(parseISO(selectedItem.todo.due_date), 'EEEE d MMMM yyyy', { locale: nl }) : 'Geen datum' },
+          { label: 'Prioriteit', value: selectedItem.todo.priority },
+          { label: 'Status', value: selectedItem.todo.completed ? 'Afgerond' : 'Open' },
+        ] : []}
+        actions={selectedItem?.kind === 'event' ? [
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteEvent(selectedItem.event.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }

@@ -11,6 +11,7 @@ import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/compon
 import AIContextButton from '@/components/ai/AIContextButton'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Project {
   id: number
@@ -48,6 +49,7 @@ export default function ProjectsView() {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [form, setForm] = useState({ title: '', description: '', color: '#5a677b', status: 'actief' })
 
   async function fetchProjects() {
@@ -243,7 +245,7 @@ export default function ProjectsView() {
                   return (
                     <button
                       key={project.id}
-                      onClick={() => router.push(`/projects/${project.id}`)}
+                      onClick={() => setSelectedProject(project)}
                       className={cn(
                         'group rounded-xl border border-outline-variant bg-white p-5 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low',
                         timerRunning && 'ring-1 ring-[#202625]'
@@ -263,7 +265,9 @@ export default function ProjectsView() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <AIContextButton type="project" title={project.title} content={project.description} id={project.id} />
+                          <span onClick={(event) => event.stopPropagation()}>
+                            <AIContextButton type="project" title={project.title} content={project.description} id={project.id} />
+                          </span>
                         </div>
                       </div>
 
@@ -305,7 +309,7 @@ export default function ProjectsView() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <span className="text-xs text-on-surface-variant">Open werkruimte</span>
+                        <span className="text-xs text-on-surface-variant">Klik voor details</span>
                       </div>
                     </button>
                   )
@@ -334,13 +338,17 @@ export default function ProjectsView() {
 
             <div className="mt-5 space-y-3">
               {activeProjects.slice(0, 5).map((project) => (
-                <div key={project.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
+                <button
+                  key={project.id}
+                  onClick={() => setSelectedProject(project)}
+                  className="w-full rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5 text-left transition-colors hover:bg-white"
+                >
                   <p className="truncate text-sm font-semibold text-on-surface">{project.title}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                     <span>{project.open_todos} open taken</span>
                     <span>{project.note_count} notities</span>
                   </div>
-                </div>
+                </button>
               ))}
               {activeProjects.length === 0 && (
                 <EmptyPanel
@@ -365,6 +373,27 @@ export default function ProjectsView() {
           </Panel>
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedProject}
+        onClose={() => setSelectedProject(null)}
+        eyebrow="Project"
+        title={selectedProject?.title}
+        subtitle={selectedProject?.description || 'Projectdetails, voortgang en gekoppelde context.'}
+        status={selectedProject ? STATUS_LABELS[selectedProject.status] : undefined}
+        primaryHref={selectedProject ? `/projects/${selectedProject.id}` : undefined}
+        primaryLabel="Open werkruimte"
+        fields={[
+          { label: 'Open taken', value: selectedProject?.open_todos ?? '-' },
+          { label: 'Totaal taken', value: selectedProject?.total_todos ?? '-' },
+          { label: 'Notities', value: selectedProject?.note_count ?? '-' },
+          {
+            label: 'Voortgang',
+            value: selectedProject && selectedProject.total_todos > 0
+              ? `${Math.round(((selectedProject.total_todos - selectedProject.open_todos) / selectedProject.total_todos) * 100)}%`
+              : '0%',
+          },
+        ]}
+      />
     </PageShell>
   )
 }

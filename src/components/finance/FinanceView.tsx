@@ -1011,12 +1011,12 @@ export default function FinanceView() {
                       </TableHeader>
                       <TableBody>
                         {items.map((item) => (
-                          <TableRow key={item.id}>
+                          <TableRow key={item.id} onClick={() => setSelectedTransaction(item)} className="cursor-pointer">
                             <TableCell className="text-on-surface-variant">
                               {item.due_date ? format(new Date(item.due_date), 'd MMM yyyy', { locale: nl }) : format(new Date(item.created_at), 'd MMM yyyy', { locale: nl })}
                             </TableCell>
                             <TableCell className="font-medium">
-                              <button onClick={() => setSelectedTransaction(item)} className="max-w-[240px] truncate text-left text-on-surface hover:text-accent">
+                              <button onClick={(event) => { event.stopPropagation(); setSelectedTransaction(item) }} className="max-w-[240px] truncate text-left text-on-surface hover:text-accent">
                                 {item.title}
                               </button>
                             </TableCell>
@@ -1027,7 +1027,7 @@ export default function FinanceView() {
                               {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
                                 <AIContextButton type="finance" title={item.title} content={item.user_notes} id={item.id} />
                                 <DropdownMenu>
                                   <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface">

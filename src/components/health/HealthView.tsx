@@ -25,6 +25,7 @@ import NightsStayOutlinedIcon from '@mui/icons-material/NightsStayOutlined'
 import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined'
 import SelfImprovementOutlinedIcon from '@mui/icons-material/SelfImprovementOutlined'
 import PageShell, { PageSection } from '@/components/ui/PageShell'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 type HealthLog = {
   id?: number
@@ -125,6 +126,7 @@ export default function HealthView() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [selectedLog, setSelectedLog] = useState<HealthLog | null>(null)
 
   async function load() {
     setLoading(true)
@@ -311,7 +313,12 @@ export default function HealthView() {
                       </TableCell>
                     </TableRow>
                   ) : history.map((item) => (
-                    <TableRow key={item.id ?? item.log_date} hover>
+                    <TableRow
+                      key={item.id ?? item.log_date}
+                      hover
+                      onClick={() => setSelectedLog(item)}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>{formatDate(item.log_date)}</TableCell>
                       <TableCell align="right">{item.sleep_hours ? `${item.sleep_hours}u` : '-'}</TableCell>
                       <TableCell align="right">{item.energy_level ?? '-'}</TableCell>
@@ -333,6 +340,24 @@ export default function HealthView() {
           </PageSection>
         </Grid>
       </Grid>
+      <AppDetailDrawer
+        open={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        eyebrow="Gezondheidslog"
+        title={selectedLog?.log_date ? formatDate(selectedLog.log_date) : 'Gezondheidslog'}
+        subtitle={selectedLog?.notes || 'Dagelijkse signalen en gezondheidspatronen.'}
+        status={selectedLog?.energy_level ? `Energie ${selectedLog.energy_level}/10` : undefined}
+        fields={[
+          { label: 'Slaap', value: selectedLog?.sleep_hours ? `${selectedLog.sleep_hours}u` : '-' },
+          { label: 'Slaapkwaliteit', value: selectedLog?.sleep_quality ? `${selectedLog.sleep_quality}/5` : '-' },
+          { label: 'Stress', value: selectedLog?.stress_level ? `${selectedLog.stress_level}/10` : '-' },
+          { label: 'Pijn', value: selectedLog?.pain_score != null ? `${selectedLog.pain_score}/10` : '-' },
+          { label: 'Pijnlocatie', value: selectedLog?.pain_location || '-' },
+          { label: 'Water', value: selectedLog?.water_glasses != null ? `${selectedLog.water_glasses} glazen` : '-' },
+          { label: 'Symptomen', value: selectedLog?.symptoms?.length ? selectedLog.symptoms.join(', ') : '-' },
+          { label: 'Medicatie', value: selectedLog?.medications?.length ? selectedLog.medications.join(', ') : '-' },
+        ]}
+      />
     </PageShell>
   )
 }

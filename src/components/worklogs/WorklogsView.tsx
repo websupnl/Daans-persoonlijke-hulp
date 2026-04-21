@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActionPill, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChatPreview } from '@/components/ui/chat-preview'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface WorkLog {
   id: number
@@ -128,6 +129,7 @@ export default function WorklogsView() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
   const [aiProposal, setAiProposal] = useState<{ reply: string; actions: ChatAction[] } | null>(null)
+  const [selectedLog, setSelectedLog] = useState<WorkLog | null>(null)
 
   useEffect(() => {
     try {
@@ -306,6 +308,7 @@ export default function WorklogsView() {
 
   async function handleDelete(id: number) {
     await fetch(`/api/worklogs/${id}`, { method: 'DELETE' })
+    setSelectedLog((current) => current?.id === id ? null : current)
     load()
   }
 
@@ -389,16 +392,7 @@ export default function WorklogsView() {
     const selectedLog = logs.find((log) => action.id === `log-${log.id}`)
     if (!selectedLog) return
 
-    setForm({
-      title: selectedLog.title,
-      date: selectedLog.date,
-      start_time: '',
-      end_time: '',
-      context: selectedLog.context,
-      description: selectedLog.description ?? '',
-    })
-    setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setSelectedLog(selectedLog)
   }, [logs])
 
   return (
@@ -599,7 +593,11 @@ export default function WorklogsView() {
                           const actualDur = log.actual_duration_minutes || log.duration_minutes
                           const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
                           return (
-                            <div key={log.id} className="group flex items-start justify-between gap-4 rounded-xl border border-outline-variant bg-white p-4">
+                            <div
+                              key={log.id}
+                              onClick={() => setSelectedLog(log)}
+                              className="group flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-outline-variant bg-white p-4 transition-colors hover:bg-surface-container-low"
+                            >
                               <div className="flex items-start gap-3 flex-1 min-w-0">
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-sm">
                                   {log.type ? (TYPE_ICONS[log.type] ?? <Clock size={14} className="text-on-surface-variant" />) : <Clock size={14} className="text-on-surface-variant" />}
@@ -624,7 +622,7 @@ export default function WorklogsView() {
                                 <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                   <AIContextButton type="worklog" title={log.title} content={log.description} id={log.id} />
                                   <button
-                                    onClick={() => handleDelete(log.id)}
+                                    onClick={(event) => { event.stopPropagation(); handleDelete(log.id) }}
                                     className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-[#a55a2c]"
                                   >
                                     <Trash2 size={13} />
@@ -653,7 +651,7 @@ export default function WorklogsView() {
                               const hasDeviation = log.expected_duration_minutes && actualDur && actualDur > log.expected_duration_minutes
 
                               return (
-                                <TableRow key={log.id}>
+                                <TableRow key={log.id} onClick={() => setSelectedLog(log)} className="cursor-pointer">
                                   <TableCell className="whitespace-normal">
                                     <div className="flex items-start gap-3">
                                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl bg-surface-container-low text-sm">
@@ -691,7 +689,7 @@ export default function WorklogsView() {
                                     <div className="flex justify-end gap-1">
                                       <AIContextButton type="worklog" title={log.title} content={log.description} id={log.id} />
                                       <button
-                                        onClick={() => handleDelete(log.id)}
+                                        onClick={(event) => { event.stopPropagation(); handleDelete(log.id) }}
                                         className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-[#a55a2c]"
                                       >
                                         <Trash2 size={13} />
@@ -898,6 +896,25 @@ export default function WorklogsView() {
           )}
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        eyebrow="Werklog"
+        title={selectedLog?.title}
+        subtitle={selectedLog?.description || 'Geregistreerde werksessie.'}
+        status={selectedLog?.context}
+        fields={[
+          { label: 'Datum', value: selectedLog?.date ? selectedLog.date.split('T')[0] : '-' },
+          { label: 'Duur', value: selectedLog ? formatDuration(selectedLog.actual_duration_minutes || selectedLog.duration_minutes) : '-' },
+          { label: 'Project', value: selectedLog?.project_title || 'Geen project' },
+          { label: 'Bron', value: selectedLog?.source || 'Handmatig' },
+          { label: 'Energie', value: selectedLog?.energy_level ? `${selectedLog.energy_level}/10` : '-' },
+          { label: 'Signalering', value: selectedLog?.interruptions || 'Geen' },
+        ]}
+        actions={selectedLog ? [
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => handleDelete(selectedLog.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }

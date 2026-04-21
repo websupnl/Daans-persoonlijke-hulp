@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Note {
   id: number
@@ -39,6 +40,7 @@ export default function NotesView() {
   const [quickNote, setQuickNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingQuick, setSavingQuick] = useState(false)
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null)
 
   const fetchNotes = useCallback(async (query?: string) => {
     const params = new URLSearchParams()
@@ -87,6 +89,7 @@ export default function NotesView() {
   async function deleteNote(id: number) {
     await fetch(`/api/notes/${id}`, { method: 'DELETE' })
     setNotes((previous) => previous.filter((note) => note.id !== id))
+    setSelectedNote((current) => current?.id === id ? null : current)
   }
 
   const pinned = notes.filter((note) => note.pinned)
@@ -127,7 +130,8 @@ export default function NotesView() {
               return
             }
             if (action.id.startsWith('note:')) {
-              router.push(`/notes/${action.id.split(':')[1]}`)
+              const found = notes.find((note) => note.id === Number(action.id.split(':')[1]))
+              if (found) setSelectedNote(found)
             }
           }}
         />
@@ -229,7 +233,7 @@ export default function NotesView() {
                 recent.map((note) => (
                   <button
                     key={note.id}
-                    onClick={() => router.push(`/notes/${note.id}`)}
+                    onClick={() => setSelectedNote(note)}
                     className="block w-full rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5 text-left transition-colors hover:bg-white"
                   >
                     <p className="truncate text-sm font-semibold text-on-surface">{note.title}</p>
@@ -272,7 +276,7 @@ export default function NotesView() {
                     />
                     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
                       {pinned.map((note) => (
-                        <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                        <NoteCard key={note.id} note={note} onOpen={setSelectedNote} onDelete={deleteNote} />
                       ))}
                     </div>
                     <div className="mt-5 hidden lg:block" data-slot="frame">
@@ -287,7 +291,7 @@ export default function NotesView() {
                         </TableHeader>
                         <TableBody>
                           {pinned.map((note) => (
-                            <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
+                            <NoteTableRow key={note.id} note={note} onOpen={setSelectedNote} onDelete={deleteNote} />
                           ))}
                         </TableBody>
                       </Table>
@@ -305,7 +309,7 @@ export default function NotesView() {
                   />
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
                     {regular.map((note) => (
-                      <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                      <NoteCard key={note.id} note={note} onOpen={setSelectedNote} onDelete={deleteNote} />
                     ))}
                   </div>
                   <div className="mt-5 hidden lg:block" data-slot="frame">
@@ -321,7 +325,7 @@ export default function NotesView() {
                       </TableHeader>
                       <TableBody>
                         {regular.map((note) => (
-                          <NoteTableRow key={note.id} note={note} onDelete={deleteNote} />
+                          <NoteTableRow key={note.id} note={note} onOpen={setSelectedNote} onDelete={deleteNote} />
                         ))}
                       </TableBody>
                     </Table>
@@ -338,7 +342,7 @@ export default function NotesView() {
                   />
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {recent.map((note) => (
-                      <NoteCard key={note.id} note={note} onDelete={deleteNote} />
+                      <NoteCard key={note.id} note={note} onOpen={setSelectedNote} onDelete={deleteNote} />
                     ))}
                   </div>
                 </Panel>
@@ -347,24 +351,43 @@ export default function NotesView() {
             )}
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedNote}
+        onClose={() => setSelectedNote(null)}
+        eyebrow="Notitie"
+        title={selectedNote?.title}
+        subtitle={selectedNote?.content_text?.trim() ? selectedNote.content_text.slice(0, 180) : 'Lege notitie.'}
+        status={selectedNote?.pinned ? 'Vastgezet' : undefined}
+        primaryHref={selectedNote ? `/notes/${selectedNote.id}` : undefined}
+        primaryLabel="Open editor"
+        fields={[
+          { label: 'Bijgewerkt', value: selectedNote ? formatRelative(selectedNote.updated_at) : '-' },
+          { label: 'Project', value: selectedNote?.project_title || 'Geen project' },
+          { label: 'Tags', value: selectedNote?.tags?.length ? selectedNote.tags.join(', ') : 'Geen tags' },
+        ]}
+        actions={selectedNote ? [
+          { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteNote(selectedNote.id) },
+        ] : []}
+      />
     </PageShell>
   )
 }
 
 function NoteCard({
   note,
+  onOpen,
   onDelete,
 }: {
   note: Note
+  onOpen: (note: Note) => void
   onDelete: (id: number) => void
 }) {
-  const router = useRouter()
   const [aiOpen, setAiOpen] = useState(false)
 
   return (
     <div
-      onClick={() => router.push(`/notes/${note.id}`)}
-      className="group relative block rounded-xl border border-outline-variant bg-white p-4 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low"
+      onClick={() => onOpen(note)}
+      className="group relative block cursor-pointer rounded-xl border border-outline-variant bg-white p-4 text-left shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-container-low"
     >
       {note.pinned && (
         <div className="absolute right-4 top-4">
@@ -438,18 +461,19 @@ function NoteCard({
 
 function NoteTableRow({
   note,
+  onOpen,
   onDelete,
 }: {
   note: Note
+  onOpen: (note: Note) => void
   onDelete: (id: number) => void
 }) {
-  const router = useRouter()
   const [aiOpen, setAiOpen] = useState(false)
 
   return (
-    <TableRow>
+    <TableRow onClick={() => onOpen(note)} className="cursor-pointer">
       <TableCell className="font-medium">
-        <button onClick={() => router.push(`/notes/${note.id}`)} className="max-w-[220px] truncate text-left text-on-surface hover:text-accent">
+        <button onClick={(event) => { event.stopPropagation(); onOpen(note) }} className="max-w-[220px] truncate text-left text-on-surface hover:text-accent">
           {note.title}
         </button>
       </TableCell>
@@ -469,13 +493,13 @@ function NoteTableRow({
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           <button
-            onClick={() => setAiOpen(true)}
+            onClick={(event) => { event.stopPropagation(); setAiOpen(true) }}
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
           >
             <Sparkles size={13} />
           </button>
           <button
-            onClick={() => onDelete(note.id)}
+            onClick={(event) => { event.stopPropagation(); onDelete(note.id) }}
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
           >
             <Trash2 size={13} />

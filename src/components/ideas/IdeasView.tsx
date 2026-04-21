@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Brain, Lightbulb, Sparkles, Trash2, X } from 'lucide-react'
+import { Brain, Lightbulb, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
 import { EditableChip } from '@/components/ui/editable-chip'
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Idea {
   id: number
@@ -199,23 +200,20 @@ export default function IdeasView() {
         </div>
       </div>
 
-      {showModal && selectedIdea && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 xl:hidden sm:items-center sm:p-4">
-          <div className="relative h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-surface-container-lowest p-6 shadow-xl sm:h-auto sm:max-h-[85vh] sm:rounded-2xl">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
-            >
-              <X size={15} />
-            </button>
-            <IdeaDetail
-              idea={selectedIdea}
-              onUpdate={updateIdea}
-              onDelete={(id) => { deleteIdea(id); setShowModal(false) }}
-            />
-          </div>
-        </div>
-      )}
+      <AppDetailDrawer
+        open={showModal && !!selectedIdea}
+        onClose={() => setShowModal(false)}
+        eyebrow="Idee"
+        title={selectedIdea?.title}
+        subtitle={selectedIdea?.refined_summary || selectedIdea?.raw_input}
+        status={selectedIdea ? `${selectedIdea.score}/100 · ${selectedIdea.verdict}` : undefined}
+      >
+        <IdeaDetail
+          idea={selectedIdea}
+          onUpdate={updateIdea}
+          onDelete={(id) => { deleteIdea(id); setShowModal(false) }}
+        />
+      </AppDetailDrawer>
     </PageShell>
   )
 }

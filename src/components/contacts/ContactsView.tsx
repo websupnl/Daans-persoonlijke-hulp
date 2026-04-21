@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Search, Mail, Phone, Trash2, X } from 'lucide-react'
+import { Plus, Search, Mail, Phone, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AIContextButton from '@/components/ai/AIContextButton'
 import { Textarea } from '@/components/ui/interfaces-textarea'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Contact {
   id: number
@@ -196,23 +197,20 @@ export default function ContactsView() {
         </div>
       </div>
 
-      {showDetail && selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 xl:hidden sm:items-center sm:p-4">
-          <div className="relative h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-surface-container-lowest p-6 shadow-xl sm:h-auto sm:max-h-[85vh] sm:rounded-2xl">
-            <button
-              onClick={() => setShowDetail(false)}
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low"
-            >
-              <X size={15} />
-            </button>
-            {detail ? <ContactDetail detail={detail} /> : (
-              <div className="flex items-center justify-center py-16">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#202625] border-t-transparent" />
-              </div>
-            )}
+      <AppDetailDrawer
+        open={showDetail && !!selected}
+        onClose={() => setShowDetail(false)}
+        eyebrow="Contact"
+        title={detail ? String(detail.name || 'Contact') : 'Contact laden'}
+        subtitle={detail ? String(detail.company || detail.email || detail.type || '') : 'Details ophalen...'}
+        status={detail ? String(detail.type || '') : undefined}
+      >
+        {detail ? <ContactDetail detail={detail} /> : (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#202625] border-t-transparent" />
           </div>
-        </div>
-      )}
+        )}
+      </AppDetailDrawer>
     </PageShell>
   )
 }

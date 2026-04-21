@@ -7,6 +7,7 @@ import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface InboxItem {
   id: number
@@ -26,6 +27,7 @@ export default function InboxView() {
   const [filter, setFilter] = useState<'pending' | 'all'>('pending')
   const [triage, setTriage] = useState<Record<number, Record<string, unknown>>>({})
   const [saving, setSaving] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null)
 
   async function load() {
     const response = await fetch('/api/inbox')
@@ -56,6 +58,7 @@ export default function InboxView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, parsed_status: 'processed' }),
     })
+    setSelectedItem((current) => current?.id === id ? { ...current, parsed_status: 'processed', processed_at: new Date().toISOString() } : current)
     load()
   }
 
@@ -136,7 +139,10 @@ export default function InboxView() {
                   filteredItems.map((item, index) => (
                     <div key={item.id}>
                       {index > 0 && <Divider />}
-                      <div className="rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/40">
+                      <div
+                        onClick={() => setSelectedItem(item)}
+                        className="cursor-pointer rounded-lg px-2 py-3 transition-colors hover:bg-surface-container-low/40"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <p className={`text-sm leading-6 ${item.parsed_status === 'processed' ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
@@ -157,14 +163,14 @@ export default function InboxView() {
                           {item.parsed_status === 'pending' && (
                             <div className="flex shrink-0 items-center gap-1.5">
                               <button
-                                onClick={() => handleTriage(item)}
+                                onClick={(event) => { event.stopPropagation(); handleTriage(item) }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant transition-colors hover:bg-surface-container-low"
                                 title="AI triage"
                               >
                                 <Sparkles size={13} />
                               </button>
                               <button
-                                onClick={() => handleProcess(item.id)}
+                                onClick={(event) => { event.stopPropagation(); handleProcess(item.id) }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white transition-colors hover:bg-[#2a3230]"
                                 title="Markeer als verwerkt"
                               >
@@ -193,6 +199,36 @@ export default function InboxView() {
           </TabsContent>
         </Tabs>
       </div>
+      <AppDetailDrawer
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        eyebrow="Inbox item"
+        title={selectedItem?.suggested_type || selectedItem?.source || 'Capture'}
+        subtitle={selectedItem?.raw_text}
+        status={selectedItem?.parsed_status}
+        fields={[
+          { label: 'Bron', value: selectedItem?.source || '-' },
+          { label: 'Context', value: selectedItem?.suggested_context || '-' },
+          { label: 'Aangemaakt', value: selectedItem?.created_at ? new Date(selectedItem.created_at).toLocaleString('nl-NL') : '-' },
+          { label: 'Verwerkt', value: selectedItem?.processed_at ? new Date(selectedItem.processed_at).toLocaleString('nl-NL') : 'Nee' },
+        ]}
+        actions={selectedItem ? [
+          { label: 'AI triage', variant: 'outlined', onClick: () => handleTriage(selectedItem) },
+          ...(selectedItem.parsed_status === 'pending'
+            ? [{ label: 'Markeer verwerkt', variant: 'contained' as const, onClick: () => handleProcess(selectedItem.id) }]
+            : []),
+        ] : []}
+      >
+        {selectedItem && triage[selectedItem.id] && (
+          <Panel tone="muted">
+            <PanelHeader eyebrow="AI voorstel" title={String(triage[selectedItem.id].type || 'Onbekend')} />
+            <div className="mt-3 space-y-2 text-sm leading-6 text-on-surface-variant">
+              <p>{String(triage[selectedItem.id].summary || '')}</p>
+              <p>{String(triage[selectedItem.id].action_advice || '')}</p>
+            </div>
+          </Panel>
+        )}
+      </AppDetailDrawer>
     </PageShell>
   )
 }
