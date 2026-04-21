@@ -191,7 +191,7 @@ export default function SettingsView() {
                     sx={{
                       p: 2,
                       borderRadius: 1,
-                      bgcolor: isActive ? 'primary.50' : 'grey.50',
+                      bgcolor: isActive ? 'primary.light' : 'grey.50',
                       border: '1px solid',
                       borderColor: isActive ? 'primary.main' : 'divider',
                       display: 'flex',

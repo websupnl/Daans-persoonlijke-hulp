@@ -413,6 +413,7 @@ export default function WorklogsView() {
         onSave={createManualLog}
         saving={savingLog}
         saveLabel="Registratie opslaan"
+        defaultEditing
       />
 
       <FloatingActionButton label="Nieuwe werkregistratie" onClick={() => setManualOpen(true)} />

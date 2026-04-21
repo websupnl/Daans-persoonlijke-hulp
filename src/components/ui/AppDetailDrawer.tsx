@@ -53,6 +53,7 @@ export type AppDetailDrawerProps = {
   onSave?: (values: Record<string, string | number | boolean | null>) => Promise<void> | void
   saveLabel?: string
   saving?: boolean
+  defaultEditing?: boolean
   children?: React.ReactNode
 }
 
@@ -71,6 +72,7 @@ export default function AppDetailDrawer({
   onSave,
   saveLabel = 'Bewerking opslaan',
   saving,
+  defaultEditing = false,
   children,
 }: AppDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
@@ -78,8 +80,8 @@ export default function AppDetailDrawer({
 
   useEffect(() => {
     setValues(Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])))
-    setEditing(false)
-  }, [open, editableFields])
+    setEditing(defaultEditing && editableFields.length > 0)
+  }, [open, editableFields, defaultEditing])
 
   async function handleSave() {
     await onSave?.(values)

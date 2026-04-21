@@ -181,19 +181,44 @@ export const appTheme = createTheme({
         variant: 'outlined',
       },
     },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          fontWeight: 750,
+        },
+      },
+    },
     MuiOutlinedInput: {
       styleOverrides: {
         root: ({ theme }) => ({
           borderRadius: 4,
+          minHeight: 42,
           backgroundColor: theme.palette.background.paper,
+          transition: 'background-color 0.18s ease, box-shadow 0.18s ease',
+          '&:hover': {
+            backgroundColor: '#ffffff',
+          },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: theme.palette.primary.main,
             boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.18)}`,
           },
         }),
+        input: {
+          paddingTop: 10,
+          paddingBottom: 10,
+        },
         notchedOutline: ({ theme }) => ({
           borderColor: theme.palette.divider,
         }),
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        select: {
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '22px',
+        },
       },
     },
     MuiChip: {
