@@ -42,6 +42,7 @@ export const PRIMARY_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { href: '/todos', label: 'Taken', icon: CheckSquare },
       { href: '/finance', label: 'Financiën', icon: Euro },
+      { href: '/health', label: 'Gezondheid', icon: Activity },
       { href: '/memory', label: 'Geheugen', icon: Brain },
     ],
   },

@@ -29,7 +29,7 @@ function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active: bool
     <Box
       sx={{
         display: 'inline-flex',
-        color: active ? 'primary.main' : 'text.secondary',
+        color: active ? 'primary.dark' : 'text.secondary',
         '& svg': { width: 19, height: 19, strokeWidth: active ? 2.4 : 1.9 },
       }}
     >
@@ -52,11 +52,11 @@ function NavRow({ href, label, icon }: { href: string; label: string; icon: Reac
         my: 0.25,
         minHeight: 40,
         borderRadius: 2,
-        color: active ? 'primary.main' : 'text.secondary',
+        color: active ? 'primary.dark' : 'text.secondary',
         '&.Mui-selected': {
-          bgcolor: 'primary.light',
+          background: 'linear-gradient(90deg, rgba(168,206,207,0.22), rgba(230,174,140,0.2))',
           fontWeight: 800,
-          '&:hover': { bgcolor: 'primary.light' },
+          '&:hover': { background: 'linear-gradient(90deg, rgba(168,206,207,0.28), rgba(230,174,140,0.24))' },
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -66,7 +66,8 @@ function NavRow({ href, label, icon }: { href: string; label: string; icon: Reac
             height: 22,
             borderRadius: 999,
             transform: 'translateY(-50%)',
-            bgcolor: 'primary.main',
+            background: 'var(--brand-gradient-fallback)',
+            backgroundImage: 'var(--brand-gradient)',
           },
         },
       }}
@@ -128,7 +129,8 @@ export default function Sidebar() {
               width: 38,
               height: 38,
               fontWeight: 900,
-              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              background: 'var(--brand-gradient-fallback)',
+              backgroundImage: 'var(--brand-gradient)',
             }}
           >
             D
@@ -202,7 +204,7 @@ export default function Sidebar() {
             >
               {loggingOut ? 'Uitloggen...' : 'Uitloggen'}
             </Button>
-            <Chip size="small" label="Material UI shell" color="primary" variant="outlined" sx={{ alignSelf: 'flex-start', mt: 1 }} />
+            <Chip size="small" label="Material UI shell" color="primary" sx={{ alignSelf: 'flex-start', mt: 1 }} />
           </Stack>
         </Box>
       </Stack>

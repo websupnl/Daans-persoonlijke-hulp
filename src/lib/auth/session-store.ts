@@ -432,7 +432,7 @@ export function getRequestSecurityHeaders() {
     'Referrer-Policy': 'same-origin',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
+    'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), browsing-topics=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
   }

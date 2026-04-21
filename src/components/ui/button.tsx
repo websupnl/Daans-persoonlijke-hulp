@@ -41,6 +41,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         color={mapped.color}
         size={mapSize(size)}
         className={className}
+        sx={variant === 'ai' || variant === 'primary' || variant === 'default' ? {
+          background: mapped.variant === 'contained' ? 'var(--brand-gradient-fallback)' : undefined,
+          backgroundImage: mapped.variant === 'contained' ? 'var(--brand-gradient)' : undefined,
+          color: mapped.variant === 'contained' ? 'common.white' : undefined,
+          '&:hover': mapped.variant === 'contained'
+            ? { backgroundImage: 'var(--brand-gradient)', filter: 'saturate(1.05) brightness(0.98)' }
+            : undefined,
+        } : undefined}
         {...props}
       >
         {variant === 'ai' && <AutoAwesomeIcon sx={{ mr: 1 }} fontSize="small" />}
@@ -68,7 +76,19 @@ export function LinkButton({
 }) {
   const mapped = mapVariant(variant)
   return (
-    <MuiButton component={Link} href={href} variant={mapped.variant} color={mapped.color} size={mapSize(size)} className={className}>
+    <MuiButton
+      component={Link}
+      href={href}
+      variant={mapped.variant}
+      color={mapped.color}
+      size={mapSize(size)}
+      className={className}
+      sx={variant === 'ai' || variant === 'primary' || variant === 'default' ? {
+        background: mapped.variant === 'contained' ? 'var(--brand-gradient-fallback)' : undefined,
+        backgroundImage: mapped.variant === 'contained' ? 'var(--brand-gradient)' : undefined,
+        color: mapped.variant === 'contained' ? 'common.white' : undefined,
+      } : undefined}
+    >
       {variant === 'ai' && <AutoAwesomeIcon sx={{ mr: 1 }} fontSize="small" />}
       {children}
       {iconRight}
@@ -112,5 +132,18 @@ export function Chip({ children, color = 'default', className }: { children: Rea
 }
 
 export function AIChip({ children, className }: { children: ReactNode; className?: string }) {
-  return <MuiChip className={className} size="small" color="secondary" icon={<AutoAwesomeIcon />} label={children} />
+  return (
+    <MuiChip
+      className={className}
+      size="small"
+      icon={<AutoAwesomeIcon />}
+      label={children}
+      sx={{
+        background: 'var(--brand-gradient-fallback)',
+        backgroundImage: 'var(--brand-gradient)',
+        color: 'common.white',
+        '& .MuiChip-icon': { color: 'common.white' },
+      }}
+    />
+  )
 }

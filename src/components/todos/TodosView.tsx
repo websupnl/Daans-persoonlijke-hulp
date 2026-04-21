@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface Todo {
   id: number
@@ -65,6 +66,7 @@ export default function TodosView() {
   const [loading, setLoading] = useState(true)
   const [recommendation, setRecommendation] = useState<string | null>(null)
   const [loadingRec, setLoadingRec] = useState(false)
+  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const [newTodo, setNewTodo] = useState({ title: '', priority: 'medium', category: 'overig', due_date: '' })
 
   const fetchTodos = useCallback(async () => {
@@ -106,11 +108,13 @@ export default function TodosView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ completed: !completed }),
     })
+    setSelectedTodo((current) => current?.id === id ? { ...current, completed: !completed } : current)
     fetchTodos()
   }
 
   async function deleteTodo(id: number) {
     await fetch(`/api/todos/${id}`, { method: 'DELETE' })
+    setSelectedTodo((current) => current?.id === id ? null : current)
     fetchTodos()
   }
 
@@ -216,6 +220,7 @@ export default function TodosView() {
             if (action.id.startsWith('todo:')) {
               const found = todos.find((todo) => todo.id === Number(action.id.split(':')[1]))
               if (!found) return
+              setSelectedTodo(found)
               setViewMode('list')
               setFilter(found.completed ? 'Afgerond' : 'Alles')
               setCategory('alles')
@@ -402,7 +407,7 @@ export default function TodosView() {
                         </div>
                       ) : (
                         boardColumns[column.key].map((todo) => (
-                          <TodoCard key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                          <TodoCard key={todo.id} todo={todo} onOpen={setSelectedTodo} onToggle={toggleTodo} onDelete={deleteTodo} />
                         ))
                       )}
                     </div>
@@ -420,7 +425,7 @@ export default function TodosView() {
               />
               <div className="mt-2 space-y-1 lg:hidden">
                 {todos.map((todo) => (
-                  <TodoRow key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
+                  <TodoRow key={todo.id} todo={todo} onOpen={setSelectedTodo} onToggle={toggleTodo} onDelete={deleteTodo} />
                 ))}
               </div>
               <div className="mt-2 hidden lg:block" data-slot="frame">
@@ -437,11 +442,16 @@ export default function TodosView() {
                   </TableHeader>
                   <TableBody>
                     {todos.map((todo) => (
-                      <TableRow key={todo.id} data-state={todo.completed ? 'selected' : undefined}>
+                      <TableRow
+                        key={todo.id}
+                        data-state={todo.completed ? 'selected' : undefined}
+                        onClick={() => setSelectedTodo(todo)}
+                        className="cursor-pointer"
+                      >
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => toggleTodo(todo.id, todo.completed)}
+                              onClick={(event) => { event.stopPropagation(); toggleTodo(todo.id, todo.completed) }}
                               className={cn(
                                 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
                                 todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
@@ -483,7 +493,7 @@ export default function TodosView() {
                           <div className="flex items-center justify-end gap-1">
                             <AIContextButton type="todo" title={todo.title} id={todo.id} />
                             <button
-                              onClick={() => deleteTodo(todo.id)}
+                              onClick={(event) => { event.stopPropagation(); deleteTodo(todo.id) }}
                               className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
                             >
                               <Trash2 size={13} />
@@ -549,7 +559,11 @@ export default function TodosView() {
                 />
               ) : (
                 nextUp.map((todo) => (
-                  <div key={todo.id} className="rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5">
+                  <button
+                    key={todo.id}
+                    onClick={() => setSelectedTodo(todo)}
+                    className="w-full rounded-xl border border-outline-variant bg-white/70 px-4 py-3.5 text-left transition-colors hover:bg-white"
+                  >
                     <div className="flex items-start gap-3">
                       <PriorityDot priority={todo.priority} />
                       <div className="min-w-0 flex-1">
@@ -560,35 +574,64 @@ export default function TodosView() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
           </Panel>
         </div>
       </div>
+      <AppDetailDrawer
+        open={!!selectedTodo}
+        onClose={() => setSelectedTodo(null)}
+        eyebrow="Taak"
+        title={selectedTodo?.title}
+        subtitle={selectedTodo?.description || 'Taakdetails en snelle acties.'}
+        status={selectedTodo?.completed ? 'Afgerond' : selectedTodo?.priority}
+        fields={[
+          { label: 'Categorie', value: selectedTodo?.category },
+          { label: 'Deadline', value: selectedTodo?.due_date ? formatDate(selectedTodo.due_date) : 'Geen datum' },
+          { label: 'Project', value: selectedTodo?.project_title || 'Geen project' },
+          { label: 'Status', value: selectedTodo?.completed ? 'Voltooid' : 'Open' },
+        ]}
+        actions={selectedTodo ? [
+          {
+            label: selectedTodo.completed ? 'Heropenen' : 'Voltooien',
+            variant: 'contained',
+            onClick: () => toggleTodo(selectedTodo.id, selectedTodo.completed),
+          },
+          {
+            label: 'Verwijderen',
+            variant: 'outlined',
+            onClick: () => deleteTodo(selectedTodo.id),
+          },
+        ] : []}
+      />
     </PageShell>
   )
 }
 
 function TodoCard({
   todo,
+  onOpen,
   onToggle,
   onDelete,
 }: {
   todo: Todo
+  onOpen: (todo: Todo) => void
   onToggle: (id: number, completed: boolean) => void
   onDelete: (id: number) => void
 }) {
   return (
     <div
       draggable
+      onClick={() => onOpen(todo)}
       onDragStart={(event) => event.dataTransfer.setData('text/plain', String(todo.id))}
-      className="group rounded-xl border border-outline-variant bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]"
+      className="group cursor-pointer rounded-xl border border-outline-variant bg-white px-4 py-3.5 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)] transition-colors hover:bg-surface-container-low"
     >
       <div className="flex items-start gap-3">
         <button
-          onClick={() => onToggle(todo.id, todo.completed)}
+          onClick={(event) => { event.stopPropagation(); onToggle(todo.id, todo.completed) }}
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
             todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
@@ -617,7 +660,7 @@ function TodoCard({
         <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <AIContextButton type="todo" title={todo.title} id={todo.id} />
           <button
-            onClick={() => onDelete(todo.id)}
+            onClick={(event) => { event.stopPropagation(); onDelete(todo.id) }}
             className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
           >
             <Trash2 size={13} />
@@ -630,18 +673,23 @@ function TodoCard({
 
 function TodoRow({
   todo,
+  onOpen,
   onToggle,
   onDelete,
 }: {
   todo: Todo
+  onOpen: (todo: Todo) => void
   onToggle: (id: number, completed: boolean) => void
   onDelete: (id: number) => void
 }) {
   return (
-    <div className={cn('group rounded-xl px-4 py-3.5 transition-colors hover:bg-surface-container-low', todo.completed && 'opacity-60')}>
+    <div
+      onClick={() => onOpen(todo)}
+      className={cn('group cursor-pointer rounded-xl px-4 py-3.5 transition-colors hover:bg-surface-container-low', todo.completed && 'opacity-60')}
+    >
       <div className="flex items-start gap-3">
         <button
-          onClick={() => onToggle(todo.id, todo.completed)}
+          onClick={(event) => { event.stopPropagation(); onToggle(todo.id, todo.completed) }}
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
             todo.completed ? 'border-[#202625] bg-accent text-white' : 'border-outline-variant hover:border-on-surface'
@@ -683,7 +731,7 @@ function TodoRow({
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <AIContextButton type="todo" title={todo.title} id={todo.id} />
           <button
-            onClick={() => onDelete(todo.id)}
+            onClick={(event) => { event.stopPropagation(); onDelete(todo.id) }}
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
           >
             <Trash2 size={13} />

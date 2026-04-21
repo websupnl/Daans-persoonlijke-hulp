@@ -4,11 +4,11 @@ import { NextRequest } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
-import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest, migrateLegacyBoumaWorkspace } from '@/lib/workspace'
 
 export async function GET(req: NextRequest) {
   try {
-    await ensureWorkspaceColumns(['todos'])
+    await migrateLegacyBoumaWorkspace(['todos'])
     const workspace = getWorkspaceFromRequest(req)
     const { searchParams } = new URL(req.url)
     const filter = searchParams.get('filter')

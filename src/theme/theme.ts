@@ -3,19 +3,25 @@
 import { createTheme, alpha } from '@mui/material/styles'
 import type {} from '@mui/x-data-grid/themeAugmentation'
 
+export const brandGradient = 'linear-gradient(to right, #A8CECF, #E6AE8C)'
+export const brandGradientFallback = '#E6AE8C'
+export const brandStart = '#A8CECF'
+export const brandEnd = '#E6AE8C'
+export const brandPrimary = '#5F9FA1'
+
 export const appTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#4f46e5',
-      light: '#eef2ff',
-      dark: '#3730a3',
+      main: brandPrimary,
+      light: '#eef8f8',
+      dark: '#3f7f82',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#7c3aed',
-      light: '#f5f3ff',
-      dark: '#5b21b6',
+      main: '#c98258',
+      light: '#fff4ed',
+      dark: '#ad6f48',
       contrastText: '#ffffff',
     },
     success: {
@@ -82,8 +88,17 @@ export const appTheme = createTheme({
           backgroundColor: '#f7f7f8',
           color: '#0f0f10',
         },
+        ':root': {
+          '--brand-start': brandStart,
+          '--brand-end': brandEnd,
+          '--brand-primary': brandPrimary,
+          '--brand-gradient-fallback': brandGradientFallback,
+          '--brand-gradient-webkit': '-webkit-linear-gradient(to right, #A8CECF, #E6AE8C)',
+          '--brand-gradient': brandGradient,
+          '--brand-gradient-soft': 'linear-gradient(135deg, rgba(168, 206, 207, 0.2), rgba(230, 174, 140, 0.18))',
+        },
         '*:focus-visible': {
-          outline: '3px solid rgba(79,70,229,0.35)',
+          outline: `3px solid ${alpha(brandPrimary, 0.35)}`,
           outlineOffset: 2,
         },
       },
@@ -100,8 +115,14 @@ export const appTheme = createTheme({
           boxShadow: 'none',
         }),
         containedPrimary: {
-          background: '#4f46e5',
-          '&:hover': { background: '#4338ca' },
+          background: brandGradientFallback,
+          backgroundImage: brandGradient,
+          color: '#ffffff',
+          '&:hover': {
+            background: brandGradientFallback,
+            backgroundImage: brandGradient,
+            filter: 'saturate(1.05) brightness(0.98)',
+          },
         },
         outlined: ({ theme }) => ({
           borderColor: theme.palette.divider,
@@ -163,6 +184,23 @@ export const appTheme = createTheme({
         root: {
           borderRadius: 999,
           fontWeight: 700,
+        },
+        filledPrimary: {
+          background: brandGradientFallback,
+          backgroundImage: brandGradient,
+          color: '#ffffff',
+        },
+      },
+    },
+    MuiLinearProgress: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          backgroundColor: alpha(brandPrimary, 0.16),
+        },
+        bar: {
+          background: brandGradientFallback,
+          backgroundImage: brandGradient,
         },
       },
     },

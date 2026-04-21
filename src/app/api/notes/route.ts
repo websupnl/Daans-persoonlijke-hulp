@@ -5,11 +5,11 @@ import { query, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { generateTags, rankNotesByQuery } from '@/lib/ai/note-utils'
 import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
-import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest, migrateLegacyBoumaWorkspace } from '@/lib/workspace'
 
 export async function GET(req: NextRequest) {
   try {
-    await ensureWorkspaceColumns(['notes'])
+    await migrateLegacyBoumaWorkspace(['notes'])
     const workspace = getWorkspaceFromRequest(req)
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')

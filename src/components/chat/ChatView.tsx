@@ -14,10 +14,13 @@ import Stack from '@mui/material/Stack'
 import TextareaAutosize from '@mui/material/TextareaAutosize'
 import Typography from '@mui/material/Typography'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
+import AttachFileIcon from '@mui/icons-material/AttachFile'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import BugReportIcon from '@mui/icons-material/BugReport'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CloseIcon from '@mui/icons-material/Close'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SendIcon from '@mui/icons-material/Send'
 import { formatMarkdown, formatRelative } from '@/lib/utils'
@@ -68,19 +71,9 @@ function getActionTitle(action: DebugAction) {
 
 function ThinkingState({ status }: { status: string }) {
   return (
-    <Stack direction="row" spacing={1.5} alignItems="flex-start">
-      <Box sx={{ width: 32, height: 32, borderRadius: 999, display: 'grid', placeItems: 'center', color: 'common.white', background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-        <AutoAwesomeIcon fontSize="small" />
-      </Box>
-      <Paper sx={{ px: 2, py: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '6px 18px 18px 18px', minWidth: 220 }}>
-        <Stack direction="row" spacing={0.75} alignItems="center">
-          <CircularProgress size={14} />
-          <Typography variant="body2" color="text.secondary">
-            {status}
-          </Typography>
-        </Stack>
-        <LinearProgress sx={{ mt: 1.5 }} />
-      </Paper>
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'text.secondary', px: 1 }}>
+      <CircularProgress size={14} />
+      <Typography variant="caption">{status}</Typography>
     </Stack>
   )
 }
@@ -140,9 +133,11 @@ export default function ChatView() {
   const [showExamples, setShowExamples] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
   const [showScrollDown, setShowScrollDown] = useState(false)
+  const [imageAttachment, setImageAttachment] = useState<{ base64: string; mimeType: string; name: string; previewUrl: string } | null>(null)
 
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const loadHistory = useCallback(async () => {
@@ -174,42 +169,41 @@ export default function ChatView() {
 
   async function sendMessage(text?: string) {
     const message = (text ?? input).trim()
-    if (!message || loading) return
+    if ((!message && !imageAttachment) || loading) return
 
     const userMessage: Message = {
       id: Date.now(),
       role: 'user',
-      content: message,
+      content: imageAttachment ? `${message || 'Analyseer deze foto.'}\n\n[Foto: ${imageAttachment.name}]` : message,
       created_at: new Date().toISOString(),
     }
 
     setMessages((current) => [...current, userMessage])
     setInput('')
+    setImageAttachment(null)
     setShowExamples(false)
     setLoading(true)
     setLoadingStatus('Interpreteren...')
-
-    const assistantId = Date.now() + 1
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message: message || 'Analyseer deze foto. Als dit een kassabon of factuur is, haal bedrag, datum, winkel en categorie eruit en sla het logisch op.',
+          imageBase64: imageAttachment?.base64,
+          imageType: imageAttachment?.mimeType,
+        }),
       })
 
       if (!response.body) throw new Error('Geen stream')
-
-      setMessages((current) => [
-        ...current,
-        { id: assistantId, role: 'assistant', content: '', created_at: new Date().toISOString(), streaming: true },
-      ])
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
       let assistantText = ''
       let debugInfo: DebugInfo | undefined
+      let finalMessageAdded = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -234,26 +228,72 @@ export default function ChatView() {
           if (data.type === 'debug') debugInfo = data.data
           if (data.type === 'text') {
             assistantText += data.text
-            setLoadingStatus('Antwoord formuleren...')
-            setMessages((current) => current.map((item) => (item.id === assistantId ? { ...item, content: assistantText, debugInfo } : item)))
           }
           if (data.type === 'done') {
-            setMessages((current) => current.map((item) => (item.id === assistantId ? { ...item, content: assistantText || data.debugInfo?.summary || 'Afgerond.', debugInfo: debugInfo ?? data.debugInfo, streaming: false } : item)))
+            finalMessageAdded = true
+            setMessages((current) => [
+              ...current,
+              {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: assistantText || data.debugInfo?.summary || 'Afgerond.',
+                created_at: new Date().toISOString(),
+                debugInfo: debugInfo ?? data.debugInfo,
+                streaming: false,
+              },
+            ])
           }
           if (data.type === 'error') {
-            setMessages((current) => current.map((item) => (item.id === assistantId ? { ...item, role: 'error', content: data.text, streaming: false } : item)))
+            finalMessageAdded = true
+            setMessages((current) => [
+              ...current,
+              { id: Date.now() + 2, role: 'error', content: data.text, created_at: new Date().toISOString(), streaming: false },
+            ])
           }
         }
       }
+      if (!finalMessageAdded && assistantText) {
+        setMessages((current) => [
+          ...current,
+          { id: Date.now() + 3, role: 'assistant', content: assistantText, created_at: new Date().toISOString(), debugInfo, streaming: false },
+        ])
+      }
     } catch {
       setMessages((current) => [
-        ...current.filter((item) => item.id !== assistantId),
+        ...current,
         { id: Date.now() + 2, role: 'error', content: 'Er ging iets fout. Je bericht is bewaard.', created_at: new Date().toISOString() },
       ])
     } finally {
       setLoading(false)
       inputRef.current?.focus()
     }
+  }
+
+  async function handleImageSelect(file?: File) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessages((current) => [
+        ...current,
+        { id: Date.now(), role: 'error', content: 'Upload alleen een afbeelding, bijvoorbeeld een foto van een kassabon.', created_at: new Date().toISOString() },
+      ])
+      return
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+    const [, base64 = ''] = dataUrl.split(',')
+    setImageAttachment({
+      base64,
+      mimeType: file.type,
+      name: file.name || 'foto',
+      previewUrl: dataUrl,
+    })
+    setShowExamples(false)
+    inputRef.current?.focus()
   }
 
   async function resetChat() {
@@ -391,15 +431,53 @@ export default function ChatView() {
       <Paper sx={{ borderRadius: 0, borderTop: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 1.5 }}>
         <Container maxWidth="md" disableGutters>
           <Stack spacing={1}>
-            {!input && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(event) => {
+                handleImageSelect(event.target.files?.[0])
+                event.target.value = ''
+              }}
+            />
+            {!input && !imageAttachment && (
               <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 0.5 }}>
-                {['Bestand', 'Spraak', 'Vorige context'].map((item) => (
-                  <Chip key={item} size="small" label={item} variant="outlined" />
-                ))}
+                <Chip
+                  clickable
+                  size="small"
+                  icon={<PhotoCameraIcon />}
+                  label="Maak foto / upload bon"
+                  color="primary"
+                  onClick={() => fileInputRef.current?.click()}
+                />
               </Stack>
+            )}
+            {imageAttachment && (
+              <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
+                <Stack direction="row" spacing={1.25} alignItems="center">
+                  <Box
+                    component="img"
+                    src={imageAttachment.previewUrl}
+                    alt={imageAttachment.name}
+                    sx={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}
+                  />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" fontWeight={800} noWrap>{imageAttachment.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">Klaar om te analyseren, bijvoorbeeld als kassabon.</Typography>
+                  </Box>
+                  <IconButton aria-label="Verwijder foto" onClick={() => setImageAttachment(null)}>
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </Paper>
             )}
             <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 3, bgcolor: '#fafafb' }}>
               <Stack direction="row" spacing={1} alignItems="flex-end">
+                <IconButton aria-label="Maak foto of upload bon" onClick={() => fileInputRef.current?.click()}>
+                  <AttachFileIcon fontSize="small" />
+                </IconButton>
                 <TextareaAutosize
                   ref={inputRef}
                   value={input}
@@ -424,7 +502,7 @@ export default function ChatView() {
                     color: '#0f0f10',
                   }}
                 />
-                <IconButton color="primary" onClick={() => sendMessage()} disabled={!input.trim() || loading} sx={{ bgcolor: input.trim() && !loading ? 'primary.main' : 'transparent', color: input.trim() && !loading ? 'common.white' : 'text.disabled', '&:hover': { bgcolor: input.trim() && !loading ? 'primary.dark' : 'action.hover' } }}>
+                <IconButton color="primary" onClick={() => sendMessage()} disabled={(!input.trim() && !imageAttachment) || loading} sx={{ bgcolor: (input.trim() || imageAttachment) && !loading ? 'primary.main' : 'transparent', color: (input.trim() || imageAttachment) && !loading ? 'common.white' : 'text.disabled', '&:hover': { bgcolor: (input.trim() || imageAttachment) && !loading ? 'primary.dark' : 'action.hover' } }}>
                   {loading ? <CircularProgress size={18} /> : <SendIcon fontSize="small" />}
                 </IconButton>
               </Stack>

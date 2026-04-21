@@ -7,11 +7,11 @@ import { executeActions } from '@/lib/ai/execute-actions'
 import { generateAIResponse } from '@/lib/ai/generate-response'
 import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
 import { ChatActionResult } from '@/lib/contracts/chat-action-result'
-import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest, migrateLegacyBoumaWorkspace } from '@/lib/workspace'
 
 export async function GET(req: NextRequest) {
   try {
-    await ensureWorkspaceColumns(['chat_messages'])
+    await migrateLegacyBoumaWorkspace(['chat_messages'])
     const workspace = getWorkspaceFromRequest(req)
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -124,27 +124,7 @@ export async function POST(req: NextRequest) {
           [responseText, JSON.stringify(debugInfo), workspace]
         ).catch(console.error)
 
-        try {
-          const client = (await import('@/lib/ai/openai-client')).getOpenAIClient()
-          const streamResponse = await client.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: 'Je bent Daan\'s persoonlijke assistent. Geef een korte, natuurlijke Nederlandse bevestiging van wat je zojuist hebt gedaan. Max 2 zinnen. Geen lijst, geen opsomming.' },
-              { role: 'user', content: responseText },
-            ],
-            stream: true,
-            max_tokens: 200,
-            temperature: 0.7,
-          })
-
-          for await (const chunk of streamResponse) {
-            const text = chunk.choices[0]?.delta?.content ?? ''
-            if (text) send({ type: 'text', text })
-          }
-        } catch (streamError) {
-          console.warn('[/api/chat POST stream] OpenAI bevestiging overgeslagen:', streamError)
-          send({ type: 'text', text: responseText })
-        }
+        send({ type: 'text', text: responseText })
 
         send({
           type: 'done',

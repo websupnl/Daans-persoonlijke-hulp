@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
-import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
+import { getWorkspaceFromRequest, migrateLegacyBoumaWorkspace } from '@/lib/workspace'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  await ensureWorkspaceColumns(['todos', 'notes'])
+  await migrateLegacyBoumaWorkspace(['todos', 'notes', 'events'])
   const workspace = getWorkspaceFromRequest(req)
 
   const todoStats = await queryOne<{ total: number; open: number; due_today: number; overdue: number }>(`
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   // Recente todos (vandaag + overdue)
   const urgentTodos = await query(`
-    SELECT t.*, p.color as project_color, p.title as project_title
+    SELECT t.*, TO_CHAR(t.due_date, 'YYYY-MM-DD') as due_date, p.color as project_color, p.title as project_title
     FROM todos t LEFT JOIN projects p ON t.project_id = p.id
     WHERE t.workspace = $1 AND t.completed = 0 AND (
       t.due_date::date <= CURRENT_DATE + INTERVAL '1 day' OR t.priority = 'hoog'

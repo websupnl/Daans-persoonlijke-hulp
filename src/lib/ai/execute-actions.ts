@@ -78,7 +78,7 @@ export async function executeActions(
   const results: ActionResult[] = []
   const workspace = normalizeWorkspace(options.workspace)
 
-  await ensureWorkspaceColumns(['todos', 'notes'])
+  await ensureWorkspaceColumns(['todos', 'notes', 'events'])
 
   console.log(`[executeActions] Starting execution of ${actions.length} actions:`, actions.map(a => a.type))
 
@@ -228,15 +228,15 @@ async function executeSingleAction(
       const relativeDate = resolveDutchDate(String(date))
       if (relativeDate) date = relativeDate
       const row = await queryOne<{ id: number }>(`
-        INSERT INTO events (title, date, time, type, description, duration)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO events (title, date, time, type, description, duration, workspace)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id
-      `, [title, date, time ?? null, type ?? 'algemeen', description ?? null, duration ?? 60])
+      `, [title, date, time ?? null, type ?? 'algemeen', description ?? null, duration ?? 60, options.workspace])
       if (!row?.id) {
         return { type: action.type, success: false, error: 'Agenda-item niet opgeslagen (geen ID)' }
       }
       const verify = await queryOne<{ id: number }>(
-        'SELECT id FROM events WHERE id = $1', [row.id]
+        'SELECT id FROM events WHERE id = $1 AND workspace = $2', [row.id, options.workspace]
       )
       if (!verify) {
         return { type: action.type, success: false, error: 'Verificatie mislukt na opslaan' }
@@ -250,7 +250,7 @@ async function executeSingleAction(
       if (entries.length === 0) return { type: action.type, success: false, error: 'Geen updates' }
       const setClauses = entries.map(([k], idx) => `${k} = $${idx + 1}`)
       const values = entries.map(([, v]) => v)
-      await execute(`UPDATE events SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1}`, [...values, id])
+      await execute(`UPDATE events SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = $${entries.length + 1} AND workspace = $${entries.length + 2}`, [...values, id, options.workspace])
       return { type: action.type, success: true, data: { id } }
     }
 

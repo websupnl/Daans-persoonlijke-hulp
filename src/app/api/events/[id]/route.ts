@@ -4,9 +4,12 @@ import { NextRequest } from 'next/server'
 import { execute, queryOne } from '@/lib/db'
 import { logActivity, syncEntityLinks } from '@/lib/activity'
 import { jsonFail, jsonOk } from '@/lib/contracts/api-http'
+import { ensureWorkspaceColumns, getWorkspaceFromRequest } from '@/lib/workspace'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await ensureWorkspaceColumns(['events'])
+    const workspace = getWorkspaceFromRequest(req)
     const body = await req.json()
     const id = parseInt(params.id)
     if (Number.isNaN(id)) return jsonFail('EVENT_ID_INVALID', 'Ongeldig event id', 400, undefined, req)
@@ -29,10 +32,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     if (updates.length === 0) return jsonFail('EVENT_NO_FIELDS', 'Geen velden', 400, undefined, req)
     updates.push(`updated_at = NOW()`)
-    values.push(id)
+    values.push(id, workspace)
 
-    await execute(`UPDATE events SET ${updates.join(', ')} WHERE id = $${i}`, values)
-    const updated = await queryOne(`SELECT *, TO_CHAR(date,'YYYY-MM-DD') as date FROM events WHERE id = $1`, [id])
+    await execute(`UPDATE events SET ${updates.join(', ')} WHERE id = $${i} AND workspace = $${i + 1}`, values)
+    const updated = await queryOne(`SELECT *, TO_CHAR(date,'YYYY-MM-DD') as date FROM events WHERE id = $1 AND workspace = $2`, [id, workspace])
     await syncEntityLinks({
       sourceType: 'event',
       sourceId: id,
@@ -55,9 +58,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await ensureWorkspaceColumns(['events'])
+    const workspace = getWorkspaceFromRequest(_req)
     const id = parseInt(params.id)
     if (Number.isNaN(id)) return jsonFail('EVENT_ID_INVALID', 'Ongeldig event id', 400, undefined, _req)
-    await execute(`DELETE FROM events WHERE id = $1`, [id])
+    await execute(`DELETE FROM events WHERE id = $1 AND workspace = $2`, [id, workspace])
     await logActivity({ entityType: 'event', entityId: id, action: 'deleted', title: `Event ${params.id}`, summary: 'Agenda-item verwijderd' })
     return jsonOk({ message: 'Event verwijderd' }, undefined, _req)
   } catch (error: unknown) {

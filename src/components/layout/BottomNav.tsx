@@ -24,17 +24,19 @@ export default function BottomNav() {
     <>
       <Paper
         elevation={3}
-        sx={{
-          display: { xs: 'block', md: 'none' },
+          sx={{
+            display: { xs: 'block', md: 'none' },
           position: 'fixed',
           left: 0,
           right: 0,
           bottom: 0,
           zIndex: 1300,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          pb: 'env(safe-area-inset-bottom)',
-        }}
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            background: 'rgba(255,255,255,0.94)',
+            backdropFilter: 'blur(20px)',
+            pb: 'env(safe-area-inset-bottom)',
+          }}
       >
         <BottomNavigation
           value={active}
@@ -43,7 +45,16 @@ export default function BottomNav() {
             else router.push(value)
           }}
           showLabels
-          sx={{ height: 64 }}
+          sx={{
+            height: 64,
+            background: 'transparent',
+            '& .Mui-selected': {
+              color: 'primary.dark',
+            },
+            '& .Mui-selected svg': {
+              filter: 'drop-shadow(0 2px 6px rgba(95,159,161,0.24))',
+            },
+          }}
         >
           {MOBILE_PRIMARY_ITEMS.map((item) => (
             <BottomNavigationAction

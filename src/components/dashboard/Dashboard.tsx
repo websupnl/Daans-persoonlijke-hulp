@@ -26,16 +26,22 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
 import EuroIcon from '@mui/icons-material/Euro'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { formatCurrency, formatRelative } from '@/lib/utils'
+import AppDetailDrawer, { DetailField } from '@/components/ui/AppDetailDrawer'
 
 interface DashboardData {
   stats: {
     todos: { total: number; open: number; dueToday: number; overdue: number }
     finance: { openInvoices: number; openAmount: number; monthIncome: number; monthExpenses: number }
   }
-  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string; project_title?: string }>
+  urgentTodos: Array<{ id: number; title: string; priority: string; due_date?: string | null; project_title?: string }>
   recentFinance: Array<{ id: number; title: string; amount: number; type: string; category: string; created_at: string }>
   inboxCount: number
 }
+
+type SelectedDetail =
+  | { kind: 'todo'; title: string; href: string; fields: DetailField[]; status?: string }
+  | { kind: 'event'; title: string; href: string; fields: DetailField[]; status?: string }
+  | { kind: 'finance'; title: string; href: string; fields: DetailField[]; status?: string }
 
 interface EventItem {
   id: number
@@ -67,6 +73,20 @@ function priorityColor(priority: string): 'error' | 'warning' | 'success' | 'def
   if (priority === 'medium') return 'warning'
   if (priority === 'laag') return 'success'
   return 'default'
+}
+
+function localDateString(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatDateOnly(value?: string | null) {
+  if (!value) return 'Geen'
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return value
+  return new Intl.DateTimeFormat('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(year, month - 1, day))
 }
 
 function KpiCard({
@@ -110,16 +130,17 @@ export default function Dashboard() {
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [baseLoading, setBaseLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
+  const [selectedDetail, setSelectedDetail] = useState<SelectedDetail | null>(null)
 
   async function loadBase() {
     setBaseLoading(true)
     try {
       const [dashboardRes, eventRes] = await Promise.all([
         fetch('/api/dashboard').then((response) => response.json()),
-        fetch(`/api/events?date=${new Date().toISOString().split('T')[0]}`).then((response) => response.json()).catch(() => ({ data: [] })),
+        fetch(`/api/events?date=${localDateString()}`).then((response) => response.json()).catch(() => ({ data: [] })),
       ])
       setData(dashboardRes)
-      setEvents((eventRes.data || []).slice(0, 8))
+      setEvents((eventRes.data || []).filter((event: EventItem) => event.date === localDateString()).slice(0, 8))
     } finally {
       setBaseLoading(false)
     }
@@ -275,7 +296,23 @@ export default function Dashboard() {
                 </TableHead>
                 <TableBody>
                   {(data?.urgentTodos ?? []).slice(0, 8).map((todo) => (
-                    <TableRow key={todo.id} hover>
+                    <TableRow
+                      key={todo.id}
+                      hover
+                      onClick={() => setSelectedDetail({
+                        kind: 'todo',
+                        title: todo.title,
+                        href: `/todos?highlight=${todo.id}`,
+                        status: todo.priority,
+                        fields: [
+                          { label: 'Type', value: 'Taak' },
+                          { label: 'Prioriteit', value: todo.priority },
+                          { label: 'Project', value: todo.project_title || '-' },
+                          { label: 'Deadline', value: formatDateOnly(todo.due_date) },
+                        ],
+                      })}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight={750}>
                           {todo.title}
@@ -285,7 +322,7 @@ export default function Dashboard() {
                         <Chip size="small" label={todo.priority} color={priorityColor(todo.priority)} />
                       </TableCell>
                       <TableCell>{todo.project_title || '—'}</TableCell>
-                      <TableCell>{todo.due_date || 'Geen'}</TableCell>
+                      <TableCell>{formatDateOnly(todo.due_date)}</TableCell>
                     </TableRow>
                   ))}
                   {(data?.urgentTodos ?? []).length === 0 && (
@@ -325,7 +362,23 @@ export default function Dashboard() {
                 </TableHead>
                 <TableBody>
                   {events.map((event) => (
-                    <TableRow key={`${event.id}-${event.date}-${event.time}`} hover>
+                    <TableRow
+                      key={`${event.id}-${event.date}-${event.time}`}
+                      hover
+                      onClick={() => setSelectedDetail({
+                        kind: 'event',
+                        title: event.title,
+                        href: `/agenda?event=${event.id}`,
+                        status: event.type || 'algemeen',
+                        fields: [
+                          { label: 'Type', value: 'Agenda' },
+                          { label: 'Datum', value: formatDateOnly(event.date) },
+                          { label: 'Tijd', value: event.time || 'Hele dag' },
+                          { label: 'Categorie', value: event.type || 'algemeen' },
+                        ],
+                      })}
+                      sx={{ cursor: 'pointer' }}
+                    >
                       <TableCell>{event.time || 'Hele dag'}</TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={750}>
@@ -373,7 +426,23 @@ export default function Dashboard() {
             </TableHead>
             <TableBody>
               {(data?.recentFinance ?? []).map((item) => (
-                <TableRow key={item.id} hover>
+                <TableRow
+                  key={item.id}
+                  hover
+                  onClick={() => setSelectedDetail({
+                    kind: 'finance',
+                    title: item.title,
+                    href: `/finance?item=${item.id}`,
+                    status: item.type,
+                    fields: [
+                      { label: 'Type', value: item.type },
+                      { label: 'Categorie', value: item.category || 'overig' },
+                      { label: 'Datum', value: formatRelative(item.created_at) },
+                      { label: 'Bedrag', value: `${item.type === 'inkomst' ? '+' : '-'}${formatCurrency(item.amount)}` },
+                    ],
+                  })}
+                  sx={{ cursor: 'pointer' }}
+                >
                   <TableCell>
                     <Typography variant="body2" fontWeight={750}>
                       {item.title}
@@ -403,6 +472,15 @@ export default function Dashboard() {
           </Table>
         </TableContainer>
       </Stack>
+      <AppDetailDrawer
+        open={Boolean(selectedDetail)}
+        onClose={() => setSelectedDetail(null)}
+        eyebrow={selectedDetail?.kind === 'todo' ? 'Focus taak' : selectedDetail?.kind === 'event' ? 'Agenda-item' : 'Transactie'}
+        title={selectedDetail?.title}
+        status={selectedDetail?.status}
+        fields={selectedDetail?.fields}
+        primaryHref={selectedDetail?.href}
+      />
     </Container>
   )
 }

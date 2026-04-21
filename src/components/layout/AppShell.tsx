@@ -14,7 +14,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isChat = pathname === '/chat'
 
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', color: 'text.primary' }}>
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        color: 'text.primary',
+        background:
+          'radial-gradient(circle at top left, rgba(168, 206, 207, 0.24), transparent 34%), radial-gradient(circle at bottom right, rgba(230, 174, 140, 0.18), transparent 30%), #f7f7f8',
+      }}
+    >
       <Sidebar />
       <Box
         component="main"
@@ -44,6 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               gap: 1,
               fontWeight: 800,
               boxShadow: 3,
+              background: 'var(--brand-gradient-fallback)',
+              backgroundImage: 'var(--brand-gradient)',
             }}
           >
             <ChatBubbleOutlineIcon fontSize="small" />
