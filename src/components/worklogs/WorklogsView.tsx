@@ -32,7 +32,7 @@ import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import ChevronRight from '@mui/icons-material/ChevronRight'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
 import TimerIcon from '@mui/icons-material/Timer'
-import ZapIcon from '@mui/icons-material/Zap'
+import BoltIcon from '@mui/icons-material/Bolt'
 import SendIcon from '@mui/icons-material/Send'
 
 interface WorkLog {
