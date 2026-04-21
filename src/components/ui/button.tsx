@@ -1,5 +1,4 @@
 import { ReactNode, ButtonHTMLAttributes, forwardRef } from 'react'
-import Link from 'next/link'
 import MuiButton from '@mui/material/Button'
 import MuiIconButton from '@mui/material/IconButton'
 import MuiChip from '@mui/material/Chip'
@@ -77,7 +76,7 @@ export function LinkButton({
   const mapped = mapVariant(variant)
   return (
     <MuiButton
-      component={Link}
+      component="a"
       href={href}
       variant={mapped.variant}
       color={mapped.color}

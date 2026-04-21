@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import Fab from '@mui/material/Fab'
 import Tooltip from '@mui/material/Tooltip'
 import AddIcon from '@mui/icons-material/Add'
@@ -15,7 +14,7 @@ type FloatingActionButtonProps = {
 export default function FloatingActionButton({ label, href, onClick, icon = <AddIcon /> }: FloatingActionButtonProps) {
   const content = (
     <Fab
-      component={href ? Link : 'button'}
+      component={href ? 'a' : 'button'}
       href={href}
       onClick={onClick}
       color="primary"

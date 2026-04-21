@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Search } from 'lucide-react'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
@@ -102,12 +101,12 @@ export default function SearchView() {
                   eyebrow={GROUP_LABELS[group] || group}
                   title={`${items.length} ${items.length === 1 ? 'resultaat' : 'resultaten'}`}
                   action={
-                    <Link
+                    <a
                       href={GROUP_LINKS[group] || '/'}
                       className="rounded-lg border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface hover:bg-surface-container"
                     >
                       Openen
-                    </Link>
+                    </a>
                   }
                 />
                 <div className="mt-3">

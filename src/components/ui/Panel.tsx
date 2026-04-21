@@ -1,5 +1,4 @@
 import { ReactNode } from 'react'
-import Link from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -198,7 +197,7 @@ export function InsightBlock({
           </Typography>
         )}
         {action && actionHref && (
-          <Button component={Link} href={actionHref} size="small" sx={{ mt: 0.5, px: 0 }}>
+          <Button component="a" href={actionHref} size="small" sx={{ mt: 0.5, px: 0 }}>
             {action} →
           </Button>
         )}

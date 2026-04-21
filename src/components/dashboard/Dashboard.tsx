@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -148,7 +147,7 @@ export default function Dashboard() {
               <Paper sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography variant="h6" sx={{ fontWeight: 850 }}>Focus taken</Typography>
-                  <Button component={Link} href="/todos" size="small" endIcon={<ArrowForwardIcon />}>Bekijk alles</Button>
+                  <Button component="a" href="/todos" size="small" endIcon={<ArrowForwardIcon />}>Bekijk alles</Button>
                 </Box>
                 <Table size="small">
                   <TableHead>
@@ -193,7 +192,7 @@ export default function Dashboard() {
               <Paper sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography variant="h6" sx={{ fontWeight: 850 }}>Recente uitgaven</Typography>
-                  <Button component={Link} href="/finance" size="small" endIcon={<ArrowForwardIcon />}>Bekijk transacties</Button>
+                  <Button component="a" href="/finance" size="small" endIcon={<ArrowForwardIcon />}>Bekijk transacties</Button>
                 </Box>
                 <Table size="small">
                   <TableBody>
@@ -240,7 +239,7 @@ export default function Dashboard() {
             <Paper sx={{ height: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="h6" sx={{ fontWeight: 850 }}>Agenda vandaag</Typography>
-                <Button component={Link} href="/agenda" size="small">Bekijk afspraken</Button>
+                <Button component="a" href="/agenda" size="small">Bekijk afspraken</Button>
               </Box>
               <Stack spacing={0} sx={{ p: 0 }}>
                 {loading && !data ? [1, 2, 3].map((item) => (

@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Avatar from '@mui/material/Avatar'
@@ -43,7 +42,7 @@ function NavRow({ href, label, icon }: { href: string; label: string; icon: Reac
 
   return (
     <ListItemButton
-      component={Link}
+      component="a"
       href={href}
       selected={active}
       sx={{

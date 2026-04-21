@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Fab from '@mui/material/Fab'
@@ -40,7 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {!isChat && (
         <Tooltip title="Open chat">
           <Fab
-            component={Link}
+            component="a"
             href="/chat"
             color="primary"
             variant="extended"

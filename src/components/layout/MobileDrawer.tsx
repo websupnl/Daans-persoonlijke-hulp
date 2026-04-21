@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
@@ -77,7 +76,7 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
                 return (
                   <ListItemButton
                     key={item.href}
-                    component={Link}
+                    component="a"
                     href={item.href}
                     onClick={onClose}
                     selected={active}

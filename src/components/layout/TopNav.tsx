@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import AppBar from '@mui/material/AppBar'
@@ -69,7 +68,7 @@ export default function TopNav() {
               <MenuIcon />
             </IconButton>
 
-            <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Box component="a" href="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <Avatar
                   sx={{
@@ -92,7 +91,7 @@ export default function TopNav() {
                   </Typography>
                 </Box>
               </Stack>
-            </Link>
+            </Box>
           </Stack>
 
           <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>

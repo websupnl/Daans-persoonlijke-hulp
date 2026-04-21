@@ -1,7 +1,6 @@
 'use client'
 
 import { type ChangeEvent, useEffect, useState } from 'react'
-import Link from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -223,7 +222,7 @@ export default function AppDetailDrawer({
         {(primaryHref || actions.length > 0 || editableFields.length > 0) && (
           <Stack direction="row" spacing={1} sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
             {primaryHref && (
-              <Button component={Link} href={primaryHref} variant="contained" endIcon={<OpenInNewIcon />} fullWidth>
+              <Button component="a" href={primaryHref} variant="contained" endIcon={<OpenInNewIcon />} fullWidth>
                 {primaryLabel}
               </Button>
             )}
@@ -233,7 +232,7 @@ export default function AppDetailDrawer({
               </Button>
             )}
             {actions.map((action) => action.href ? (
-              <Button key={action.label} component={Link} href={action.href} variant={action.variant ?? 'outlined'}>
+              <Button key={action.label} component="a" href={action.href} variant={action.variant ?? 'outlined'}>
                 {action.label}
               </Button>
             ) : (
