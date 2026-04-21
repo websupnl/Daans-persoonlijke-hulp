@@ -152,7 +152,6 @@ export default function AppDetailDrawer({
             >
               {editableFields.map((field) => {
                 const common = {
-                  key: field.name,
                   label: field.label,
                   value: values[field.name] ?? '',
                   fullWidth: true,
@@ -163,7 +162,7 @@ export default function AppDetailDrawer({
 
                 if (field.type === 'select') {
                   return (
-                    <TextField select {...common}>
+                    <TextField key={field.name} select {...common}>
                       {(field.options ?? []).map((option) => (
                         <MenuItem key={String(option.value)} value={String(option.value)}>
                           {option.label}
@@ -175,6 +174,7 @@ export default function AppDetailDrawer({
 
                 return (
                   <TextField
+                    key={field.name}
                     {...common}
                     type={field.type === 'date' || field.type === 'number' ? field.type : 'text'}
                     multiline={field.type === 'textarea'}
