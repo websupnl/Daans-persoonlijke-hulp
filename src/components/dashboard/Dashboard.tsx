@@ -96,7 +96,7 @@ export default function Dashboard() {
         <Stack spacing={3}>
           <Skeleton variant="rounded" height={120} />
           <Grid container spacing={2}>
-            {[1, 2, 3, 4].map(i => <Grid item xs={12} sm={6} lg={3} key={i}><Skeleton variant="rounded" height={100} /></Grid>)}
+            {[1, 2, 3, 4].map(i => <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={i}><Skeleton variant="rounded" height={100} /></Grid>)}
           </Grid>
           <Skeleton variant="rounded" height={400} />
         </Stack>
@@ -184,7 +184,7 @@ export default function Dashboard() {
           </Grid>
 
           {/* Rechter kolom: Agenda */}
-          <Grid item xs={12} lg={4}>
+          <Grid size={{ xs: 12, lg: 4 }}>
             <Paper sx={{ height: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="h6" sx={{ fontWeight: 850 }}>Agenda vandaag</Typography>

@@ -83,7 +83,13 @@ export default function SettingsView() {
     }
   }
 
-  if (loading && !settings) return <PageShell title="Instellingen" subtitle="Laden..." />
+  if (loading && !settings) {
+    return (
+      <PageShell title="Instellingen" subtitle="Laden...">
+        <Box />
+      </PageShell>
+    )
+  }
 
   return (
     <PageShell title="Instellingen" subtitle="Beheer je profiel, workspaces en AI voorkeuren">
@@ -114,7 +120,7 @@ export default function SettingsView() {
                 </Stack>
               </Box>
             ))}
-            <Button startIcon={<PlusIcon />} variant="dashed" sx={{ border: '1px dashed', borderColor: 'divider', py: 2 }}>
+            <Button startIcon={<PlusIcon />} variant="outlined" sx={{ borderStyle: 'dashed', borderColor: 'divider', py: 2 }}>
               Nieuwe Workspace Toevoegen
             </Button>
           </Stack>
@@ -122,7 +128,7 @@ export default function SettingsView() {
 
         <Grid container spacing={3}>
           {/* Modules & AI */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider', height: '100%' }}>
               <Stack spacing={3}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', fontSize: 11 }}>Modules & AI</Typography>

@@ -4,8 +4,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { queryOne, execute } from '@/lib/db'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 export async function POST(req: NextRequest) {
   const { note_id } = await req.json()
   if (!note_id) return NextResponse.json({ error: 'note_id verplicht' }, { status: 400 })
@@ -20,6 +18,10 @@ export async function POST(req: NextRequest) {
 
   let tags: string[] = []
   try {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error('OPENAI_API_KEY ontbreekt')
+
+    const openai = new OpenAI({ apiKey })
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: 80,

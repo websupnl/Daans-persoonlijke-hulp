@@ -161,14 +161,6 @@ export default function ChatView() {
   }, [loadHistory])
 
   useEffect(() => {
-    if (!initialLoad && initialQuery) {
-      sendMessage(initialQuery)
-      // Clear URL parameter without reload
-      window.history.replaceState({}, '', '/chat')
-    }
-  }, [initialLoad, initialQuery, sendMessage])
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
@@ -279,6 +271,14 @@ export default function ChatView() {
       inputRef.current?.focus()
     }
   }, [input, imageAttachment, loading])
+
+  useEffect(() => {
+    if (!initialLoad && initialQuery) {
+      sendMessage(initialQuery)
+      // Clear URL parameter without reload
+      window.history.replaceState({}, '', '/chat')
+    }
+  }, [initialLoad, initialQuery, sendMessage])
 
   async function handleImageSelect(file?: File) {
     if (!file) return
