@@ -19,7 +19,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
 import PlusIcon from '@mui/icons-material/Add'
 import PageShell from '@/components/ui/PageShell'
-import { LoadingButton } from '@/components/ui/LoadingButton'
+import LoadingButton from '@/components/ui/LoadingButton'
 import { Spinner } from '@/components/ui/spinner'
 
 interface Settings {

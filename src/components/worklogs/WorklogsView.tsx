@@ -9,9 +9,6 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
-import Tabs from '@mui/material/Tabs'
-import Tab from '@mui/material/Tab'
-import ButtonGroup from '@mui/material/ButtonGroup'
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import PageShell from '@/components/ui/PageShell'
 import AIBriefing from '@/components/ui/AIBriefing'
@@ -20,7 +17,6 @@ import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import AIContextButton from '@/components/ai/AIContextButton'
 import FloatingActionButton from '@/components/ui/FloatingActionButton'
 import LoadingButton from '@/components/ui/LoadingButton'
-import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import {
   addDays,
   format,
@@ -29,14 +25,12 @@ import {
   startOfDay,
 } from 'date-fns'
 import { nl } from 'date-fns/locale'
-import { formatCurrency } from '@/lib/utils'
 import ClockIcon from '@mui/icons-material/AccessTime'
 import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import ChevronRight from '@mui/icons-material/ChevronRight'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
 import TimerIcon from '@mui/icons-material/Timer'
 import BoltIcon from '@mui/icons-material/Bolt'
-import SendIcon from '@mui/icons-material/Send'
 
 interface WorkLog {
   id: number
@@ -65,6 +59,8 @@ export default function WorklogsView() {
   const [loading, setLoading] = useState(true)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [selectedLog, setSelectedLog] = useState<WorkLog | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [savingLog, setSavingLog] = useState(false)
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [weekMinutes, setWeekMinutes] = useState(0)
   const [activeTimer, setActiveTimer] = useState<{ title: string; context: string; elapsed_minutes: number } | null>(null)
@@ -104,7 +100,57 @@ export default function WorklogsView() {
 
   async function handleDelete(id: number) {
     await fetch(`/api/worklogs/${id}`, { method: 'DELETE' })
+    setSelectedLog(null)
     load()
+  }
+
+  async function createManualLog(values: Record<string, string | number | boolean | null>) {
+    setSavingLog(true)
+    try {
+      await fetch('/api/worklogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: values.title || 'Werkregistratie',
+          description: values.description || null,
+          date: values.date || format(currentDate, 'yyyy-MM-dd'),
+          context: values.context || 'werk',
+          duration_minutes: Number(values.duration_minutes || 30),
+          actual_duration_minutes: Number(values.duration_minutes || 30),
+          energy_level: values.energy_level ? Number(values.energy_level) : null,
+          source: 'manual',
+        }),
+      })
+      setManualOpen(false)
+      await load()
+    } finally {
+      setSavingLog(false)
+    }
+  }
+
+  async function updateSelectedLog(values: Record<string, string | number | boolean | null>) {
+    if (!selectedLog) return
+    setSavingLog(true)
+    try {
+      const response = await fetch(`/api/worklogs/${selectedLog.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: values.title,
+          description: values.description,
+          date: values.date,
+          context: values.context,
+          duration_minutes: Number(values.duration_minutes || selectedLog.duration_minutes),
+          actual_duration_minutes: Number(values.duration_minutes || selectedLog.actual_duration_minutes || selectedLog.duration_minutes),
+          energy_level: values.energy_level ? Number(values.energy_level) : null,
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (payload?.data) setSelectedLog(payload.data as WorkLog)
+      await load()
+    } finally {
+      setSavingLog(false)
+    }
   }
 
   async function startTimer() {
@@ -241,9 +287,25 @@ export default function WorklogsView() {
                   Stop timer
                 </LoadingButton>
               ) : (
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: { md: 380 } }}>
-                  <TextField value={timerTitle} onChange={(event) => setTimerTitle(event.target.value)} placeholder="Waar werk je aan?" fullWidth />
-                  <LoadingButton variant="contained" onClick={startTimer} loading={timerBusy} loadingText="Starten...">
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1}
+                  sx={{ width: { xs: '100%', md: 560 }, flexShrink: 0 }}
+                >
+                  <TextField
+                    label="Waar werk je aan?"
+                    value={timerTitle}
+                    onChange={(event) => setTimerTitle(event.target.value)}
+                    placeholder="Bijv. offerte Bouma of klantwebsite"
+                    fullWidth
+                  />
+                  <LoadingButton
+                    variant="contained"
+                    onClick={startTimer}
+                    loading={timerBusy}
+                    loadingText="Starten..."
+                    sx={{ minWidth: { sm: 120 } }}
+                  >
                     Start
                   </LoadingButton>
                 </Stack>
@@ -293,11 +355,67 @@ export default function WorklogsView() {
           { label: 'Project', value: selectedLog?.project_title || '-' },
           { label: 'Energie', value: selectedLog?.energy_level ? `${selectedLog.energy_level}/10` : '-' },
         ]}
+        editableFields={[
+          { name: 'title', label: 'Waar werkte je aan?', value: selectedLog?.title || '', type: 'text' },
+          { name: 'description', label: 'Notitie', value: selectedLog?.description || '', type: 'textarea' },
+          { name: 'date', label: 'Datum', value: selectedLog?.date ? format(new Date(selectedLog.date), 'yyyy-MM-dd') : format(currentDate, 'yyyy-MM-dd'), type: 'date' },
+          {
+            name: 'context',
+            label: 'Context',
+            value: selectedLog?.context || 'werk',
+            type: 'select',
+            options: [
+              { label: 'Werk', value: 'werk' },
+              { label: 'WebsUp', value: 'websup' },
+              { label: 'Bouma', value: 'bouma' },
+              { label: 'Prive', value: 'prive' },
+              { label: 'Overig', value: 'overig' },
+            ],
+          },
+          { name: 'duration_minutes', label: 'Duur in minuten', value: selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes || 30, type: 'number' },
+          { name: 'energy_level', label: 'Energie 1-10', value: selectedLog?.energy_level || '', type: 'number' },
+        ]}
+        onSave={updateSelectedLog}
+        saving={savingLog}
+        saveLabel="Werklog opslaan"
         actions={selectedLog ? [
           { label: 'Verwijderen', variant: 'outlined', onClick: () => handleDelete(selectedLog.id) },
         ] : []}
       />
-      <FloatingActionButton label={activeTimer ? 'Stop timer' : 'Start timer'} onClick={activeTimer ? stopTimer : startTimer} icon={<TimerIcon />} />
+
+      <AppDetailDrawer
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+        eyebrow="Nieuwe registratie"
+        title="Werkregistratie toevoegen"
+        subtitle="Leg handmatig vast wat je hebt gedaan."
+        status={format(currentDate, 'd MMM yyyy', { locale: nl })}
+        editableFields={[
+          { name: 'title', label: 'Waar werkte je aan?', value: '', type: 'text' },
+          { name: 'description', label: 'Notitie', value: '', type: 'textarea' },
+          { name: 'date', label: 'Datum', value: format(currentDate, 'yyyy-MM-dd'), type: 'date' },
+          {
+            name: 'context',
+            label: 'Context',
+            value: 'werk',
+            type: 'select',
+            options: [
+              { label: 'Werk', value: 'werk' },
+              { label: 'WebsUp', value: 'websup' },
+              { label: 'Bouma', value: 'bouma' },
+              { label: 'Prive', value: 'prive' },
+              { label: 'Overig', value: 'overig' },
+            ],
+          },
+          { name: 'duration_minutes', label: 'Duur in minuten', value: 30, type: 'number' },
+          { name: 'energy_level', label: 'Energie 1-10', value: '', type: 'number' },
+        ]}
+        onSave={createManualLog}
+        saving={savingLog}
+        saveLabel="Registratie opslaan"
+      />
+
+      <FloatingActionButton label="Nieuwe werkregistratie" onClick={() => setManualOpen(true)} />
     </>
   )
 }
