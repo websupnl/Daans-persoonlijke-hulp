@@ -452,39 +452,86 @@ export default function FinanceView() {
   const biggestExpense = [...expenseItems].sort((left, right) => right.amount - left.amount)[0]
   const currentBalance = balances.reduce((sum, balance) => sum + (Number(balance.balance) || 0), 0) || 0
   const maxMonthly = monthlyData.reduce((max, item) => Math.max(max, item.income, item.expenses), 1)
+  const columns: GridColDef[] = [
+    { 
+      field: 'due_date', 
+      headerName: 'Datum', 
+      width: 120,
+      valueGetter: (params, row) => row.due_date || row.created_at,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" color="text.secondary">
+          {format(new Date(params.value), 'd MMM yyyy', { locale: nl })}
+        </Typography>
+      )
+    },
+    { field: 'title', headerName: 'Omschrijving', flex: 1, minWidth: 200 },
+    { 
+      field: 'account', 
+      headerName: 'Rekening', 
+      width: 140,
+      renderCell: (params: GridRenderCellParams) => accountLabel(params.value)
+    },
+    { field: 'category', headerName: 'Categorie', width: 140 },
+    { 
+      field: 'amount', 
+      headerName: 'Bedrag', 
+      width: 120, 
+      align: 'right', 
+      headerAlign: 'right',
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography 
+          variant="body2" 
+          fontWeight={800} 
+          color={params.row.type === 'inkomst' ? 'success.main' : 'secondary.main'}
+        >
+          {params.row.type === 'inkomst' ? '+' : '-'}{formatCurrency(params.value)}
+        </Typography>
+      )
+    },
+    {
+      field: 'actions',
+      headerName: '',
+      width: 100,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams) => (
+        <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ height: '100%' }}>
+          <AIContextButton type="finance" title={params.row.title} content={params.row.user_notes} id={params.row.id} />
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setSelectedTransaction(params.row) }}>
+            <MoreHorizontal fontSize="small" />
+          </IconButton>
+        </Stack>
+      )
+    }
+  ]
+
   const searchActions = useMemo<Action[]>(
     () => [
       {
         id: 'command:new-transaction',
         label: 'Nieuwe transactie',
-        icon: <Plus className="h-4 w-4 text-emerald-500" />,
+        icon: <Plus />,
         description: 'Nieuwe regel toevoegen',
         end: 'Command',
       },
       {
         id: 'command:import',
         label: 'Import openen',
-        icon: <Upload className="h-4 w-4 text-blue-500" />,
+        icon: <Sparkles />,
         description: 'CSV of AI import',
-        end: 'Command',
-      },
-      {
-        id: 'command:analyse',
-        label: 'Financiële analyse',
-        icon: <Sparkles className="h-4 w-4 text-violet-500" />,
-        description: 'Laat AI meekijken',
         end: 'Command',
       },
       ...items.slice(0, 12).map((item) => ({
         id: `transaction:${item.id}`,
         label: item.title,
-        icon: <Euro className={`h-4 w-4 ${item.type === 'inkomst' ? 'text-emerald-500' : 'text-[#a55a2c]'}`} />,
+        icon: <Euro />,
         description: `${accountLabel(item.account)} · ${item.category}`,
         end: formatCurrency(item.amount),
       })),
     ],
     [items]
   )
+
+  const [tabValue, setTabValue] = useState(0)
 
   return (
     <>
