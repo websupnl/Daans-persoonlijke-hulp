@@ -1,33 +1,26 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
-import IconButton from '@mui/material/IconButton'
-import Paper from '@mui/material/Paper'
-import Switch from '@mui/material/Switch'
-import TextField from '@mui/material/TextField'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
 import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
-import List from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableRow from '@mui/material/TableRow'
-import PageShell from '@/components/ui/PageShell'
-import UserIcon from '@mui/icons-material/Person'
-import BrainIcon from '@mui/icons-material/Psychology'
-import GridIcon from '@mui/icons-material/GridView'
+import MenuItem from '@mui/material/MenuItem'
+import Paper from '@mui/material/Paper'
+import Select from '@mui/material/Select'
+import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import BellIcon from '@mui/icons-material/Notifications'
-import DeleteIcon from '@mui/icons-material/DeleteOutline'
-import SaveIcon from '@mui/icons-material/Save'
-import PlusIcon from '@mui/icons-material/Add'
+import BrainIcon from '@mui/icons-material/Psychology'
 import BusinessIcon from '@mui/icons-material/Business'
-import TelegramIcon from '@mui/icons-material/Telegram'
+import DeleteIcon from '@mui/icons-material/DeleteOutline'
+import PlusIcon from '@mui/icons-material/Add'
+import PageShell from '@/components/ui/PageShell'
+import { LoadingButton } from '@/components/ui/LoadingButton'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Settings {
   debug_mode: boolean
@@ -40,36 +33,44 @@ interface Settings {
   life_coach_enabled: boolean
 }
 
-interface Tenant {
+interface Workspace {
   id: string
-  name: string
-  database_url?: string
-  telegram_bot_token?: string
+  label: string
+  description?: string | null
+  color?: string | null
+  is_default?: number | boolean
 }
 
 export default function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [activeWorkspace, setActiveWorkspace] = useState('websup')
+  const [newWorkspace, setNewWorkspace] = useState({ label: '', description: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sRes, tRes] = await Promise.all([
-        fetch('/api/settings').then(r => r.json()),
-        fetch('/api/admin/tenants').then(r => r.json()).catch(() => ({ data: [] }))
+      const [settingsRes, workspaceRes] = await Promise.all([
+        fetch('/api/settings').then((response) => response.json()),
+        fetch('/api/workspaces').then((response) => response.json()),
       ])
-      setSettings(sRes.data)
-      setTenants(tRes.data || [])
+
+      setSettings(settingsRes.data)
+      setWorkspaces(workspaceRes.data?.workspaces || [])
+      setActiveWorkspace(workspaceRes.data?.active || 'websup')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
-  async function updateSetting(key: keyof Settings, value: any) {
+  async function updateSetting(key: keyof Settings, value: boolean | number) {
     setSaving(key)
     try {
       await fetch('/api/settings', {
@@ -77,7 +78,72 @@ export default function SettingsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
       })
-      setSettings(prev => prev ? { ...prev, [key]: value } : null)
+      setSettings((current) => current ? { ...current, [key]: value } : current)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function createWorkspace() {
+    if (!newWorkspace.label.trim()) return
+    setSaving('workspace-create')
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/workspaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newWorkspace),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Workspace kon niet worden aangemaakt')
+
+      setNewWorkspace({ label: '', description: '' })
+      setFeedback({ type: 'success', text: 'Workspace aangemaakt en actief gezet.' })
+      await loadData()
+    } catch (error) {
+      setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Workspace kon niet worden aangemaakt.' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function activateWorkspace(id: string) {
+    setSaving(`activate-${id}`)
+    setFeedback(null)
+    try {
+      await fetch('/api/workspaces', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, makeActive: true }),
+      })
+      localStorage.setItem('app_workspace', id)
+      document.cookie = `app_workspace=${id}; path=/; max-age=31536000; SameSite=Lax`
+      setActiveWorkspace(id)
+      setFeedback({ type: 'success', text: 'Workspace actief gezet. De pagina wordt vernieuwd.' })
+      window.location.reload()
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function removeWorkspace(workspace: Workspace) {
+    if (!window.confirm(`Workspace "${workspace.label}" verwijderen? Dit kan alleen als er geen data in staat.`)) return
+
+    setSaving(`delete-${workspace.id}`)
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/workspaces', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: workspace.id }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Workspace kon niet worden verwijderd')
+
+      setFeedback({ type: 'success', text: 'Workspace verwijderd.' })
+      await loadData()
+    } catch (error) {
+      setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Workspace kon niet worden verwijderd.' })
     } finally {
       setSaving(null)
     }
@@ -85,131 +151,218 @@ export default function SettingsView() {
 
   if (loading && !settings) {
     return (
-      <PageShell title="Instellingen" subtitle="Laden...">
-        <Box />
+      <PageShell title="Instellingen" subtitle="Beheer je profiel, workspaces en AI voorkeuren">
+        <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Spinner className="h-4 w-4" />
+            <Typography variant="body2" color="text.secondary">Instellingen laden...</Typography>
+          </Stack>
+        </Paper>
       </PageShell>
     )
   }
 
   return (
-    <PageShell title="Instellingen" subtitle="Beheer je profiel, workspaces en AI voorkeuren">
+    <PageShell title="Instellingen" subtitle="Beheer gebruikersgedrag, workspaces en AI voorkeuren">
       <Stack spacing={4}>
-        
-        {/* Workspaces Management */}
-        <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
-            <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.main', display: 'flex' }}>
-              <BusinessIcon fontSize="small" />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 850 }}>Workspaces</Typography>
-              <Typography variant="caption" color="text.secondary">Beheer je verschillende omgevingen en data-bronnen</Typography>
-            </Box>
-          </Stack>
+        {feedback && <Alert severity={feedback.type}>{feedback.text}</Alert>}
 
-          <Stack spacing={2}>
-            {tenants.map((t) => (
-              <Box key={t.id} sx={{ p: 2, borderRadius: 1, bgcolor: 'grey.50', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>{t.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t.id}</Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
-                  {t.telegram_bot_token && <Chip icon={<TelegramIcon sx={{ fontSize: '14px !important' }} />} label="Bot actief" size="small" color="success" variant="outlined" sx={{ fontSize: 10, fontWeight: 700 }} />}
-                  <Button size="small" variant="outlined" sx={{ fontWeight: 700 }}>Config</Button>
-                </Stack>
+        <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Stack spacing={3}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.main', display: 'flex' }}>
+                <BusinessIcon fontSize="small" />
               </Box>
-            ))}
-            <Button startIcon={<PlusIcon />} variant="outlined" sx={{ borderStyle: 'dashed', borderColor: 'divider', py: 2 }}>
-              Nieuwe Workspace Toevoegen
-            </Button>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>Workspaces</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Scheid data per omgeving. De actieve workspace bepaalt wat de app en AI-context gebruiken.
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack spacing={1.5}>
+              {workspaces.map((workspace) => {
+                const isActive = workspace.id === activeWorkspace
+                const isDefault = Boolean(workspace.is_default)
+                return (
+                  <Box
+                    key={workspace.id}
+                    sx={{
+                      p: 2,
+                      borderRadius: 1,
+                      bgcolor: isActive ? 'primary.50' : 'grey.50',
+                      border: '1px solid',
+                      borderColor: isActive ? 'primary.main' : 'divider',
+                      display: 'flex',
+                      gap: 2,
+                      alignItems: { xs: 'stretch', sm: 'center' },
+                      justifyContent: 'space-between',
+                      flexDirection: { xs: 'column', sm: 'row' },
+                    }}
+                  >
+                    <Box>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Typography variant="body2" sx={{ fontWeight: 850 }}>{workspace.label}</Typography>
+                        {isActive && <Chip label="Actief" size="small" color="primary" />}
+                        {isDefault && <Chip label="Standaard" size="small" variant="outlined" />}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">{workspace.id}</Typography>
+                      {workspace.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {workspace.description}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    <Stack direction="row" spacing={1}>
+                      {!isActive && (
+                        <LoadingButton
+                          size="small"
+                          variant="outlined"
+                          loading={saving === `activate-${workspace.id}`}
+                          onClick={() => activateWorkspace(workspace.id)}
+                        >
+                          Gebruik
+                        </LoadingButton>
+                      )}
+                      {!isDefault && (
+                        <LoadingButton
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          startIcon={<DeleteIcon fontSize="small" />}
+                          loading={saving === `delete-${workspace.id}`}
+                          onClick={() => removeWorkspace(workspace)}
+                        >
+                          Verwijder
+                        </LoadingButton>
+                      )}
+                    </Stack>
+                  </Box>
+                )
+              })}
+            </Stack>
+
+            <Divider />
+
+            <Stack spacing={2}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 850 }}>Nieuwe workspace</Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField
+                    label="Naam"
+                    placeholder="Bijv. Prive, Bouma of WebsUp"
+                    fullWidth
+                    size="small"
+                    value={newWorkspace.label}
+                    onChange={(event) => setNewWorkspace((current) => ({ ...current, label: event.target.value }))}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    label="Omschrijving"
+                    placeholder="Waarvoor gebruik je deze omgeving?"
+                    fullWidth
+                    size="small"
+                    value={newWorkspace.description}
+                    onChange={(event) => setNewWorkspace((current) => ({ ...current, description: event.target.value }))}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 2 }}>
+                  <LoadingButton
+                    fullWidth
+                    variant="contained"
+                    startIcon={<PlusIcon />}
+                    loading={saving === 'workspace-create'}
+                    onClick={createWorkspace}
+                    disabled={!newWorkspace.label.trim()}
+                  >
+                    Toevoegen
+                  </LoadingButton>
+                </Grid>
+              </Grid>
+            </Stack>
           </Stack>
         </Paper>
 
         <Grid container spacing={3}>
-          {/* Modules & AI */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider', height: '100%' }}>
               <Stack spacing={3}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', fontSize: 11 }}>Modules & AI</Typography>
-                
-                <SettingRow 
-                  label="Life Coach" 
-                  desc="Proactieve vragen en reflecties" 
+                <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', color: 'text.secondary', fontSize: 11 }}>
+                  Modules & AI
+                </Typography>
+
+                <SettingRow
+                  label="Life Coach"
+                  desc="Proactieve vragen en reflecties"
                   icon={<BrainIcon fontSize="small" />}
-                  control={<Switch size="small" checked={settings?.life_coach_enabled} onChange={(e) => updateSetting('life_coach_enabled', e.target.checked)} />}
+                  control={<Switch size="small" checked={Boolean(settings?.life_coach_enabled)} disabled={saving === 'life_coach_enabled'} onChange={(event) => updateSetting('life_coach_enabled', event.target.checked)} />}
                 />
-                
-                <SettingRow 
-                  label="Debug Modus" 
-                  desc="Toon AI-acties in de chat" 
+
+                <SettingRow
+                  label="Debugmodus"
+                  desc="Toon AI-acties in chat en timeline"
                   icon={<BrainIcon fontSize="small" />}
-                  control={<Switch size="small" checked={settings?.debug_mode} onChange={(e) => updateSetting('debug_mode', e.target.checked)} />}
+                  control={<Switch size="small" checked={Boolean(settings?.debug_mode)} disabled={saving === 'debug_mode'} onChange={(event) => updateSetting('debug_mode', event.target.checked)} />}
                 />
 
                 <Divider />
 
-                <SettingRow 
-                  label="Gezondheid" 
-                  desc="Slaap en energie logs" 
-                  control={<Switch size="small" checked={settings?.module_gezondheid} onChange={(e) => updateSetting('module_gezondheid', e.target.checked)} />}
+                <SettingRow
+                  label="Gezondheid"
+                  desc="Slaap, energie en daglogs"
+                  control={<Switch size="small" checked={Boolean(settings?.module_gezondheid)} disabled={saving === 'module_gezondheid'} onChange={(event) => updateSetting('module_gezondheid', event.target.checked)} />}
                 />
-                <SettingRow 
-                  label="Financiën" 
-                  desc="Transacties en budgetten" 
-                  control={<Switch size="small" checked={settings?.module_financien} onChange={(e) => updateSetting('module_financien', e.target.checked)} />}
+                <SettingRow
+                  label="Financien"
+                  desc="Transacties en budgetten"
+                  control={<Switch size="small" checked={Boolean(settings?.module_financien)} disabled={saving === 'module_financien'} onChange={(event) => updateSetting('module_financien', event.target.checked)} />}
                 />
               </Stack>
             </Paper>
           </Grid>
 
-          {/* Notificaties */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider', height: '100%' }}>
               <Stack spacing={3}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', fontSize: 11 }}>Notificaties</Typography>
-                
-                <SettingRow 
-                  label="Meldingen Actief" 
-                  desc="Telegram ochtendplanning" 
+                <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', color: 'text.secondary', fontSize: 11 }}>
+                  Notificaties
+                </Typography>
+
+                <SettingRow
+                  label="Meldingen actief"
+                  desc="Telegram ochtendplanning"
                   icon={<BellIcon fontSize="small" />}
-                  control={<Switch size="small" checked={settings?.notification_enabled} onChange={(e) => updateSetting('notification_enabled', e.target.checked)} />}
+                  control={<Switch size="small" checked={Boolean(settings?.notification_enabled)} disabled={saving === 'notification_enabled'} onChange={(event) => updateSetting('notification_enabled', event.target.checked)} />}
                 />
 
-                <Box sx={{ mt: 2 }}>
+                <Box>
                   <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Ochtendmelding tijdstip</Typography>
                   <Select
                     size="small"
                     fullWidth
                     value={settings?.notification_morning_hour || 8}
-                    onChange={(e) => updateSetting('notification_morning_hour', e.target.value)}
+                    disabled={saving === 'notification_morning_hour'}
+                    onChange={(event) => updateSetting('notification_morning_hour', Number(event.target.value))}
                     sx={{ borderRadius: 1 }}
                   >
-                    {[6, 7, 8, 9, 10].map(h => <MenuItem key={h} value={h}>{h}:00 uur</MenuItem>)}
+                    {[6, 7, 8, 9, 10].map((hour) => <MenuItem key={hour} value={hour}>{hour}:00 uur</MenuItem>)}
                   </Select>
                 </Box>
               </Stack>
             </Paper>
           </Grid>
         </Grid>
-
-        {/* Profiel & Feiten */}
-        <Paper sx={{ p: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', fontSize: 11, mb: 3 }}>AI Geheugen (Feiten)</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Deze feiten gebruikt de AI om je beter te begrijpen en persoonlijker te antwoorden.
-          </Typography>
-          <Button startIcon={<PlusIcon />} size="small" sx={{ fontWeight: 700 }}>Feit toevoegen</Button>
-        </Paper>
-
       </Stack>
     </PageShell>
   )
 }
 
-function SettingRow({ label, desc, icon, control }: { label: string, desc: string, icon?: React.ReactNode, control: React.ReactNode }) {
+function SettingRow({ label, desc, icon, control }: { label: string; desc: string; icon?: React.ReactNode; control: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
       <Stack direction="row" spacing={2} alignItems="center">
         {icon && <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>}
         <Box>

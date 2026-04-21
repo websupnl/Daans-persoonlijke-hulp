@@ -8,6 +8,7 @@ import Tooltip from '@mui/material/Tooltip'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlined'
 import TopNav from './TopNav'
 import BottomNav from './BottomNav'
+import Sidebar, { drawerWidth } from './Sidebar'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -22,10 +23,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           'radial-gradient(circle at top left, rgba(168, 206, 207, 0.12), transparent 34%), radial-gradient(circle at bottom right, rgba(230, 174, 140, 0.10), transparent 30%), #f7f7f8',
       }}
     >
+      <Sidebar />
       <TopNav />
       <Box
         component="main"
         sx={{
+          ml: { md: `${drawerWidth}px` },
           minHeight: '100dvh',
           pb: { xs: 'calc(72px + env(safe-area-inset-bottom))', md: 4 },
         }}
@@ -44,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             sx={{
               display: { xs: 'none', md: 'inline-flex' },
               position: 'fixed',
-              right: 24,
+              left: `calc(${drawerWidth}px + 24px)`,
               bottom: 24,
               zIndex: 1200,
               gap: 1,

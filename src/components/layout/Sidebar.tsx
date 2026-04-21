@@ -6,7 +6,6 @@ import { useState } from 'react'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
 import Collapse from '@mui/material/Collapse'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
@@ -118,6 +117,7 @@ export default function Sidebar() {
           boxSizing: 'border-box',
           borderRight: '1px solid',
           borderColor: 'divider',
+          bgcolor: 'rgba(255,255,255,0.96)',
         },
       }}
       open
@@ -133,16 +133,16 @@ export default function Sidebar() {
               backgroundImage: 'var(--brand-gradient)',
             }}
           >
-            D
+            L
           </Avatar>
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" fontWeight={800} noWrap>
-              Daan
+              LeefKompas
             </Typography>
             <Stack direction="row" spacing={0.75} alignItems="center">
               <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: 'success.main' }} />
               <Typography variant="caption" color="text.secondary">
-                AI actief
+                AI en workspace actief
               </Typography>
             </Stack>
           </Box>
@@ -204,7 +204,6 @@ export default function Sidebar() {
             >
               {loggingOut ? 'Uitloggen...' : 'Uitloggen'}
             </Button>
-            <Chip size="small" label="Material UI shell" color="primary" sx={{ alignSelf: 'flex-start', mt: 1 }} />
           </Stack>
         </Box>
       </Stack>

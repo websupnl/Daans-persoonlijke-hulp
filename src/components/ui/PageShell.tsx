@@ -4,7 +4,6 @@ import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 
 interface PageShellProps {
   title: string
@@ -24,34 +23,16 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
         py: compact ? 2.5 : 3,
         px: { xs: 2, sm: 3, lg: 5 },
         position: 'relative',
-        '&::before': {
-          content: '""',
-          position: 'fixed',
-          inset: '0 auto auto 0',
-          width: 520,
-          height: 260,
-          pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(168,206,207,0.12), transparent 68%)',
-          filter: 'blur(6px)',
-          zIndex: -1,
-          display: { xs: 'none', md: 'block' },
-        },
       }}
     >
       <Box
         sx={{
           position: 'relative',
           zIndex: 10,
-          mb: compact ? 2 : 3,
-          px: { xs: 0, sm: 0 },
-          py: compact ? 1.5 : 2.25,
-          background:
-            'linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.12)), rgba(255,255,255,0.62)',
-          border: '1px solid',
+          mb: compact ? 2 : 2.75,
+          pb: compact ? 1.5 : 2,
+          borderBottom: '1px solid',
           borderColor: 'divider',
-          borderRadius: 1,
-          p: { xs: 2, md: 2.5 },
-          boxShadow: '0 18px 52px -44px rgba(15,15,16,0.38)',
         }}
       >
         <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 0.75, display: { xs: 'none', sm: 'flex' } }}>
@@ -64,9 +45,16 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
         </Breadcrumbs>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'flex-start' }} justifyContent="space-between">
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-            <Box sx={{ width: 38, height: 38, borderRadius: 1, display: 'grid', placeItems: 'center', color: 'common.white', background: 'var(--brand-gradient)', flexShrink: 0 }}>
-              <AutoAwesomeIcon fontSize="small" />
-            </Box>
+            <Box
+              sx={{
+                width: 5,
+                alignSelf: 'stretch',
+                minHeight: 42,
+                borderRadius: 999,
+                background: 'var(--brand-gradient)',
+                flexShrink: 0,
+              }}
+            />
             <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="h2"
