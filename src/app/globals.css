@@ -19,9 +19,29 @@
   --border: #ebebef;
   --border-strong: #d8d8df;
   --border-focus: rgba(95, 159, 161, 0.35);
+  --outline-variant: rgba(95, 159, 161, 0.42);
+  --on-surface: #0f0f10;
+  --on-surface-variant: #62626e;
+  --accent-hover: #4f8d8f;
+  --accent-active: #3f7f82;
+  --accent-subtle: rgba(95, 159, 161, 0.12);
+  --accent-muted: rgba(95, 159, 161, 0.18);
+  --ai: #c98258;
+  --ai-hover: #ad6f48;
+  --ai-subtle: rgba(201, 130, 88, 0.14);
+  --ai-muted: rgba(201, 130, 88, 0.2);
+  --success: #10b981;
+  --success-subtle: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-subtle: #fffbeb;
+  --error: #ef4444;
+  --error-subtle: #fef2f2;
+  --info: #3b82f6;
+  --info-subtle: #eff6ff;
   --text-primary: #0f0f10;
   --text-secondary: #62626e;
   --text-tertiary: #9898a6;
+  --text-inverse: #ffffff;
   
   --brand-start: #a8cecf;
   --brand-end: #e6ae8c;
@@ -125,13 +145,20 @@ select {
 
 .field-input {
   width: 100%;
-  border: 1px solid var(--border);
+  min-height: 46px;
+  border: 1px solid rgba(95, 159, 161, 0.48);
   border-radius: var(--radius-lg);
-  background: var(--surface-container-low);
-  padding: 0.6rem 0.75rem;
+  background: #f8fbfb;
+  padding: 0.72rem 0.85rem;
   color: var(--text-primary);
   font-size: 0.875rem;
   outline: none;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.field-input:hover {
+  border-color: rgba(95, 159, 161, 0.72);
+  background: #ffffff;
 }
 
 .field-input:focus {

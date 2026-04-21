@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, useEffect, useState } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -33,7 +33,7 @@ export type EditableDetailField = {
   name: string
   label: string
   value?: string | number | boolean | null
-  type?: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'boolean'
+  type?: 'text' | 'textarea' | 'number' | 'date' | 'time' | 'select' | 'boolean'
   options?: Array<{ label: string; value: string | number | boolean }>
 }
 
@@ -69,18 +69,27 @@ export default function AppDetailDrawer({
   actions = [],
   editableFields = [],
   onSave,
-  saveLabel = 'Bewerking opslaan',
+  saveLabel = 'Opslaan',
   saving,
   defaultEditing = false,
   children,
 }: AppDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState<Record<string, string | number | boolean | null>>({})
+  const editableSnapshot = useMemo(
+    () => JSON.stringify(editableFields.map((field) => [field.name, field.value ?? ''])),
+    [editableFields]
+  )
+  const initialValues = useMemo(
+    () => Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])),
+    [editableSnapshot]
+  )
 
   useEffect(() => {
-    setValues(Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])))
+    if (!open) return
+    setValues(initialValues)
     setEditing(defaultEditing && editableFields.length > 0)
-  }, [open, editableFields, defaultEditing])
+  }, [open, initialValues, defaultEditing, editableFields.length])
 
   async function handleSave() {
     await onSave?.(values)
@@ -177,15 +186,15 @@ export default function AppDetailDrawer({
                   <TextField
                     key={field.name}
                     {...common}
-                    type={field.type === 'date' || field.type === 'number' ? field.type : 'text'}
+                    type={field.type === 'date' || field.type === 'time' || field.type === 'number' ? field.type : 'text'}
                     multiline={field.type === 'textarea'}
                     minRows={field.type === 'textarea' ? 4 : undefined}
                   />
                 )
               })}
               <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Button type="button" variant="outlined" onClick={() => setEditing(false)} disabled={saving}>
-                  Annuleer
+                <Button type="button" variant="text" onClick={() => setEditing(false)} disabled={saving}>
+                  Terug
                 </Button>
                 <LoadingButton type="submit" variant="contained" loading={saving} loadingText="Opslaan...">
                   {saveLabel}

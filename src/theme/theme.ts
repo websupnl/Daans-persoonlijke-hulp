@@ -192,11 +192,14 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           borderRadius: 4,
-          minHeight: 42,
-          backgroundColor: theme.palette.background.paper,
+          minHeight: 48,
+          backgroundColor: '#f8fbfb',
           transition: 'background-color 0.18s ease, box-shadow 0.18s ease',
           '&:hover': {
             backgroundColor: '#ffffff',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: alpha(theme.palette.primary.main, 0.72),
+            },
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: theme.palette.primary.main,
@@ -204,11 +207,11 @@ export const appTheme = createTheme({
           },
         }),
         input: {
-          paddingTop: 10,
-          paddingBottom: 10,
+          paddingTop: 12,
+          paddingBottom: 12,
         },
         notchedOutline: ({ theme }) => ({
-          borderColor: theme.palette.divider,
+          borderColor: alpha(theme.palette.primary.main, 0.48),
         }),
       },
     },

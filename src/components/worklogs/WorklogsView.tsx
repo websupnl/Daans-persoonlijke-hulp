@@ -53,6 +53,30 @@ function formatDuration(minutes: number | null | undefined): string {
   return `${h}u ${m}m`
 }
 
+function minutesBetween(start?: string | null, end?: string | null, fallback = 30): number {
+  if (!start || !end) return fallback
+  const [startHour, startMinute] = start.split(':').map(Number)
+  const [endHour, endMinute] = end.split(':').map(Number)
+  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return fallback
+  const startTotal = startHour * 60 + startMinute
+  let endTotal = endHour * 60 + endMinute
+  if (endTotal <= startTotal) endTotal += 24 * 60
+  return Math.max(1, endTotal - startTotal)
+}
+
+function addMinutesToTime(start: string, minutes: number) {
+  const [hour, minute] = start.split(':').map(Number)
+  const total = (hour * 60 + minute + minutes) % (24 * 60)
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+function defaultTimeRange(minutes = 60) {
+  const now = new Date()
+  const roundedMinutes = Math.floor(now.getMinutes() / 15) * 15
+  const start = `${String(now.getHours()).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`
+  return { start, end: addMinutesToTime(start, minutes) }
+}
+
 export default function WorklogsView() {
   const [logs, setLogs] = useState<WorkLog[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -63,9 +87,10 @@ export default function WorklogsView() {
   const [savingLog, setSavingLog] = useState(false)
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [weekMinutes, setWeekMinutes] = useState(0)
-  const [activeTimer, setActiveTimer] = useState<{ title: string; context: string; elapsed_minutes: number } | null>(null)
+  const [activeTimer, setActiveTimer] = useState<{ title: string; context: string; elapsed_minutes: number; started_at?: string } | null>(null)
   const [timerTitle, setTimerTitle] = useState('')
   const [timerBusy, setTimerBusy] = useState(false)
+  const [tick, setTick] = useState(Date.now())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -86,6 +111,12 @@ export default function WorklogsView() {
   }, [currentDate])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!activeTimer) return
+    const interval = window.setInterval(() => setTick(Date.now()), 1000)
+    return () => window.clearInterval(interval)
+  }, [activeTimer])
 
   useEffect(() => {
     fetch('/api/ai/summary', {
@@ -115,8 +146,8 @@ export default function WorklogsView() {
           description: values.description || null,
           date: values.date || format(currentDate, 'yyyy-MM-dd'),
           context: values.context || 'werk',
-          duration_minutes: Number(values.duration_minutes || 30),
-          actual_duration_minutes: Number(values.duration_minutes || 30),
+          duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), 30),
+          actual_duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), 30),
           energy_level: values.energy_level ? Number(values.energy_level) : null,
           source: 'manual',
         }),
@@ -140,8 +171,8 @@ export default function WorklogsView() {
           description: values.description,
           date: values.date,
           context: values.context,
-          duration_minutes: Number(values.duration_minutes || selectedLog.duration_minutes),
-          actual_duration_minutes: Number(values.duration_minutes || selectedLog.actual_duration_minutes || selectedLog.duration_minutes),
+          duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), selectedLog.duration_minutes),
+          actual_duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), selectedLog.actual_duration_minutes || selectedLog.duration_minutes),
           energy_level: values.energy_level ? Number(values.energy_level) : null,
         }),
       })
@@ -188,6 +219,21 @@ export default function WorklogsView() {
     if (isYesterday(currentDate)) return 'Gisteren'
     return format(currentDate, 'EEEE d MMMM', { locale: nl })
   }, [currentDate])
+
+  const liveTimerMinutes = useMemo(() => {
+    if (!activeTimer) return 0
+    if (!activeTimer.started_at) return activeTimer.elapsed_minutes
+    return Math.max(0, Math.floor((tick - new Date(activeTimer.started_at).getTime()) / 60000))
+  }, [activeTimer, tick])
+
+  const manualTimeRange = useMemo(() => defaultTimeRange(60), [manualOpen])
+  const selectedTimeRange = useMemo(() => {
+    const start = '09:00'
+    return {
+      start,
+      end: addMinutesToTime(start, selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes || 30),
+    }
+  }, [selectedLog])
 
   const columns: GridColDef[] = [
     { 
@@ -290,23 +336,62 @@ export default function WorklogsView() {
         }
       >
         <Stack spacing={3}>
-          <Paper sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Paper sx={{ p: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden', position: 'relative' }}>
+            {activeTimer && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.14), rgba(168,206,207,0.18))',
+                  backgroundSize: '200% 100%',
+                  animation: 'timerPulse 2.8s ease-in-out infinite',
+                  '@keyframes timerPulse': {
+                    '0%': { backgroundPosition: '0% 50%' },
+                    '50%': { backgroundPosition: '100% 50%' },
+                    '100%': { backgroundPosition: '0% 50%' },
+                  },
+                }}
+              />
+            )}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 850 }}>Timer</Typography>
+              <Box sx={{ position: 'relative', zIndex: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 1,
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: 'common.white',
+                      background: 'var(--brand-gradient)',
+                      boxShadow: activeTimer ? '0 0 0 6px rgba(95,159,161,0.12)' : 'none',
+                    }}
+                  >
+                    <TimerIcon fontSize="small" />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 850 }}>Timer</Typography>
+                    {activeTimer && (
+                      <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1 }}>
+                        {formatDuration(liveTimerMinutes)}
+                      </Typography>
+                    )}
+                  </Box>
+                </Stack>
                 <Typography variant="body2" color="text.secondary">
-                  {activeTimer ? `${activeTimer.title} loopt ${formatDuration(activeTimer.elapsed_minutes)}` : 'Start een werksessie en stop hem om automatisch te loggen.'}
+                  {activeTimer ? `${activeTimer.title} loopt nu actief.` : 'Start een werksessie en stop hem om automatisch te loggen.'}
                 </Typography>
               </Box>
               {activeTimer ? (
-                <LoadingButton variant="contained" onClick={stopTimer} loading={timerBusy} loadingText="Stoppen...">
+                <LoadingButton variant="contained" onClick={stopTimer} loading={timerBusy} loadingText="Stoppen..." sx={{ position: 'relative', zIndex: 1 }}>
                   Stop timer
                 </LoadingButton>
               ) : (
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1}
-                  sx={{ width: { xs: '100%', md: 560 }, flexShrink: 0 }}
+                  sx={{ width: { xs: '100%', md: 560 }, flexShrink: 0, position: 'relative', zIndex: 1 }}
                 >
                   <TextField
                     label="Waar werk je aan?"
@@ -388,7 +473,8 @@ export default function WorklogsView() {
               { label: 'Overig', value: 'overig' },
             ],
           },
-          { name: 'duration_minutes', label: 'Duur in minuten', value: selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes || 30, type: 'number' },
+          { name: 'start_time', label: 'Vanaf hoe laat?', value: selectedTimeRange.start, type: 'time' },
+          { name: 'end_time', label: 'Tot hoe laat?', value: selectedTimeRange.end, type: 'time' },
           { name: 'energy_level', label: 'Energie 1-10', value: selectedLog?.energy_level || '', type: 'number' },
         ]}
         onSave={updateSelectedLog}
@@ -423,7 +509,8 @@ export default function WorklogsView() {
               { label: 'Overig', value: 'overig' },
             ],
           },
-          { name: 'duration_minutes', label: 'Duur in minuten', value: 30, type: 'number' },
+          { name: 'start_time', label: 'Vanaf hoe laat?', value: manualTimeRange.start, type: 'time' },
+          { name: 'end_time', label: 'Tot hoe laat?', value: manualTimeRange.end, type: 'time' },
           { name: 'energy_level', label: 'Energie 1-10', value: '', type: 'number' },
         ]}
         onSave={createManualLog}
