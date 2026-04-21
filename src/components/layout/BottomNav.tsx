@@ -62,7 +62,12 @@ export default function BottomNav() {
               label={item.label}
               value={item.href}
               icon={<NavIcon icon={item.icon} />}
-              sx={{ '& svg': { width: 22, height: 22 } }}
+              sx={{
+                '& svg': { width: item.href === '/chat' ? 27 : 22, height: item.href === '/chat' ? 27 : 22 },
+                ...(item.href === '/chat' && {
+                  '& .MuiBottomNavigationAction-label': { fontWeight: 900 },
+                }),
+              }}
             />
           ))}
           <BottomNavigationAction label="Meer" value="more" icon={<MoreHorizIcon />} />

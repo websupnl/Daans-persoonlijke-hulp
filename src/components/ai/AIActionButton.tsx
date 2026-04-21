@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { Brain, Sparkles, TrendingUp, MessageSquare, Zap } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 interface AIActionButtonProps {
   itemId: number
@@ -116,7 +117,7 @@ export default function AIActionButton({
       >
         {loading ? (
           <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <Spinner className="h-4 w-4" />
             <span>Bezig...</span>
           </>
         ) : (

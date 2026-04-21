@@ -3,8 +3,8 @@ import './globals.css'
 import AppThemeProvider from '@/theme/AppThemeProvider'
 
 export const metadata: Metadata = {
-  title: 'Persoonlijke Hulp',
-  description: 'Je persoonlijke levens-OS',
+  title: 'LeefKompas',
+  description: 'Rustig dashboard voor gezin, werk, geld en planning',
   icons: {
     icon: '/icon.svg',
     apple: '/icon.svg',

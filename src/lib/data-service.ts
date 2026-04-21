@@ -211,21 +211,24 @@ export async function getHealthToday() {
 }
 
 export async function upsertHealthLog(data: {
+  log_date?: string
   sleep_start?: string; sleep_end?: string; sleep_hours?: number; sleep_quality?: number
   energy_level?: number; stress_level?: number; pain_score?: number; pain_location?: string
   water_glasses?: number; symptoms?: string[]; medications?: string[]; notes?: string
 }) {
-  const fields = Object.entries(data).filter(([, v]) => v !== undefined)
+  const { log_date, ...rest } = data
+  const fields = Object.entries(rest).filter(([, v]) => v !== undefined)
   if (fields.length === 0) return
 
   const sets = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
   const values = fields.map(([, v]) => v)
+  const dateParam = log_date || new Date().toISOString().split('T')[0]
 
   await execute(`
     INSERT INTO health_logs (log_date, ${fields.map(([k]) => k).join(', ')}, updated_at)
-    VALUES (CURRENT_DATE, ${values.map((_, i) => `$${i + 1}`).join(', ')}, NOW())
+    VALUES ($${values.length + 1}, ${values.map((_, i) => `$${i + 1}`).join(', ')}, NOW())
     ON CONFLICT (log_date) DO UPDATE SET ${sets}, updated_at = NOW()
-  `, values)
+  `, [...values, dateParam])
 }
 
 // ── Context string voor AI prompts ────────────────────────────────────────────

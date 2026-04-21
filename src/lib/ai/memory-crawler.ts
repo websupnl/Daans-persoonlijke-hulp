@@ -8,6 +8,7 @@
  */
 
 import { query, execute } from '@/lib/db'
+import { logActivity } from '@/lib/activity'
 import { getOpenAIClient } from './openai-client'
 
 export async function generateMemories(): Promise<{ saved: number; total: number }> {
@@ -121,5 +122,14 @@ Genereer nu de memory-array.`,
   }
 
   console.log(`[MemoryCrawler] Saved ${saved}/${memories.length} memories`)
+  if (saved > 0) {
+    await logActivity({
+      entityType: 'memory',
+      action: 'generated',
+      title: 'AI memory generatie',
+      summary: `${saved} memory-items opgeslagen of versterkt`,
+      metadata: { saved, total: memories.length },
+    })
+  }
   return { saved, total: memories.length }
 }

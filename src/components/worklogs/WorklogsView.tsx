@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import Tabs from '@mui/material/Tabs'
@@ -16,6 +18,8 @@ import AIBriefing from '@/components/ui/AIBriefing'
 import ModuleStats from '@/components/ui/ModuleStats'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import AIContextButton from '@/components/ai/AIContextButton'
+import FloatingActionButton from '@/components/ui/FloatingActionButton'
+import LoadingButton from '@/components/ui/LoadingButton'
 import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import {
   addDays,
@@ -27,7 +31,6 @@ import {
 import { nl } from 'date-fns/locale'
 import { formatCurrency } from '@/lib/utils'
 import ClockIcon from '@mui/icons-material/AccessTime'
-import PlusIcon from '@mui/icons-material/Add'
 import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import ChevronRight from '@mui/icons-material/ChevronRight'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
@@ -64,6 +67,9 @@ export default function WorklogsView() {
   const [selectedLog, setSelectedLog] = useState<WorkLog | null>(null)
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [weekMinutes, setWeekMinutes] = useState(0)
+  const [activeTimer, setActiveTimer] = useState<{ title: string; context: string; elapsed_minutes: number } | null>(null)
+  const [timerTitle, setTimerTitle] = useState('')
+  const [timerBusy, setTimerBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,9 +77,11 @@ export default function WorklogsView() {
     try {
       const response = await fetch(`/api/worklogs?date=${dateStr}`)
       const data = await response.json()
+      const timerData = await fetch('/api/timers').then((res) => res.json()).catch(() => ({ timer: null }))
       setLogs(data.logs || [])
       setTodayMinutes(data.todayStats?.today_minutes ?? 0)
       setWeekMinutes(data.weekStats?.week_minutes ?? 0)
+      setActiveTimer(timerData.timer || null)
     } catch (error) {
       console.error('Failed to load worklogs:', error)
     } finally {
@@ -97,6 +105,36 @@ export default function WorklogsView() {
   async function handleDelete(id: number) {
     await fetch(`/api/worklogs/${id}`, { method: 'DELETE' })
     load()
+  }
+
+  async function startTimer() {
+    const title = timerTitle.trim() || 'Werkblok'
+    setTimerBusy(true)
+    try {
+      await fetch('/api/timers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start', title, context: 'werk' }),
+      })
+      setTimerTitle('')
+      await load()
+    } finally {
+      setTimerBusy(false)
+    }
+  }
+
+  async function stopTimer() {
+    setTimerBusy(true)
+    try {
+      await fetch('/api/timers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      })
+      await load()
+    } finally {
+      setTimerBusy(false)
+    }
   }
 
   const dateLabel = useMemo(() => {
@@ -186,17 +224,38 @@ export default function WorklogsView() {
                 <ChevronRight />
               </IconButton>
             </Stack>
-            <Button variant="contained" startIcon={<PlusIcon />} sx={{ borderRadius: 99 }}>
-              Nieuw Log
-            </Button>
           </Stack>
         }
       >
         <Stack spacing={3}>
+          <Paper sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>Timer</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {activeTimer ? `${activeTimer.title} loopt ${formatDuration(activeTimer.elapsed_minutes)}` : 'Start een werksessie en stop hem om automatisch te loggen.'}
+                </Typography>
+              </Box>
+              {activeTimer ? (
+                <LoadingButton variant="contained" onClick={stopTimer} loading={timerBusy} loadingText="Stoppen...">
+                  Stop timer
+                </LoadingButton>
+              ) : (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ minWidth: { md: 380 } }}>
+                  <TextField value={timerTitle} onChange={(event) => setTimerTitle(event.target.value)} placeholder="Waar werk je aan?" fullWidth />
+                  <LoadingButton variant="contained" onClick={startTimer} loading={timerBusy} loadingText="Starten...">
+                    Start
+                  </LoadingButton>
+                </Stack>
+              )}
+            </Stack>
+          </Paper>
+
           <AIBriefing 
             title="Werk & Focus Briefing"
             briefing={aiSummary || "Analyse van je werkpatronen wordt geladen..."}
             score={weekMinutes > 2000 ? 85 : 65}
+            compact
           />
 
           <ModuleStats stats={[
@@ -238,6 +297,7 @@ export default function WorklogsView() {
           { label: 'Verwijderen', variant: 'outlined', onClick: () => handleDelete(selectedLog.id) },
         ] : []}
       />
+      <FloatingActionButton label={activeTimer ? 'Stop timer' : 'Start timer'} onClick={activeTimer ? stopTimer : startTimer} icon={<TimerIcon />} />
     </>
   )
 }

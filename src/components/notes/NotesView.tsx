@@ -20,6 +20,7 @@ import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
+import FloatingActionButton from '@/components/ui/FloatingActionButton'
 
 interface Note {
   id: number
@@ -142,7 +143,7 @@ export default function NotesView() {
           className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
         >
           <Plus size={15} />
-          Nieuwe note
+          Nieuwe notitie
         </button>
       }
     >
@@ -155,67 +156,6 @@ export default function NotesView() {
 
       <div className="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-5 lg:sticky lg:top-8 lg:self-start">
-          <Panel tone="accent">
-            <PanelHeader
-              eyebrow="Snelle capture"
-              title="Vang de gedachte eerst"
-              description="Eerst vastleggen, later uitwerken."
-            />
-
-            <Textarea
-              value={quickNote}
-              onChange={(event) => setQuickNote(event.target.value)}
-              placeholder="Dump hier snel een idee, call note, losse gedachte of projectinzicht..."
-              className="mt-5 min-h-[180px] resize-none rounded-xl border-outline-variant bg-white px-4 py-4 text-sm leading-7 text-on-surface placeholder:text-on-surface-variant"
-            />
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={saveQuickNote}
-                disabled={!quickNote.trim() || savingQuick}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
-              >
-                <ArrowRight size={15} />
-                {savingQuick ? 'Bezig...' : 'Open in editor'}
-              </button>
-              <ActionPill>Direct door naar uitwerken</ActionPill>
-            </div>
-          </Panel>
-
-          <Panel>
-            <PanelHeader
-              eyebrow="Zoeken"
-              title="Doorzoek je kennisbank"
-              description="Zoek op tekst of via AI."
-            />
-
-            <div className="mt-5 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3">
-              <div className="flex items-center gap-2">
-                <Search size={16} className="text-on-surface-variant" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Zoek notities, context of projectinformatie"
-                  className="flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                />
-                <button
-                  onClick={() => setSmartSearch((value) => !value)}
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors',
-                    smartSearch ? 'bg-accent text-white' : 'bg-white text-on-surface-variant hover:bg-surface-container-high'
-                  )}
-                >
-                  AI
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <ActionPill>{smartSearch ? 'Slim zoeken aan' : 'Exact zoeken'}</ActionPill>
-              {search && <ActionPill>{`Query: ${search}`}</ActionPill>}
-            </div>
-          </Panel>
-
           <Panel tone="muted">
             <PanelHeader
               eyebrow="Recent"
@@ -369,6 +309,7 @@ export default function NotesView() {
           { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteNote(selectedNote.id) },
         ] : []}
       />
+      <FloatingActionButton label="Nieuwe notitie" onClick={() => createNote()} />
     </PageShell>
   )
 }

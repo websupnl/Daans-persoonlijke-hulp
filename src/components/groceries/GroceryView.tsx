@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { Divider, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
+import { Spinner } from '@/components/ui/spinner'
 
 export default function GroceryView() {
   const [items, setItems] = useState<GroceryItem[]>([])
@@ -14,6 +15,7 @@ export default function GroceryView() {
   const [newItemTitle, setNewItemTitle] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('')
   const [adding, setAdding] = useState(false)
+  const [busyId, setBusyId] = useState<number | null>(null)
   const [selectedItem, setSelectedItem] = useState<GroceryItem | null>(null)
 
   useEffect(() => {
@@ -56,6 +58,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
   }
 
   const toggleComplete = async (item: GroceryItem) => {
+    setBusyId(item.id)
     try {
       const res = await fetch(`/api/groceries/${item.id}`, {
         method: 'PATCH',
@@ -68,11 +71,14 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
       }
     } catch (err) {
       console.error(err)
+    } finally {
+      setBusyId(null)
     }
   }
 
   const deleteItem = async (id: number) => {
     if (!confirm('Weet je het zeker?')) return
+    setBusyId(id)
     try {
       const res = await fetch(`/api/groceries/${id}`, { method: 'DELETE' })
       if (res.ok) {
@@ -81,6 +87,8 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
       }
     } catch (err) {
       console.error(err)
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -116,6 +124,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
               className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus size={14} />
+              {adding && <Spinner className="h-3.5 w-3.5" />}
               {adding ? 'Bezig...' : 'Toevoegen'}
             </button>
           </form>
@@ -157,7 +166,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
                             : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
                         )}
                       >
-                        {item.completed ? <CheckCircle size={16} /> : <Circle size={16} />}
+                          {busyId === item.id ? <Spinner className="h-4 w-4" /> : item.completed ? <CheckCircle size={16} /> : <Circle size={16} />}
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className={cn('text-sm font-medium text-on-surface', item.completed && 'line-through text-on-surface-variant')}>
@@ -169,7 +178,7 @@ body: JSON.stringify({ title: newItemTitle.trim(), quantity: newItemQuantity.tri
                         onClick={(event) => { event.stopPropagation(); deleteItem(item.id) }}
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                       >
-                        <Trash2 size={12} />
+                          {busyId === item.id ? <Spinner className="h-3 w-3" /> : <Trash2 size={12} />}
                       </button>
                     </div>
                   </div>

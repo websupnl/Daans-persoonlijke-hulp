@@ -6,7 +6,6 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Grid from '@mui/material/GridLegacy'
-import LinearProgress from '@mui/material/LinearProgress'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
@@ -29,6 +28,7 @@ import SelfImprovementOutlinedIcon from '@mui/icons-material/SelfImprovementOutl
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import PageShell, { PageSection } from '@/components/ui/PageShell'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
+import LoadingButton from '@/components/ui/LoadingButton'
 
 type HealthLog = {
   id?: number
@@ -265,6 +265,7 @@ export default function HealthView() {
   const [form, setForm] = useState<HealthForm>(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingLog, setSavingLog] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [selectedLog, setSelectedLog] = useState<HealthLog | null>(null)
@@ -331,6 +332,51 @@ export default function HealthView() {
       setError(saveError instanceof Error ? saveError.message : 'Kon gezondheid niet opslaan')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function updateHealthLog(values: Record<string, string | number | boolean | null>) {
+    if (!selectedLog?.log_date) return
+    setSavingLog(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/health', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          log_date: String(selectedLog.log_date).split('T')[0],
+          sleep_hours: parseNumber(String(values.sleep_hours ?? '')),
+          sleep_quality: parseNumber(String(values.sleep_quality ?? '')),
+          energy_level: parseNumber(String(values.energy_level ?? '')),
+          stress_level: parseNumber(String(values.stress_level ?? '')),
+          pain_score: parseNumber(String(values.pain_score ?? '')),
+          pain_location: String(values.pain_location ?? '').trim() || undefined,
+          water_glasses: parseNumber(String(values.water_glasses ?? '')),
+          symptoms: parseList(String(values.symptoms ?? '')),
+          medications: parseList(String(values.medications ?? '')),
+          notes: String(values.notes ?? '').trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error?.message || json.message || 'Kon gezondheidslog niet opslaan')
+      await load()
+      setSelectedLog((current) => current ? {
+        ...current,
+        sleep_hours: values.sleep_hours as string,
+        sleep_quality: Number(values.sleep_quality) || null,
+        energy_level: Number(values.energy_level) || null,
+        stress_level: Number(values.stress_level) || null,
+        pain_score: Number(values.pain_score) || null,
+        pain_location: String(values.pain_location || ''),
+        water_glasses: Number(values.water_glasses) || null,
+        symptoms: parseList(String(values.symptoms ?? '')),
+        medications: parseList(String(values.medications ?? '')),
+        notes: String(values.notes || ''),
+      } : current)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Kon gezondheidslog niet opslaan')
+    } finally {
+      setSavingLog(false)
     }
   }
 
@@ -416,8 +462,6 @@ export default function HealthView() {
                   <Typography variant="body2" color="text.secondary">Snel genoeg voor dagelijks gebruik, rijk genoeg voor patronen.</Typography>
                 </Box>
               </Stack>
-              {saving && <LinearProgress />}
-
               <Grid container spacing={1.5}>
                 <Grid item xs={12} sm={6}>
                   <TextField label="Slaapuren" value={form.sleep_hours} onChange={update('sleep_hours')} type="number" inputProps={{ step: 0.25, min: 0 }} fullWidth />
@@ -453,9 +497,9 @@ export default function HealthView() {
                   <TextField label="Notities" value={form.notes} onChange={update('notes')} multiline minRows={4} fullWidth placeholder="Wat viel op vandaag?" />
                 </Grid>
               </Grid>
-              <Button type="submit" variant="contained" disabled={saving} size="large">
-                {saving ? 'Opslaan...' : today ? 'Vandaag bijwerken' : 'Gezondheid opslaan'}
-              </Button>
+              <LoadingButton type="submit" variant="contained" disabled={saving} loading={saving} loadingText="Opslaan..." size="large">
+                {today ? 'Vandaag bijwerken' : 'Gezondheid opslaan'}
+              </LoadingButton>
             </Stack>
           </Paper>
         </Grid>
@@ -551,6 +595,20 @@ export default function HealthView() {
           { label: 'Symptomen', value: selectedLog?.symptoms?.length ? selectedLog.symptoms.join(', ') : '-' },
           { label: 'Medicatie', value: selectedLog?.medications?.length ? selectedLog.medications.join(', ') : '-' },
         ]}
+        editableFields={selectedLog ? [
+          { name: 'sleep_hours', label: 'Slaapuren', value: selectedLog.sleep_hours ?? '', type: 'number' },
+          { name: 'sleep_quality', label: 'Slaapkwaliteit', value: selectedLog.sleep_quality ?? '', type: 'number' },
+          { name: 'energy_level', label: 'Energie', value: selectedLog.energy_level ?? '', type: 'number' },
+          { name: 'stress_level', label: 'Stress', value: selectedLog.stress_level ?? '', type: 'number' },
+          { name: 'pain_score', label: 'Pijn', value: selectedLog.pain_score ?? '', type: 'number' },
+          { name: 'pain_location', label: 'Pijnlocatie', value: selectedLog.pain_location ?? '', type: 'text' },
+          { name: 'water_glasses', label: 'Water glazen', value: selectedLog.water_glasses ?? '', type: 'number' },
+          { name: 'symptoms', label: 'Symptomen', value: selectedLog.symptoms?.join(', ') ?? '', type: 'text' },
+          { name: 'medications', label: 'Medicatie', value: selectedLog.medications?.join(', ') ?? '', type: 'text' },
+          { name: 'notes', label: 'Notities', value: selectedLog.notes ?? '', type: 'textarea' },
+        ] : []}
+        onSave={updateHealthLog}
+        saving={savingLog}
       />
     </PageShell>
   )

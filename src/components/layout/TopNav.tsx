@@ -81,10 +81,10 @@ export default function TopNav() {
                     backgroundImage: 'var(--brand-gradient)',
                   }}
                 >
-                  D
+                  L
                 </Avatar>
                 <Typography variant="h6" sx={{ fontWeight: 850, letterSpacing: -0.5 }}>
-                  Daan
+                  LeefKompas
                 </Typography>
               </Stack>
             </Link>

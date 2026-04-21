@@ -10,8 +10,8 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Alert from '@mui/material/Alert'
 import Avatar from '@mui/material/Avatar'
-import CircularProgress from '@mui/material/CircularProgress'
 import LockIcon from '@mui/icons-material/LockOutlined'
+import { Spinner } from '@/components/ui/spinner'
 
 interface LoginFormProps {
   hasQuickUnlock?: boolean
@@ -83,7 +83,7 @@ export default function LoginForm({ hasQuickUnlock }: LoginFormProps) {
             Welkom terug
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-            Log in op je persoonlijke AI dashboard
+            Log in op LeefKompas
           </Typography>
         </Stack>
 
@@ -130,11 +130,11 @@ export default function LoginForm({ hasQuickUnlock }: LoginFormProps) {
                 }
               }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Inloggen'}
+              {loading ? <Spinner className="h-5 w-5" /> : 'Inloggen'}
             </Button>
 
             <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', mt: 1 }}>
-              Beveiligde toegang · © {new Date().getFullYear()} Daan
+              Beveiligde toegang · © {new Date().getFullYear()} LeefKompas
             </Typography>
           </Stack>
         </Box>

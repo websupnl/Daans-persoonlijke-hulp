@@ -10,6 +10,7 @@ import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/compon
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
+import { Spinner } from '@/components/ui/spinner'
 
 interface MemoryItem {
   id: number
@@ -49,13 +50,15 @@ export default function MemoryView() {
   const [category, setCategory] = useState('personal_context')
   const [showAdd, setShowAdd] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [genResult, setGenResult] = useState<string | null>(null)
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null)
 
   async function load() {
     const response = await fetch('/api/memory')
     const payload = await response.json()
-    setMemories(payload.memories || [])
+    setMemories(payload.data?.memories || payload.memories || [])
   }
 
   useEffect(() => {
@@ -64,25 +67,56 @@ export default function MemoryView() {
 
   async function save() {
     if (!keyValue.trim() || !value.trim()) return
-    await fetch('/api/memory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: keyValue, value, category, confidence: 0.9 }),
-    })
-    setKeyValue('')
-    setValue('')
-    setShowAdd(false)
-    load()
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: keyValue, value, category, confidence: 0.9 }),
+      })
+      setKeyValue('')
+      setValue('')
+      setShowAdd(false)
+      await load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function remove(id: number) {
-    await fetch('/api/memory', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    setSelectedMemory((current) => current?.id === id ? null : current)
-    load()
+    setDeletingId(id)
+    try {
+      await fetch('/api/memory', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setSelectedMemory((current) => current?.id === id ? null : current)
+      await load()
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  async function updateMemory(values: Record<string, string | number | boolean | null>) {
+    if (!selectedMemory) return
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: values.key || selectedMemory.key,
+          value: values.value || selectedMemory.value,
+          category: values.category || selectedMemory.category,
+          confidence: Number(values.confidence ?? selectedMemory.confidence),
+        }),
+      })
+      await load()
+      setSelectedMemory((current) => current ? { ...current, ...values, confidence: Number(values.confidence ?? current.confidence) } as MemoryItem : current)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function generate() {
@@ -119,8 +153,8 @@ export default function MemoryView() {
 
   return (
     <PageShell
-      title="Memory"
-      subtitle={`${memories.length} opgeslagen feiten. Dit scherm moet laten voelen dat de app echt duurzame context van je opbouwt in plaats van alleen losse chatgeschiedenis te bewaren.`}
+      title="Geheugen"
+      subtitle={`${memories.length} opgeslagen feiten en voorkeuren die AI-context sturen.`}
       actions={
         <>
           <button
@@ -129,6 +163,7 @@ export default function MemoryView() {
             className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
           >
             <Sparkles size={15} />
+            {generating && <Spinner className="h-3.5 w-3.5" />}
             {generating ? 'Analyseren...' : 'Analyseer mijn data'}
           </button>
           <button
@@ -136,7 +171,7 @@ export default function MemoryView() {
             className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
           >
             <Plus size={15} />
-            Handmatig
+            Toevoegen
           </button>
         </>
       }
@@ -177,6 +212,7 @@ export default function MemoryView() {
                       disabled={generating}
                       className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
                     >
+                      {generating && <Spinner className="mr-2 h-3.5 w-3.5" />}
                       {generating ? 'Bezig...' : 'Analyseer mijn data'}
                     </button>
                   }
@@ -211,7 +247,7 @@ export default function MemoryView() {
                             onClick={(event) => { event.stopPropagation(); remove(memory.id) }}
                             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-[#a55a2c]"
                           >
-                            <Trash2 size={14} />
+                            {deletingId === memory.id ? <Spinner className="h-3.5 w-3.5" /> : <Trash2 size={14} />}
                           </button>
                         </div>
 
@@ -319,6 +355,7 @@ export default function MemoryView() {
                 onClick={save}
                 className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
               >
+                {saving && <Spinner className="mr-2 h-3.5 w-3.5" />}
                 Opslaan
               </button>
               <button
@@ -343,8 +380,16 @@ export default function MemoryView() {
           { label: 'Zekerheid', value: selectedMemory ? `${Math.round(selectedMemory.confidence * 100)}%` : '-' },
           { label: 'Laatst bevestigd', value: selectedMemory?.last_reinforced_at ? formatRelative(selectedMemory.last_reinforced_at) : 'Onbekend' },
         ]}
+        editableFields={selectedMemory ? [
+          { name: 'key', label: 'Sleutel', value: selectedMemory.key, type: 'text' },
+          { name: 'value', label: 'Waarde', value: selectedMemory.value, type: 'textarea' },
+          { name: 'category', label: 'Categorie', value: selectedMemory.category, type: 'select', options: Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label })) },
+          { name: 'confidence', label: 'Zekerheid', value: selectedMemory.confidence, type: 'number' },
+        ] : []}
+        onSave={updateMemory}
+        saving={saving}
         actions={selectedMemory ? [
-          { label: 'Verwijderen', variant: 'outlined', onClick: () => remove(selectedMemory.id) },
+          { label: 'Verwijderen', variant: 'outlined', loading: deletingId === selectedMemory.id, onClick: () => remove(selectedMemory.id) },
         ] : []}
       />
     </PageShell>

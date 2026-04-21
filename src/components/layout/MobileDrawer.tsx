@@ -13,7 +13,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
-import { MORE_ITEMS, PRIMARY_GROUPS } from './navigation'
+import { FOOTER_ITEMS, MORE_ITEMS, PRIMARY_GROUPS } from './navigation'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 
 function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active: boolean }) {
@@ -46,13 +46,13 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Avatar sx={{ width: 38, height: 38, background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', fontWeight: 900 }}>D</Avatar>
+          <Avatar sx={{ width: 38, height: 38, background: 'var(--brand-gradient)', fontWeight: 900 }}>L</Avatar>
           <Box>
             <Typography variant="body2" fontWeight={800}>
-              Daan&apos;s Persoonlijke Hulp
+              LeefKompas
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Daan · AI actief
+              Workspace · AI actief
             </Typography>
           </Box>
         </Stack>
@@ -66,7 +66,7 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
       </Box>
 
       <Box sx={{ overflow: 'auto', px: 1, py: 1.5, pb: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-        {[...PRIMARY_GROUPS, { label: 'Meer', items: MORE_ITEMS }].map((group) => (
+        {[...PRIMARY_GROUPS, { label: 'Meer', items: MORE_ITEMS }, { label: 'Systeem', items: FOOTER_ITEMS }].map((group) => (
           <Box key={group.label} sx={{ mb: 2 }}>
             <Typography variant="overline" color="text.disabled" sx={{ px: 2, display: 'block' }}>
               {group.label}

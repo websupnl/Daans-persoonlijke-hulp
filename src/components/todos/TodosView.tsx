@@ -4,26 +4,29 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import MenuItem from '@mui/material/MenuItem'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
 import Tabs from '@mui/material/Tabs'
 import Tab from '@mui/material/Tab'
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
-import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
 import PageShell from '@/components/ui/PageShell'
 import AIBriefing from '@/components/ui/AIBriefing'
 import ModuleStats from '@/components/ui/ModuleStats'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import AIContextButton from '@/components/ai/AIContextButton'
-import { cn, formatDate, isOverdue } from '@/lib/utils'
+import FloatingActionButton from '@/components/ui/FloatingActionButton'
+import LoadingButton from '@/components/ui/LoadingButton'
+import { Spinner } from '@/components/ui/spinner'
+import { formatDate, isOverdue } from '@/lib/utils'
 import Plus from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
-import DeleteIcon from '@mui/icons-material/DeleteOutline'
+import RadioButtonUncheckedIcon from '@mui/icons-material/CheckBoxOutlineBlank'
 import Sparkles from '@mui/icons-material/AutoAwesome'
 import ListIcon from '@mui/icons-material/List'
-import GridIcon from '@mui/icons-material/GridView'
 
 interface Todo {
   id: number
@@ -48,6 +51,10 @@ export default function TodosView() {
   const [recommendation, setRecommendation] = useState<string | null>(null)
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [savingDetail, setSavingDetail] = useState(false)
+  const [busyTodoId, setBusyTodoId] = useState<number | null>(null)
+  const [newTodo, setNewTodo] = useState({ title: '', description: '', category: 'overig', priority: 'medium', due_date: '' })
 
   const fetchTodos = useCallback(async () => {
     setLoading(true)
@@ -81,17 +88,70 @@ export default function TodosView() {
   }, [])
 
   async function toggleTodo(id: number, completed: boolean) {
-    await fetch(`/api/todos/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed: !completed }),
-    })
-    fetchTodos()
+    setBusyTodoId(id)
+    try {
+      await fetch(`/api/todos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !completed }),
+      })
+      setTodos((current) => current.map((todo) => todo.id === id ? { ...todo, completed: !completed } : todo))
+      setSelectedTodo((current) => current?.id === id ? { ...current, completed: !completed } : current)
+      fetchTodos()
+    } finally {
+      setBusyTodoId(null)
+    }
   }
 
-  async function deleteTodo(id: number) {
-    await fetch(`/api/todos/${id}`, { method: 'DELETE' })
-    fetchTodos()
+  async function moveTodoToDone(id: number) {
+    const todo = todos.find((item) => item.id === id)
+    if (!todo) return
+    await toggleTodo(id, todo.completed)
+  }
+
+  async function createTodo() {
+    if (!newTodo.title.trim() || creating) return
+    setCreating(true)
+    try {
+      const response = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newTodo,
+          title: newTodo.title.trim(),
+          due_date: newTodo.due_date || null,
+        }),
+      })
+      const payload = await response.json()
+      if (payload.data) {
+        setTodos((current) => [payload.data, ...current])
+        setSelectedTodo(payload.data)
+      }
+      setNewTodo({ title: '', description: '', category: 'overig', priority: 'medium', due_date: '' })
+      setShowAdd(false)
+      fetchTodos()
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function updateTodo(id: number, values: Record<string, string | number | boolean | null>) {
+    setSavingDetail(true)
+    try {
+      const response = await fetch(`/api/todos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...values, due_date: values.due_date || null }),
+      })
+      const payload = await response.json()
+      if (payload.data) {
+        setSelectedTodo(payload.data)
+        setTodos((current) => current.map((todo) => todo.id === id ? { ...todo, ...payload.data } : todo))
+      }
+      fetchTodos()
+    } finally {
+      setSavingDetail(false)
+    }
   }
 
   const openTodos = todos.filter((todo) => !todo.completed)
@@ -109,8 +169,9 @@ export default function TodosView() {
           size="small" 
           onClick={(e) => { e.stopPropagation(); toggleTodo(params.row.id, params.value) }}
           color={params.value ? 'success' : 'default'}
+          disabled={busyTodoId === params.row.id}
         >
-          {params.value ? <CheckCircleIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
+          {busyTodoId === params.row.id ? <Spinner className="h-4 w-4" /> : params.value ? <CheckCircleIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
         </IconButton>
       )
     },
@@ -123,6 +184,8 @@ export default function TodosView() {
           variant="body2" 
           sx={{ 
             fontWeight: 700,
+            whiteSpace: 'normal',
+            lineHeight: 1.45,
             textDecoration: params.row.completed ? 'line-through' : 'none',
             color: params.row.completed ? 'text.secondary' : 'text.primary'
           }}
@@ -172,35 +235,13 @@ export default function TodosView() {
       )
     },
     {
-      field: 'project_title',
-      headerName: 'Project',
-      width: 150,
-      renderCell: (params: GridRenderCellParams) => params.value ? (
-        <Chip 
-          label={params.value} 
-          size="small"
-          sx={{ 
-            height: 20,
-            fontSize: 10,
-            fontWeight: 800,
-            bgcolor: `${params.row.project_color || '#5a677b'}18`,
-            color: params.row.project_color || '#5a677b',
-            border: 'none'
-          }}
-        />
-      ) : null
-    },
-    {
       field: 'actions',
       headerName: '',
-      width: 100,
+      width: 58,
       sortable: false,
       renderCell: (params: GridRenderCellParams) => (
         <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ height: '100%' }}>
           <AIContextButton type="todo" title={params.row.title} id={params.row.id} />
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); deleteTodo(params.row.id) }}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
         </Stack>
       )
     }
@@ -213,18 +254,41 @@ export default function TodosView() {
         subtitle={`${openTodos.length} openstaande taken · Focus op wat nu moet`}
         actions={
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Button variant="contained" startIcon={<Plus />} onClick={() => setShowAdd(true)} sx={{ borderRadius: 99, px: 3 }}>
+            <Button variant="outlined" startIcon={<Plus />} onClick={() => setShowAdd(true)} sx={{ borderRadius: 99, px: 3 }}>
               Nieuwe taak
             </Button>
           </Stack>
         }
       >
         <Stack spacing={3}>
+          {showAdd && (
+            <Paper sx={{ p: 2, border: '1px solid', borderColor: 'divider' }}>
+              <Stack component="form" spacing={1.5} onSubmit={(event) => { event.preventDefault(); createTodo() }}>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>Nieuwe taak</Typography>
+                <TextField label="Taak" value={newTodo.title} onChange={(event) => setNewTodo((current) => ({ ...current, title: event.target.value }))} autoFocus fullWidth />
+                <TextField label="Omschrijving" value={newTodo.description} onChange={(event) => setNewTodo((current) => ({ ...current, description: event.target.value }))} multiline minRows={2} fullWidth />
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                  <TextField select label="Prioriteit" value={newTodo.priority} onChange={(event) => setNewTodo((current) => ({ ...current, priority: event.target.value }))} fullWidth>
+                    {['laag', 'medium', 'hoog'].map((priority) => <MenuItem key={priority} value={priority}>{priority}</MenuItem>)}
+                  </TextField>
+                  <TextField label="Deadline" type="date" value={newTodo.due_date} onChange={(event) => setNewTodo((current) => ({ ...current, due_date: event.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+                </Stack>
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button variant="outlined" onClick={() => setShowAdd(false)} disabled={creating}>Annuleer</Button>
+                  <LoadingButton type="submit" variant="contained" loading={creating} loadingText="Toevoegen..." disabled={!newTodo.title.trim()}>
+                    Toevoegen
+                  </LoadingButton>
+                </Stack>
+              </Stack>
+            </Paper>
+          )}
+
           <AIBriefing 
             title="AI Focus Advies"
             briefing={recommendation || "Je takenlijst ziet er hanteerbaar uit. Geen directe actie vereist."}
             score={overdueCount > 0 ? 45 : 90}
             scoreLabel="/100"
+            compact
           />
 
           <ModuleStats stats={[
@@ -262,10 +326,12 @@ export default function TodosView() {
                 rows={todos}
                 columns={columns}
                 loading={loading}
+                getRowHeight={() => 'auto'}
                 disableRowSelectionOnClick
                 onRowClick={(params) => setSelectedTodo(params.row as Todo)}
                 sx={{ 
                   border: 'none',
+                  '& .MuiDataGrid-cell': { py: 1.25, alignItems: 'center' },
                   '& .MuiDataGrid-cell:focus': { outline: 'none' }
                 }}
               />
@@ -287,19 +353,32 @@ export default function TodosView() {
           { label: 'Project', value: selectedTodo?.project_title || 'Geen project' },
           { label: 'Status', value: selectedTodo?.completed ? 'Voltooid' : 'Open' },
         ]}
+        editableFields={selectedTodo ? [
+          { name: 'title', label: 'Taak', value: selectedTodo.title, type: 'text' },
+          { name: 'description', label: 'Omschrijving', value: selectedTodo.description || '', type: 'textarea' },
+          { name: 'priority', label: 'Prioriteit', value: selectedTodo.priority, type: 'select', options: ['laag', 'medium', 'hoog'].map((value) => ({ label: value, value })) },
+          { name: 'category', label: 'Categorie', value: selectedTodo.category || 'overig', type: 'select', options: CATEGORIES.filter((value) => value !== 'alles').map((value) => ({ label: value, value })) },
+          { name: 'due_date', label: 'Deadline', value: selectedTodo.due_date || '', type: 'date' },
+        ] : []}
+        onSave={(values) => selectedTodo ? updateTodo(selectedTodo.id, values) : undefined}
+        saving={savingDetail}
         actions={selectedTodo ? [
           {
             label: selectedTodo.completed ? 'Heropenen' : 'Voltooien',
             variant: 'contained',
+            loading: busyTodoId === selectedTodo.id,
             onClick: () => toggleTodo(selectedTodo.id, selectedTodo.completed),
           },
           {
-            label: 'Verwijderen',
+            label: 'Verplaats naar afgerond',
             variant: 'outlined',
-            onClick: () => deleteTodo(selectedTodo.id),
+            loading: busyTodoId === selectedTodo.id,
+            disabled: selectedTodo.completed,
+            onClick: () => moveTodoToDone(selectedTodo.id),
           },
         ] : []}
       />
+      <FloatingActionButton label="Nieuwe taak" onClick={() => setShowAdd(true)} />
     </>
   )
 }

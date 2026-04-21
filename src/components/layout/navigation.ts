@@ -75,8 +75,8 @@ export const FOOTER_ITEMS: NavItem[] = [
 
 export const MOBILE_PRIMARY_ITEMS: NavItem[] = [
   { href: '/', label: 'Vandaag', icon: LayoutDashboard },
-  { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/todos', label: 'Taken', icon: CheckSquare },
+  { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/finance', label: 'Financiën', icon: Euro },
 ]
 

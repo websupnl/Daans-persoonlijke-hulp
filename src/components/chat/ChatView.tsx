@@ -2,21 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import CircularProgress from '@mui/material/CircularProgress'
 import Container from '@mui/material/Container'
-import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
-import LinearProgress from '@mui/material/LinearProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextareaAutosize from '@mui/material/TextareaAutosize'
 import Typography from '@mui/material/Typography'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import AttachFileIcon from '@mui/icons-material/AttachFile'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import BugReportIcon from '@mui/icons-material/BugReport'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CloseIcon from '@mui/icons-material/Close'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined'
@@ -25,6 +19,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SendIcon from '@mui/icons-material/Send'
 import { useSearchParams } from 'next/navigation'
 import { formatMarkdown, formatRelative } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 
 interface DebugAction {
   type: string
@@ -46,13 +41,15 @@ interface Message {
   created_at: string
   debugInfo?: DebugInfo
   streaming?: boolean
+  imagePreviewUrl?: string
+  imageName?: string
 }
 
-const examples = [
-  '/taak: offerte opvolgen',
-  '/log: 2u aan project X gewerkt',
-  '/fin: lunch 15 euro',
-  'Hoe sta ik er financieel voor?',
+const commandBlocks = [
+  { label: 'Agenda', prompt: '/agenda: ' },
+  { label: 'Taken', prompt: '/taak: ' },
+  { label: 'Boodschappen', prompt: '/boodschap: ' },
+  { label: 'Transactie', prompt: '/fin: ' },
 ]
 
 const actionLabels: Record<string, { label: string; color: 'primary' | 'success' | 'warning' | 'secondary' | 'info' | 'error' }> = {
@@ -89,7 +86,7 @@ function getActionTitle(action: DebugAction) {
 function ThinkingState({ status }: { status: string }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'text.secondary', px: 1 }}>
-      <CircularProgress size={14} />
+      <Spinner className="h-3.5 w-3.5" />
       <Typography variant="caption">{status}</Typography>
     </Stack>
   )
@@ -142,10 +139,8 @@ function ActionCard({ action }: { action: DebugAction }) {
         p: 1.5,
         border: '1px solid',
         borderColor: 'divider',
-        borderLeft: '4px solid',
-        borderLeftColor: failed ? 'error.main' : pending ? 'warning.main' : `${spec.color}.main`,
         borderRadius: 1,
-        bgcolor: 'background.paper',
+        bgcolor: failed ? 'error.light' : pending ? 'warning.light' : 'background.paper',
       }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
@@ -185,7 +180,6 @@ export default function ChatView() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingStatus, setLoadingStatus] = useState('Interpreteren...')
-  const [showExamples, setShowExamples] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
   const [showScrollDown, setShowScrollDown] = useState(false)
   const [imageAttachment, setImageAttachment] = useState<{ base64: string; mimeType: string; name: string; previewUrl: string } | null>(null)
@@ -204,7 +198,6 @@ export default function ChatView() {
       debugInfo: message.actions && typeof message.actions === 'object' && !Array.isArray(message.actions) ? message.actions : undefined,
     }))
     setMessages(history)
-    setShowExamples(history.length === 0)
     setInitialLoad(false)
   }, [])
 
@@ -229,14 +222,15 @@ export default function ChatView() {
     const userMessage: Message = {
       id: Date.now(),
       role: 'user',
-      content: imageAttachment ? `${message || 'Analyseer deze foto.'}\n\n[Foto: ${imageAttachment.name}]` : message,
+      content: message || (imageAttachment ? 'Analyseer deze foto.' : ''),
       created_at: new Date().toISOString(),
+      imagePreviewUrl: imageAttachment?.previewUrl,
+      imageName: imageAttachment?.name,
     }
 
     setMessages((current) => [...current, userMessage])
     setInput('')
     setImageAttachment(null)
-    setShowExamples(false)
     setLoading(true)
     setLoadingStatus('Interpreteren...')
 
@@ -364,14 +358,12 @@ export default function ChatView() {
       name: file.name || 'foto',
       previewUrl: dataUrl,
     })
-    setShowExamples(false)
     inputRef.current?.focus()
   }
 
   async function resetChat() {
     await fetch('/api/chat', { method: 'DELETE' })
     setMessages([])
-    setShowExamples(true)
   }
 
   const contextCount = useMemo(() => Math.min(messages.reduce((count, item) => count + (item.debugInfo?.actions?.length ?? 0), 1), 9), [messages])
@@ -380,7 +372,7 @@ export default function ChatView() {
     return (
       <Box sx={{ height: { xs: 'calc(100dvh - 72px)', md: '100dvh' }, display: 'grid', placeItems: 'center' }}>
         <Stack alignItems="center" spacing={2}>
-          <CircularProgress />
+          <Spinner className="h-6 w-6 text-[var(--brand-primary)]" />
           <Typography variant="body2" color="text.secondary">
             Chat laden...
           </Typography>
@@ -401,9 +393,6 @@ export default function ChatView() {
               <Typography variant="h4" noWrap>
                 Chat met je AI
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                Acties worden zichtbaar uitgevoerd en als action card bevestigd.
-              </Typography>
             </Box>
           </Stack>
 
@@ -420,24 +409,6 @@ export default function ChatView() {
       <Box ref={listRef} onScroll={syncScrollState} sx={{ flex: 1, overflow: 'auto', position: 'relative' }}>
         <Container maxWidth="md" sx={{ py: 3 }}>
           <Stack spacing={2}>
-            {showExamples && (
-              <Paper sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <AutoAwesomeIcon color="secondary" fontSize="small" />
-                  <Typography variant="overline" color="text.secondary">
-                    Snelle opdrachten
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-                  {examples.map((example) => (
-                    <Button key={example} variant="outlined" size="small" onClick={() => sendMessage(example)}>
-                      {example}
-                    </Button>
-                  ))}
-                </Stack>
-              </Paper>
-            )}
-
             {messages.map((message) => {
               const isUser = message.role === 'user'
               const isError = message.role === 'error'
@@ -456,7 +427,8 @@ export default function ChatView() {
                         border: isUser ? 'none' : '1px solid',
                         borderColor: isError ? 'error.light' : 'divider',
                         borderRadius: isUser ? '12px 12px 4px 12px' : '4px 12px 12px 12px',
-                        bgcolor: isUser ? 'text.primary' : isError ? 'error.light' : 'background.paper',
+                        bgcolor: isUser ? 'transparent' : isError ? 'error.light' : 'background.paper',
+                        backgroundImage: isUser ? 'var(--brand-gradient)' : undefined,
                         color: isUser ? 'common.white' : 'text.primary',
                       }}
                     >
@@ -472,6 +444,22 @@ export default function ChatView() {
                             '& code': { bgcolor: isUser ? 'rgba(255,255,255,0.14)' : '#f4f4f5', px: 0.5, py: 0.2, borderRadius: 1 },
                           }}
                           dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content || '...') }}
+                        />
+                      )}
+                      {isUser && message.imagePreviewUrl && (
+                        <Box
+                          component="img"
+                          src={message.imagePreviewUrl}
+                          alt={message.imageName || 'Verzonden foto'}
+                          sx={{
+                            display: 'block',
+                            mt: message.content ? 1.25 : 0,
+                            width: 'min(240px, 100%)',
+                            maxHeight: 220,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: '1px solid rgba(255,255,255,0.28)',
+                          }}
                         />
                       )}
                       {!isUser && <ActionSummary debugInfo={message.debugInfo} />}
@@ -518,11 +506,29 @@ export default function ChatView() {
             />
             {!input && !imageAttachment && (
               <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 0.5 }}>
+                {commandBlocks.map((command) => (
+                  <Chip
+                    key={command.label}
+                    clickable
+                    size="small"
+                    label={command.label}
+                    variant="outlined"
+                    onClick={() => {
+                      setInput(command.prompt)
+                      inputRef.current?.focus()
+                    }}
+                    sx={{
+                      bgcolor: 'rgba(168,206,207,0.10)',
+                      borderColor: 'rgba(95,159,161,0.22)',
+                      fontWeight: 800,
+                    }}
+                  />
+                ))}
                 <Chip
                   clickable
                   size="small"
                   icon={<PhotoCameraIcon />}
-                  label="Maak foto / upload bon"
+                  label="Maak foto"
                   color="primary"
                   onClick={() => fileInputRef.current?.click()}
                 />
@@ -549,8 +555,8 @@ export default function ChatView() {
             )}
             <Paper sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: '#fafafb' }}>
               <Stack direction="row" spacing={1} alignItems="flex-end">
-                <IconButton aria-label="Maak foto of upload bon" onClick={() => fileInputRef.current?.click()}>
-                  <AttachFileIcon fontSize="small" />
+                <IconButton aria-label="Maak foto" onClick={() => fileInputRef.current?.click()}>
+                  <PhotoCameraIcon fontSize="small" />
                 </IconButton>
                 <TextareaAutosize
                   ref={inputRef}
@@ -564,7 +570,7 @@ export default function ChatView() {
                   }}
                   minRows={1}
                   maxRows={5}
-                  placeholder="Typ een bericht of vraag iets aan je AI..."
+                  placeholder="Typ je bericht..."
                   style={{
                     flex: 1,
                     resize: 'none',
@@ -577,7 +583,7 @@ export default function ChatView() {
                   }}
                 />
                 <IconButton color="primary" onClick={() => sendMessage()} disabled={(!input.trim() && !imageAttachment) || loading} sx={{ bgcolor: (input.trim() || imageAttachment) && !loading ? 'primary.main' : 'transparent', color: (input.trim() || imageAttachment) && !loading ? 'common.white' : 'text.disabled', '&:hover': { bgcolor: (input.trim() || imageAttachment) && !loading ? 'primary.dark' : 'action.hover' } }}>
-                  {loading ? <CircularProgress size={18} /> : <SendIcon fontSize="small" />}
+                  {loading ? <Spinner className="h-[18px] w-[18px]" /> : <SendIcon fontSize="small" />}
                 </IconButton>
               </Stack>
             </Paper>

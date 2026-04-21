@@ -1,5 +1,6 @@
 'use client'
 
+import { type ChangeEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -7,10 +8,13 @@ import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import IconButton from '@mui/material/IconButton'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import LoadingButton from '@/components/ui/LoadingButton'
 
 export type DetailField = {
   label: string
@@ -22,6 +26,16 @@ export type DetailAction = {
   href?: string
   onClick?: () => void
   variant?: 'text' | 'outlined' | 'contained'
+  loading?: boolean
+  disabled?: boolean
+}
+
+export type EditableDetailField = {
+  name: string
+  label: string
+  value?: string | number | boolean | null
+  type?: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'boolean'
+  options?: Array<{ label: string; value: string | number | boolean }>
 }
 
 export type AppDetailDrawerProps = {
@@ -35,6 +49,10 @@ export type AppDetailDrawerProps = {
   primaryHref?: string
   primaryLabel?: string
   actions?: DetailAction[]
+  editableFields?: EditableDetailField[]
+  onSave?: (values: Record<string, string | number | boolean | null>) => Promise<void> | void
+  saveLabel?: string
+  saving?: boolean
   children?: React.ReactNode
 }
 
@@ -49,8 +67,25 @@ export default function AppDetailDrawer({
   primaryHref,
   primaryLabel = 'Openen en bewerken',
   actions = [],
+  editableFields = [],
+  onSave,
+  saveLabel = 'Bewerking opslaan',
+  saving,
   children,
 }: AppDetailDrawerProps) {
+  const [editing, setEditing] = useState(false)
+  const [values, setValues] = useState<Record<string, string | number | boolean | null>>({})
+
+  useEffect(() => {
+    setValues(Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])))
+    setEditing(false)
+  }, [open, editableFields])
+
+  async function handleSave() {
+    await onSave?.(values)
+    setEditing(false)
+  }
+
   return (
     <Drawer
       anchor="right"
@@ -99,7 +134,64 @@ export default function AppDetailDrawer({
         </Box>
 
         <Stack spacing={2} sx={{ p: 2.5, flex: 1, overflow: 'auto' }}>
-          {fields.length > 0 && (
+          {editing && editableFields.length > 0 ? (
+            <Stack
+              component="form"
+              spacing={1.5}
+              onSubmit={(event) => {
+                event.preventDefault()
+                handleSave()
+              }}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                bgcolor: 'background.paper',
+                p: 2,
+              }}
+            >
+              {editableFields.map((field) => {
+                const common = {
+                  key: field.name,
+                  label: field.label,
+                  value: values[field.name] ?? '',
+                  fullWidth: true,
+                  onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                    setValues((current) => ({ ...current, [field.name]: field.type === 'number' ? Number(event.target.value) : event.target.value }))
+                  },
+                }
+
+                if (field.type === 'select') {
+                  return (
+                    <TextField select {...common}>
+                      {(field.options ?? []).map((option) => (
+                        <MenuItem key={String(option.value)} value={String(option.value)}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )
+                }
+
+                return (
+                  <TextField
+                    {...common}
+                    type={field.type === 'date' || field.type === 'number' ? field.type : 'text'}
+                    multiline={field.type === 'textarea'}
+                    minRows={field.type === 'textarea' ? 4 : undefined}
+                  />
+                )
+              })}
+              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                <Button type="button" variant="outlined" onClick={() => setEditing(false)} disabled={saving}>
+                  Annuleer
+                </Button>
+                <LoadingButton type="submit" variant="contained" loading={saving} loadingText="Opslaan...">
+                  {saveLabel}
+                </LoadingButton>
+              </Stack>
+            </Stack>
+          ) : fields.length > 0 && (
             <Stack
               divider={<Divider flexItem />}
               sx={{
@@ -126,11 +218,16 @@ export default function AppDetailDrawer({
           {children}
         </Stack>
 
-        {(primaryHref || actions.length > 0) && (
+        {(primaryHref || actions.length > 0 || editableFields.length > 0) && (
           <Stack direction="row" spacing={1} sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
             {primaryHref && (
               <Button component={Link} href={primaryHref} variant="contained" endIcon={<OpenInNewIcon />} fullWidth>
                 {primaryLabel}
+              </Button>
+            )}
+            {editableFields.length > 0 && !editing && (
+              <Button variant="contained" onClick={() => setEditing(true)} fullWidth={!primaryHref}>
+                Bewerken
               </Button>
             )}
             {actions.map((action) => action.href ? (
@@ -138,9 +235,9 @@ export default function AppDetailDrawer({
                 {action.label}
               </Button>
             ) : (
-              <Button key={action.label} onClick={action.onClick} variant={action.variant ?? 'outlined'}>
+              <LoadingButton key={action.label} onClick={action.onClick} variant={action.variant ?? 'outlined'} loading={action.loading} disabled={action.disabled}>
                 {action.label}
-              </Button>
+              </LoadingButton>
             ))}
           </Stack>
         )}

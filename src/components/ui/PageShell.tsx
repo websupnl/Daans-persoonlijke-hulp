@@ -4,6 +4,7 @@ import Breadcrumbs from '@mui/material/Breadcrumbs'
 import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 
 interface PageShellProps {
   title: string
@@ -39,30 +40,34 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
     >
       <Box
         sx={{
-          position: 'sticky',
-          top: 0,
+          position: 'relative',
           zIndex: 10,
-          mx: { xs: -2, sm: -3 },
-          mb: 3,
-          px: { xs: 2, sm: 3 },
-          py: 2.25,
+          mb: compact ? 2 : 3,
+          px: { xs: 0, sm: 0 },
+          py: compact ? 1.5 : 2.25,
           background:
-            'linear-gradient(90deg, rgba(168,206,207,0.14), rgba(230,174,140,0.10)), rgba(247,247,248,0.94)',
-          backdropFilter: 'blur(18px)',
-          borderBottom: '1px solid',
+            'linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.12)), rgba(255,255,255,0.62)',
+          border: '1px solid',
           borderColor: 'divider',
+          borderRadius: 1,
+          p: { xs: 2, md: 2.5 },
+          boxShadow: '0 18px 52px -44px rgba(15,15,16,0.38)',
         }}
       >
         <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 0.75, display: { xs: 'none', sm: 'flex' } }}>
           <Typography variant="caption" color="text.secondary">
-            Daan
+            LeefKompas
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {title}
           </Typography>
         </Breadcrumbs>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'flex-start' }} justifyContent="space-between">
-          <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            <Box sx={{ width: 38, height: 38, borderRadius: 1, display: 'grid', placeItems: 'center', color: 'common.white', background: 'var(--brand-gradient)', flexShrink: 0 }}>
+              <AutoAwesomeIcon fontSize="small" />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="h2"
               component="h1"
@@ -78,7 +83,8 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
                 {subtitle}
               </Typography>
             )}
-          </Box>
+            </Box>
+          </Stack>
           {(desktopSearch || actions) && (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: 'flex-start', sm: 'flex-end' }} alignItems="center">
               {desktopSearch && <Box sx={{ minWidth: { sm: 260 }, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>{desktopSearch}</Box>}

@@ -1,26 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, Save, Trash2, Calendar, Tag, CreditCard, AlignLeft, Info } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
+import { useEffect, useState } from 'react'
+import { Calendar, CreditCard, Save, Sparkles, Trash2, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import AIActionButton from '@/components/ai/AIActionButton'
 import ContextInput from '@/components/ai/ContextInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
 import { Textarea } from '@/components/ui/interfaces-textarea'
+import { Spinner } from '@/components/ui/spinner'
 
 interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (id: number, data: any) => Promise<void>
+  onCreate?: (data: any) => Promise<void>
   onDelete: (id: number) => Promise<void>
   transaction: any | null
 }
 
-const GRAD = 'linear-gradient(135deg, #f97316 0%, #ec4899 45%, #a78bfa 100%)'
+const GRAD = 'linear-gradient(135deg, #a8cecf 0%, #e6ae8c 100%)'
 const CATEGORIES = ['overig', 'boodschappen', 'auto', 'transport', 'eten', 'abonnement', 'belasting', 'vaste lasten', 'kleding', 'buffer', 'btw', 'sparen']
 const ACCOUNTS = ['privé', 'zakelijk']
 
-export default function TransactionModal({ isOpen, onClose, onSave, onDelete, transaction }: TransactionModalProps) {
+export default function TransactionModal({ isOpen, onClose, onSave, onCreate, onDelete, transaction }: TransactionModalProps) {
   const [form, setForm] = useState({
     title: '',
     amount: '',
@@ -31,82 +33,55 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
     due_date: '',
     status: 'betaald',
     user_notes: '',
-    description: ''
+    description: '',
   })
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
 
-  const handleAIAction = async (itemId: number, action: string) => {
+  useEffect(() => {
+    setForm({
+      title: transaction?.title || '',
+      amount: String(transaction?.amount || ''),
+      type: transaction?.type || 'uitgave',
+      category: transaction?.category || 'overig',
+      subcategory: transaction?.subcategory || '',
+      account: transaction?.account || 'privé',
+      due_date: transaction?.due_date ? String(transaction.due_date).split('T')[0] : '',
+      status: transaction?.status || 'betaald',
+      user_notes: transaction?.user_notes || '',
+      description: transaction?.description || '',
+    })
+  }, [transaction, isOpen])
+
+  if (!isOpen) return null
+
+  async function handleAIAction(itemId: number, action: string) {
     setAiLoading(true)
     try {
-      const response = await fetch('/api/ai/action', {
+      await fetch('/api/ai/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId,
-          itemType: 'transaction',
-          action
-        })
+        body: JSON.stringify({ itemId, itemType: 'transaction', action }),
       })
-      
-      if (response.ok) {
-        const result = await response.json()
-        // Verwerk AI response (bijv. update form met suggesties)
-        console.log('AI result:', result)
-      }
-    } catch (err) {
-      console.error('AI action failed:', err)
     } finally {
       setAiLoading(false)
     }
   }
 
-  const handleContextSave = async (itemId: number, context: string) => {
-    try {
-      const response = await fetch('/api/ai/context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId,
-          itemType: 'transaction',
-          context
-        })
-      })
-      
-      if (response.ok) {
-        console.log('Context saved successfully')
-      }
-    } catch (err) {
-      console.error('Context save failed:', err)
-    }
+  async function handleContextSave(itemId: number, context: string) {
+    await fetch('/api/ai/context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, itemType: 'transaction', context }),
+    })
   }
 
-  useEffect(() => {
-    if (transaction) {
-      setForm({
-        title: transaction.title || '',
-        amount: String(transaction.amount || ''),
-        type: transaction.type || 'uitgave',
-        category: transaction.category || 'overig',
-        subcategory: transaction.subcategory || '',
-        account: transaction.account || 'privé',
-        due_date: transaction.due_date ? transaction.due_date.split('T')[0] : '',
-        status: transaction.status || 'betaald',
-        user_notes: transaction.user_notes || '',
-        description: transaction.description || ''
-      })
-    }
-  }, [transaction])
-
-  if (!isOpen || !transaction) return null
-
-  const handleSave = async () => {
+  async function handleSave() {
     setLoading(true)
     try {
-      await onSave(transaction.id, {
-        ...form,
-        amount: parseFloat(form.amount) || 0
-      })
+      const data = { ...form, amount: parseFloat(form.amount) || 0, due_date: form.due_date || null }
+      if (transaction?.id) await onSave(transaction.id, data)
+      else await onCreate?.(data)
       onClose()
     } finally {
       setLoading(false)
@@ -114,209 +89,138 @@ export default function TransactionModal({ isOpen, onClose, onSave, onDelete, tr
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md" style={{ background: GRAD }}>
-              <CreditCard size={20} />
+    <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-black/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92dvh] w-full max-w-lg overflow-hidden rounded-t-lg border border-outline-variant bg-white shadow-2xl sm:rounded-lg">
+        <div className="flex items-center justify-between border-b border-outline-variant px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-white" style={{ background: GRAD }}>
+              <CreditCard size={19} />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-gray-800">Transactie Details</h2>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">ID: {transaction.id}</p>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-bold text-on-surface">{transaction?.id ? 'Transactie details' : 'Nieuwe transactie'}</h2>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{transaction?.id ? `ID ${transaction.id}` : 'Direct opslaan'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400">
-            <X size={20} />
+          <button onClick={onClose} className="rounded-md p-2 text-on-surface-variant hover:bg-surface-container-low" aria-label="Sluiten">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 sm:p-6 space-y-3 sm:space-y-5 max-h-[70vh] overflow-y-auto">
-          {/* Title & Amount */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Omschrijving</label>
-              <input
-                value={form.title}
-                onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bedrag (€)</label>
-              <input
-                type="number"
-                value={form.amount}
-                onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all"
-              />
-            </div>
+        <div className="max-h-[64dvh] space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Omschrijving">
+              <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} className="field-input" />
+            </Field>
+            <Field label="Bedrag">
+              <input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} className="field-input font-bold" />
+            </Field>
           </div>
 
-          {/* Type & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Type</label>
-              <div className="flex gap-1 p-1 bg-gray-50 rounded-2xl border border-gray-100">
-                {['inkomst', 'uitgave'].map(t => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Type">
+              <div className="flex gap-1 rounded-md border border-outline-variant bg-surface-container-low p-1">
+                {['inkomst', 'uitgave'].map((type) => (
                   <button
-                    key={t}
-                    onClick={() => setForm(p => ({ ...p, type: t as any }))}
-                    className={cn(
-                      'flex-1 py-1.5 rounded-xl text-[10px] font-bold uppercase transition-all',
-                      form.type === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                    )}
+                    key={type}
+                    onClick={() => setForm((p) => ({ ...p, type }))}
+                    className={cn('flex-1 rounded px-3 py-2 text-xs font-bold uppercase', form.type === type ? 'bg-white text-on-surface shadow-sm' : 'text-on-surface-variant')}
                   >
-                    {t}
+                    {type}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Datum</label>
+            </Field>
+            <Field label="Datum">
               <div className="relative">
-                <input
-                  type="date"
-                  value={form.due_date}
-                  onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all appearance-none"
-                />
-                <Calendar size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                <input type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))} className="field-input" />
+                <Calendar size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
               </div>
-            </div>
+            </Field>
           </div>
 
-          {/* Account & Category */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Rekening</label>
-              <div className="flex gap-1 p-1 bg-gray-50 rounded-2xl border border-gray-100">
-                {ACCOUNTS.map(acc => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Rekening">
+              <div className="flex gap-1 rounded-md border border-outline-variant bg-surface-container-low p-1">
+                {ACCOUNTS.map((account) => (
                   <button
-                    key={acc}
-                    onClick={() => setForm(p => ({ ...p, account: acc }))}
-                    className={cn(
-                      'flex-1 py-1.5 rounded-xl text-[10px] font-bold uppercase transition-all',
-                      form.account === acc ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-                    )}
+                    key={account}
+                    onClick={() => setForm((p) => ({ ...p, account }))}
+                    className={cn('flex-1 rounded px-3 py-2 text-xs font-bold uppercase', form.account === account ? 'bg-white text-on-surface shadow-sm' : 'text-on-surface-variant')}
                   >
-                    {acc === 'privé' ? '🏠' : '💼'} {acc}
+                    {account}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Categorie</label>
-              <Select value={form.category} onValueChange={value => setForm(p => ({ ...p, category: value }))}>
-                <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50 px-4 py-2 sm:py-2.5 text-sm focus:ring-pink-100">
+            </Field>
+            <Field label="Categorie">
+              <Select value={form.category} onValueChange={(value) => setForm((p) => ({ ...p, category: value }))}>
+                <SelectTrigger className="w-full rounded-md bg-surface-container-low px-3 py-2 text-sm">
                   <SelectValue placeholder="Categorie" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           </div>
 
-          {/* User Notes */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Persoonlijke Notitie</label>
-            <div className="relative">
-              <Textarea
-                value={form.user_notes}
-                onChange={e => setForm(p => ({ ...p, user_notes: e.target.value }))}
-                placeholder="Bijv: 'Lekkere lunch met Jan', 'Vliegticket vakantie'..."
-                rows={2}
-                className="w-full resize-none rounded-2xl border border-gray-100 bg-gray-50 px-4 py-2 sm:py-3 text-sm focus-visible:ring-2 focus-visible:ring-pink-100"
-              />
-              <AlignLeft size={14} className="absolute right-4 top-4 text-gray-300 pointer-events-none" />
-            </div>
-          </div>
+          <Field label="Notitie">
+            <Textarea value={form.user_notes} onChange={(e) => setForm((p) => ({ ...p, user_notes: e.target.value }))} rows={3} className="w-full resize-none rounded-md border-outline-variant bg-surface-container-low px-3 py-2 text-sm" />
+          </Field>
 
-          {/* Subcategory & Description (Advanced) */}
-          <div className="pt-2 border-t border-gray-50 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Info size={12} className="text-gray-300" />
-              <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Metadata</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Subcategorie</label>
-                <input
-                  value={form.subcategory}
-                  onChange={e => setForm(p => ({ ...p, subcategory: e.target.value }))}
-                  placeholder="Ingegeven door AI..."
-                  className="w-full bg-gray-50/50 border border-gray-100 rounded-2xl px-4 py-1.5 sm:py-2 text-xs focus:outline-none transition-all"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Status</label>
-                <Select value={form.status} onValueChange={value => setForm(p => ({ ...p, status: value }))}>
-                  <SelectTrigger className="w-full rounded-2xl border-gray-100 bg-gray-50/50 px-4 py-1.5 sm:py-2 text-xs">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['betaald', 'concept', 'verstuurd', 'verlopen', 'geannuleerd'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-3 border-t border-outline-variant pt-4 sm:grid-cols-2">
+            <Field label="Subcategorie">
+              <input value={form.subcategory} onChange={(e) => setForm((p) => ({ ...p, subcategory: e.target.value }))} className="field-input" />
+            </Field>
+            <Field label="Status">
+              <Select value={form.status} onValueChange={(value) => setForm((p) => ({ ...p, status: value }))}>
+                <SelectTrigger className="w-full rounded-md bg-surface-container-low px-3 py-2 text-sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {['betaald', 'concept', 'verstuurd', 'verlopen', 'geannuleerd'].map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
         </div>
 
-        {/* AI Context Input */}
-        {transaction && (
-          <div className="px-4 py-3 sm:px-6 sm:py-4 bg-blue-50 border-t border-blue-100">
-            <ContextInput
-              itemId={transaction.id}
-              itemType="transaction"
-              onSendContext={handleContextSave}
-              placeholder="Voeg context toe voor AI analyse van deze transactie..."
-            />
+        {transaction?.id && (
+          <div className="border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:px-6">
+            <ContextInput itemId={transaction.id} itemType="transaction" onSendContext={handleContextSave} placeholder="Context voor AI bij deze transactie..." />
           </div>
         )}
 
-        {/* Footer */}
-        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => { if (confirm('Weet je het zeker?')) onDelete(transaction.id); onClose() }}
-              className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-              title="Verwijderen"
-            >
-              <Trash2 size={20} />
-            </button>
-            {transaction && (
-              <AIActionButton
-                itemId={transaction.id}
-                itemType="transaction"
-                onAIAction={handleAIAction}
-                size="sm"
-                variant="secondary"
-              />
+        <div className="flex items-center justify-between gap-3 border-t border-outline-variant bg-surface-container-low px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            {transaction?.id && (
+              <>
+                <button onClick={() => { if (confirm('Weet je het zeker?')) onDelete(transaction.id); onClose() }} className="rounded-md p-2 text-on-surface-variant hover:bg-red-50 hover:text-red-600" title="Verwijderen">
+                  <Trash2 size={18} />
+                </button>
+                <AIActionButton itemId={transaction.id} itemType="transaction" onAIAction={handleAIAction} size="sm" variant="secondary" />
+                {aiLoading && <Sparkles size={15} className="animate-pulse text-on-surface-variant" />}
+              </>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl text-sm font-semibold text-gray-500 hover:bg-gray-100 transition-all"
-            >
-              Annuleer
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={loading || !form.title.trim()}
-              className="flex items-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 rounded-2xl text-white text-sm font-bold shadow-lg transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ background: GRAD }}
-            >
-              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="rounded-md px-4 py-2 text-sm font-semibold text-on-surface-variant hover:bg-white">Annuleer</button>
+            <button onClick={handleSave} disabled={loading || !form.title.trim()} className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-bold text-white disabled:opacity-50" style={{ background: GRAD }}>
+              {loading ? <Spinner className="h-4 w-4" /> : <Save size={16} />}
               Opslaan
             </button>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="space-y-1.5">
+      <span className="ml-0.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-on-surface-variant">{label}</span>
+      {children}
+    </label>
   )
 }

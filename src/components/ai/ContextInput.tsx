@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { Send, X, MessageSquare } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ContextInputProps {
   itemId: number
@@ -80,7 +81,7 @@ export default function ContextInput({
         >
           {loading ? (
             <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Spinner className="h-4 w-4" />
               <span>Bezig...</span>
             </>
           ) : (

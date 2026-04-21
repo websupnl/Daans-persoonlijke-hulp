@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity } from 'lucide-react'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
@@ -20,15 +19,21 @@ interface ActivityItem {
 const FILTERS = [
   { key: 'all', label: 'Alles' },
   { key: 'chat', label: 'Chat' },
-  { key: 'todo', label: 'Todos' },
-  { key: 'note', label: 'Notes' },
+  { key: 'ai', label: 'AI' },
+  { key: 'memory', label: 'Geheugen' },
+  { key: 'todo', label: 'Taken' },
+  { key: 'finance', label: 'Financien' },
+  { key: 'note', label: 'Notities' },
   { key: 'event', label: 'Agenda' },
   { key: 'worklog', label: 'Werklog' },
-  { key: 'idea', label: 'Ideeën' },
+  { key: 'idea', label: 'Ideeen' },
 ]
 
 const TYPE_COLORS: Record<string, string> = {
+  ai: 'bg-violet-50 text-violet-700',
   chat: 'bg-blue-50 text-blue-700',
+  memory: 'bg-teal-50 text-teal-700',
+  finance: 'bg-orange-50 text-orange-700',
   todo: 'bg-emerald-50 text-emerald-700',
   note: 'bg-amber-50 text-amber-700',
   event: 'bg-violet-50 text-violet-700',
@@ -51,32 +56,33 @@ export default function TimelineView() {
         setItems(data.data || [])
         setLoading(false)
       })
+      .catch(() => setLoading(false))
   }, [filter])
 
   return (
     <PageShell
       title="Timeline"
-      subtitle={`${items.length} activiteiten. Eén tijdlijn over chat, inbox, todos, notes, agenda, werklog, memory en ideeën.`}
+      subtitle={`${items.length} events. Debug-overzicht van AI, opslag, mutaties en handmatige acties.`}
     >
       <Panel>
         <PanelHeader
           eyebrow="Filter"
-          title="Activiteiten"
-          description="Alles wat je hebt gedaan in één overzicht."
+          title="Debug events"
+          description="Gebruik dit om te zien welke acties echt zijn uitgevoerd, opgeslagen of mislukt."
         />
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
+          {FILTERS.map((item) => (
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
+              key={item.key}
+              onClick={() => setFilter(item.key)}
               className={
-                filter === f.key
+                filter === item.key
                   ? 'rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-white'
                   : 'rounded-full border border-outline-variant bg-white px-4 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface-container-low'
               }
             >
-              {f.label}
+              {item.label}
             </button>
           ))}
         </div>
@@ -84,21 +90,18 @@ export default function TimelineView() {
         <div className="mt-5 space-y-2">
           {loading ? (
             <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-container-low" />
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-16 animate-pulse rounded-lg bg-surface-container-low" />
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyPanel
-              title="Geen activiteiten"
-              description="Zodra je acties uitvoert in andere modules verschijnen ze hier."
-            />
+            <EmptyPanel title="Geen events" description="Zodra acties worden uitgevoerd, verschijnen ze hier als controleerbare events." />
           ) : (
             items.map((item) => (
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
-                className="cursor-pointer rounded-xl border border-outline-variant bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)] transition-colors hover:bg-surface-container-low"
+                className="cursor-pointer rounded-lg border border-outline-variant bg-white p-4 shadow-[0_12px_30px_-24px_rgba(31,37,35,0.18)] transition-colors hover:bg-surface-container-low"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TYPE_COLORS[item.entity_type] ?? 'bg-surface-container-low text-on-surface-variant'}`}>
@@ -116,12 +119,13 @@ export default function TimelineView() {
           )}
         </div>
       </Panel>
+
       <AppDetailDrawer
         open={!!selectedItem}
         onClose={() => setSelectedItem(null)}
-        eyebrow="Activiteit"
+        eyebrow="Debug event"
         title={selectedItem?.title}
-        subtitle={selectedItem?.summary || 'Gebeurtenis in je persoonlijke systeem.'}
+        subtitle={selectedItem?.summary || 'Gebeurtenis in het systeem.'}
         status={selectedItem?.entity_type}
         fields={[
           { label: 'Actie', value: selectedItem?.action },
@@ -133,7 +137,7 @@ export default function TimelineView() {
         {selectedItem && Object.keys(selectedItem.metadata || {}).length > 0 && (
           <Panel tone="muted">
             <PanelHeader eyebrow="Metadata" title="Extra context" />
-            <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-xs leading-5 text-on-surface-variant">
+            <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-white p-3 text-xs leading-5 text-on-surface-variant">
               {JSON.stringify(selectedItem.metadata, null, 2)}
             </pre>
           </Panel>
