@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import PageShell from '@/components/ui/PageShell'
-import { ActionPill, EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
+import { EmptyPanel, Panel, PanelHeader } from '@/components/ui/Panel'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 
 interface ActivityItem {
@@ -39,6 +39,39 @@ const TYPE_COLORS: Record<string, string> = {
   event: 'bg-violet-50 text-violet-700',
   worklog: 'bg-orange-50 text-orange-700',
   idea: 'bg-pink-50 text-pink-700',
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  created: 'Opgeslagen',
+  updated: 'Bijgewerkt',
+  deleted: 'Verwijderd',
+  started: 'Gestart',
+  completed: 'Afgerond',
+  failed: 'Fout gegaan',
+  memory_saved: 'Onthouden',
+  context_refreshed: 'Context vernieuwd',
+}
+
+function actionLabel(action: string) {
+  return ACTION_LABELS[action] || action
+}
+
+function actionTone(action: string) {
+  if (action.includes('fail') || action.includes('error')) return 'bg-red-50 text-red-700 border-red-100'
+  if (action === 'deleted') return 'bg-orange-50 text-orange-700 border-orange-100'
+  if (action === 'updated' || action === 'context_refreshed') return 'bg-blue-50 text-blue-700 border-blue-100'
+  if (action === 'created' || action === 'completed' || action === 'memory_saved') return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+  return 'bg-surface-container-low text-on-surface-variant border-outline-variant'
+}
+
+function trustLine(item: ActivityItem) {
+  if (item.action.includes('fail') || item.action.includes('error')) return 'Actie is mislukt en vraagt controle.'
+  if (item.action === 'created') return 'Item is opgeslagen en terug te vinden in de app.'
+  if (item.action === 'updated') return 'Wijziging is opgeslagen.'
+  if (item.action === 'deleted') return 'Item is verwijderd.'
+  if (item.action === 'memory_saved') return 'AI-geheugen is opgeslagen of versterkt.'
+  if (item.action === 'context_refreshed') return 'AI-context is vernieuwd.'
+  return item.summary || 'Actie is geregistreerd.'
 }
 
 export default function TimelineView() {
@@ -107,13 +140,18 @@ export default function TimelineView() {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TYPE_COLORS[item.entity_type] ?? 'bg-surface-container-low text-on-surface-variant'}`}>
                     {item.entity_type}
                   </span>
-                  <ActionPill>{item.action}</ActionPill>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${actionTone(item.action)}`}>
+                    {actionLabel(item.action)}
+                  </span>
                   <span className="text-[11px] text-on-surface-variant">
                     {new Date(item.created_at).toLocaleString('nl-NL')}
                   </span>
                 </div>
                 <p className="mt-2 text-sm font-semibold text-on-surface">{item.title}</p>
-                {item.summary && <p className="mt-1 text-sm leading-6 text-on-surface-variant">{item.summary}</p>}
+                <p className="mt-1 text-sm leading-6 text-on-surface-variant">{trustLine(item)}</p>
+                {item.summary && item.summary !== trustLine(item) && (
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{item.summary}</p>
+                )}
               </div>
             ))
           )}
@@ -128,7 +166,8 @@ export default function TimelineView() {
         subtitle={selectedItem?.summary || 'Gebeurtenis in het systeem.'}
         status={selectedItem?.entity_type}
         fields={[
-          { label: 'Actie', value: selectedItem?.action },
+          { label: 'Actie', value: selectedItem ? actionLabel(selectedItem.action) : '-' },
+          { label: 'Status', value: selectedItem ? trustLine(selectedItem) : '-' },
           { label: 'Type', value: selectedItem?.entity_type },
           { label: 'Entity ID', value: selectedItem?.entity_id ?? '-' },
           { label: 'Moment', value: selectedItem?.created_at ? new Date(selectedItem.created_at).toLocaleString('nl-NL') : '-' },
