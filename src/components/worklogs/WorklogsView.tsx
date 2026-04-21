@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -18,6 +17,7 @@ import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import AIContextButton from '@/components/ai/AIContextButton'
 import FloatingActionButton from '@/components/ui/FloatingActionButton'
 import LoadingButton from '@/components/ui/LoadingButton'
+import ActionFeedback from '@/components/ui/ActionFeedback'
 import {
   addDays,
   format,
@@ -520,9 +520,9 @@ export default function WorklogsView() {
               )}
             </Stack>
             {timerError && (
-              <Alert severity="error" sx={{ mt: 1.5, position: 'relative', zIndex: 1 }}>
-                {timerError}
-              </Alert>
+              <Box sx={{ mt: 1.5, position: 'relative', zIndex: 1 }}>
+                <ActionFeedback tone="error" title="Timeractie mislukt" message={timerError} />
+              </Box>
             )}
           </Paper>
 

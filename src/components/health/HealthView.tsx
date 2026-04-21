@@ -1,7 +1,6 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -28,6 +27,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import PageShell, { PageSection } from '@/components/ui/PageShell'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import LoadingButton from '@/components/ui/LoadingButton'
+import ActionFeedback from '@/components/ui/ActionFeedback'
 
 type HealthLog = {
   id?: number
@@ -408,8 +408,8 @@ export default function HealthView() {
       subtitle="Dagelijkse signalen voor betere planning, patronen en AI-context."
       actions={<Button variant="outlined" onClick={load}>Vernieuwen</Button>}
     >
-      {error && <Alert severity="error">{error}</Alert>}
-      {saved && <Alert severity="success">Gezondheid opgeslagen.</Alert>}
+      {error && <ActionFeedback tone="error" title="Gezondheid niet opgeslagen" message={error} />}
+      {saved && <ActionFeedback tone="success" title="Opgeslagen" message="Gezondheid is opgeslagen en de context is vernieuwd." />}
 
       <Paper
         sx={{

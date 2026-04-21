@@ -2,7 +2,6 @@
 
 import { type ChangeEvent, useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
-import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
@@ -15,6 +14,7 @@ import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LoadingButton from '@/components/ui/LoadingButton'
+import ActionFeedback from '@/components/ui/ActionFeedback'
 
 export type DetailField = {
   label: string
@@ -163,7 +163,7 @@ export default function AppDetailDrawer({
                 p: 2,
               }}
             >
-              {saveError && <Alert severity="error">{saveError}</Alert>}
+              {saveError && <ActionFeedback tone="error" title="Opslaan mislukt" message={saveError} />}
               {editableFields.map((field) => {
                 const common = {
                   label: field.label,
