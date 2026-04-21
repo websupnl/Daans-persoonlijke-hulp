@@ -14,6 +14,8 @@ import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import AlertTriangle from '@mui/icons-material/ReportProblem'
 import ChevronLeft from '@mui/icons-material/ChevronLeft'
 import ChevronRight from '@mui/icons-material/ChevronRight'
@@ -114,6 +116,8 @@ function readableDate(value?: string) {
 }
 
 export default function FinanceView() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [items, setItems] = useState<FinanceItem[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
@@ -234,7 +238,7 @@ export default function FinanceView() {
     {
       field: 'due_date',
       headerName: 'Datum',
-      width: 120,
+      width: isMobile ? 96 : 120,
       valueGetter: (_, row) => row.due_date || row.created_at,
       renderCell: (params: GridRenderCellParams) => (
         <Typography variant="body2" color="text.secondary">
@@ -245,8 +249,10 @@ export default function FinanceView() {
     {
       field: 'title',
       headerName: 'Omschrijving',
-      flex: 1,
-      minWidth: 180,
+      flex: isMobile ? 0 : 1,
+      width: isMobile ? 156 : undefined,
+      minWidth: isMobile ? 156 : 190,
+      maxWidth: isMobile ? 156 : undefined,
       renderCell: (params: GridRenderCellParams) => (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 750, whiteSpace: 'normal', lineHeight: 1.45 }}>{params.value}</Typography>
@@ -254,12 +260,14 @@ export default function FinanceView() {
         </Box>
       ),
     },
-    { field: 'account', headerName: 'Rekening', width: 130, renderCell: (params: GridRenderCellParams) => accountLabel(params.value) },
-    { field: 'category', headerName: 'Categorie', width: 130 },
+    ...(!isMobile ? [
+      { field: 'account', headerName: 'Rekening', width: 130, renderCell: (params: GridRenderCellParams) => accountLabel(params.value) },
+      { field: 'category', headerName: 'Categorie', width: 130 },
+    ] : []),
     {
       field: 'amount',
       headerName: 'Bedrag',
-      width: 120,
+      width: isMobile ? 108 : 120,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params: GridRenderCellParams) => (
@@ -357,6 +365,27 @@ export default function FinanceView() {
                     {filter}
                   </Button>
                 ))}
+              </Stack>
+            </Stack>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={0.75}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              sx={{
+                px: 2,
+                py: 1.25,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'rgba(168,206,207,0.08)',
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 850 }}>
+                Actieve filters
+              </Typography>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                <Chip size="small" color="primary" label={`Rekening: ${accountFilter}`} />
+                <Chip size="small" variant="outlined" label={`Type: ${typeFilter}`} />
+                <Chip size="small" variant="outlined" label={periodLabel(viewMode, currentDate)} />
               </Stack>
             </Stack>
 
