@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
+import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
@@ -75,11 +76,13 @@ export default function AppDetailDrawer({
   children,
 }: AppDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, string | number | boolean | null>>({})
   const editableSnapshot = JSON.stringify(editableFields.map((field) => [field.name, field.value ?? '']))
 
   useEffect(() => {
     if (!open) return
+    setSaveError(null)
     setValues(Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])))
     setEditing(defaultEditing && editableFields.length > 0)
     // Only reset form values when the drawer opens or the source values actually change.
@@ -87,8 +90,13 @@ export default function AppDetailDrawer({
   }, [open, editableSnapshot, defaultEditing])
 
   async function handleSave() {
-    await onSave?.(values)
-    setEditing(false)
+    setSaveError(null)
+    try {
+      await onSave?.(values)
+      setEditing(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Opslaan is niet gelukt')
+    }
   }
 
   return (
@@ -155,6 +163,7 @@ export default function AppDetailDrawer({
                 p: 2,
               }}
             >
+              {saveError && <Alert severity="error">{saveError}</Alert>}
               {editableFields.map((field) => {
                 const common = {
                   label: field.label,
