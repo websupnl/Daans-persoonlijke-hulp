@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -22,7 +23,6 @@ import {
   format,
   isToday,
   isYesterday,
-  startOfDay,
 } from 'date-fns'
 import { nl } from 'date-fns/locale'
 import ClockIcon from '@mui/icons-material/AccessTime'
@@ -41,6 +41,8 @@ interface WorkLog {
   description?: string
   duration_minutes: number
   actual_duration_minutes?: number
+  start_time?: string | null
+  end_time?: string | null
   energy_level?: number
 }
 
@@ -70,6 +72,32 @@ function addMinutesToTime(start: string, minutes: number) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
+function normalizeDateInput(value?: string | null) {
+  if (!value) return ''
+  return String(value).split('T')[0]
+}
+
+function formatDateLabel(value?: string | null) {
+  const date = normalizeDateInput(value)
+  if (!date) return '-'
+  return format(new Date(`${date}T12:00:00`), 'd MMM yyyy', { locale: nl })
+}
+
+function timeRangeLabel(start?: string | null, end?: string | null, minutes?: number | null) {
+  if (start && end) return `${start} - ${end}`
+  if (minutes) return formatDuration(minutes)
+  return '-'
+}
+
+function formatLiveDuration(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, totalSeconds)
+  const h = Math.floor(safeSeconds / 3600)
+  const m = Math.floor((safeSeconds % 3600) / 60)
+  const s = safeSeconds % 60
+  if (h > 0) return `${h}u ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  return `${m}m ${String(s).padStart(2, '0')}s`
+}
+
 function defaultTimeRange(minutes = 60) {
   const now = new Date()
   const roundedMinutes = Math.floor(now.getMinutes() / 15) * 15
@@ -90,6 +118,7 @@ export default function WorklogsView() {
   const [activeTimer, setActiveTimer] = useState<{ title: string; context: string; elapsed_minutes: number; started_at?: string } | null>(null)
   const [timerTitle, setTimerTitle] = useState('')
   const [timerBusy, setTimerBusy] = useState(false)
+  const [timerError, setTimerError] = useState<string | null>(null)
   const [tick, setTick] = useState(Date.now())
 
   const load = useCallback(async () => {
@@ -154,6 +183,8 @@ export default function WorklogsView() {
           context: values.context || 'werk',
           duration_minutes: duration,
           actual_duration_minutes: duration,
+          start_time: values.start_time || null,
+          end_time: values.end_time || null,
           energy_level: values.energy_level ? Number(values.energy_level) : null,
           source: 'manual',
         }),
@@ -189,6 +220,8 @@ export default function WorklogsView() {
           context: values.context,
           duration_minutes: duration,
           actual_duration_minutes: duration,
+          start_time: values.start_time || null,
+          end_time: values.end_time || null,
           energy_level: values.energy_level ? Number(values.energy_level) : null,
         }),
       })
@@ -210,14 +243,19 @@ export default function WorklogsView() {
   async function startTimer() {
     const title = timerTitle.trim() || 'Werkblok'
     setTimerBusy(true)
+    setTimerError(null)
     try {
-      await fetch('/api/timers', {
+      const response = await fetch('/api/timers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start', title, context: 'werk' }),
       })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Timer starten is niet gelukt')
       setTimerTitle('')
       await load()
+    } catch (error) {
+      setTimerError(error instanceof Error ? error.message : 'Timer starten is niet gelukt')
     } finally {
       setTimerBusy(false)
     }
@@ -225,13 +263,18 @@ export default function WorklogsView() {
 
   async function stopTimer() {
     setTimerBusy(true)
+    setTimerError(null)
     try {
-      await fetch('/api/timers', {
+      const response = await fetch('/api/timers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stop' }),
       })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Timer stoppen is niet gelukt')
       await load()
+    } catch (error) {
+      setTimerError(error instanceof Error ? error.message : 'Timer stoppen is niet gelukt')
     } finally {
       setTimerBusy(false)
     }
@@ -243,18 +286,18 @@ export default function WorklogsView() {
     return format(currentDate, 'EEEE d MMMM', { locale: nl })
   }, [currentDate])
 
-  const liveTimerMinutes = useMemo(() => {
+  const liveTimerSeconds = useMemo(() => {
     if (!activeTimer) return 0
-    if (!activeTimer.started_at) return activeTimer.elapsed_minutes
-    return Math.max(0, Math.floor((tick - new Date(activeTimer.started_at).getTime()) / 60000))
+    if (!activeTimer.started_at) return (activeTimer.elapsed_minutes || 0) * 60
+    return Math.max(0, Math.floor((tick - new Date(activeTimer.started_at).getTime()) / 1000))
   }, [activeTimer, tick])
 
   const manualTimeRange = useMemo(() => defaultTimeRange(60), [manualOpen])
   const selectedTimeRange = useMemo(() => {
-    const start = '09:00'
+    const start = selectedLog?.start_time || '09:00'
     return {
       start,
-      end: addMinutesToTime(start, selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes || 30),
+      end: selectedLog?.end_time || addMinutesToTime(start, selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes || 30),
     }
   }, [selectedLog])
 
@@ -295,9 +338,16 @@ export default function WorklogsView() {
       headerName: 'Duur', 
       width: 100,
       renderCell: (params: GridRenderCellParams) => (
-        <Typography variant="body2" sx={{ fontWeight: 800 }}>
-          {formatDuration(params.row.actual_duration_minutes || params.value)}
-        </Typography>
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 800 }}>
+            {formatDuration(params.row.actual_duration_minutes || params.value)}
+          </Typography>
+          {(params.row.start_time || params.row.end_time) && (
+            <Typography variant="caption" color="text.secondary">
+              {timeRangeLabel(params.row.start_time, params.row.end_time)}
+            </Typography>
+          )}
+        </Box>
       )
     },
     {
@@ -373,6 +423,9 @@ export default function WorklogsView() {
                     '50%': { backgroundPosition: '100% 50%' },
                     '100%': { backgroundPosition: '0% 50%' },
                   },
+                  '@media (prefers-reduced-motion: reduce)': {
+                    animation: 'none',
+                  },
                 }}
               />
             )}
@@ -389,6 +442,15 @@ export default function WorklogsView() {
                       color: 'common.white',
                       background: 'var(--brand-gradient)',
                       boxShadow: activeTimer ? '0 0 0 6px rgba(95,159,161,0.12)' : 'none',
+                      transform: activeTimer ? 'translateZ(0)' : 'none',
+                      animation: activeTimer ? 'timerIconBeat 1.8s ease-in-out infinite' : 'none',
+                      '@keyframes timerIconBeat': {
+                        '0%, 100%': { boxShadow: '0 0 0 5px rgba(95,159,161,0.12)' },
+                        '50%': { boxShadow: '0 0 0 9px rgba(230,174,140,0.18)' },
+                      },
+                      '@media (prefers-reduced-motion: reduce)': {
+                        animation: 'none',
+                      },
                     }}
                   >
                     <TimerIcon fontSize="small" />
@@ -396,15 +458,37 @@ export default function WorklogsView() {
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 850 }}>Timer</Typography>
                     {activeTimer && (
-                      <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1 }}>
-                        {formatDuration(liveTimerMinutes)}
+                      <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                        {formatLiveDuration(liveTimerSeconds)}
                       </Typography>
                     )}
                   </Box>
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  {activeTimer ? `${activeTimer.title} loopt nu actief.` : 'Start een werksessie en stop hem om automatisch te loggen.'}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.75 }}>
+                  {activeTimer && (
+                    <Box
+                      aria-hidden
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: 'primary.main',
+                        animation: 'timerDot 1.2s ease-in-out infinite',
+                        '@keyframes timerDot': {
+                          '0%, 100%': { opacity: 0.45, transform: 'scale(0.88)' },
+                          '50%': { opacity: 1, transform: 'scale(1)' },
+                        },
+                        '@media (prefers-reduced-motion: reduce)': {
+                          animation: 'none',
+                          opacity: 1,
+                        },
+                      }}
+                    />
+                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    {activeTimer ? `${activeTimer.title} loopt nu actief.` : 'Start een werksessie en stop hem om automatisch te loggen.'}
+                  </Typography>
+                </Stack>
               </Box>
               {activeTimer ? (
                 <LoadingButton variant="contained" onClick={stopTimer} loading={timerBusy} loadingText="Stoppen..." sx={{ position: 'relative', zIndex: 1 }}>
@@ -435,6 +519,11 @@ export default function WorklogsView() {
                 </Stack>
               )}
             </Stack>
+            {timerError && (
+              <Alert severity="error" sx={{ mt: 1.5, position: 'relative', zIndex: 1 }}>
+                {timerError}
+              </Alert>
+            )}
           </Paper>
 
           <AIBriefing 
@@ -459,6 +548,7 @@ export default function WorklogsView() {
                 loading={loading}
                 disableRowSelectionOnClick
                 onRowClick={(params) => setSelectedLog(params.row as WorkLog)}
+                slots={{ noRowsOverlay: WorklogEmptyOverlay }}
                 sx={{ border: 'none' }}
               />
             </Box>
@@ -474,15 +564,16 @@ export default function WorklogsView() {
         subtitle={selectedLog?.description || 'Geen extra details.'}
         status={selectedLog?.context}
         fields={[
-          { label: 'Datum', value: selectedLog?.date ? format(new Date(selectedLog.date), 'd MMM yyyy') : '-' },
-          { label: 'Duur', value: formatDuration(selectedLog?.duration_minutes) },
+          { label: 'Datum', value: formatDateLabel(selectedLog?.date) },
+          { label: 'Tijd', value: timeRangeLabel(selectedLog?.start_time, selectedLog?.end_time, selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes) },
+          { label: 'Duur', value: formatDuration(selectedLog?.actual_duration_minutes || selectedLog?.duration_minutes) },
           { label: 'Project', value: selectedLog?.project_title || '-' },
           { label: 'Energie', value: selectedLog?.energy_level ? `${selectedLog.energy_level}/10` : '-' },
         ]}
         editableFields={[
           { name: 'title', label: 'Waar werkte je aan?', value: selectedLog?.title || '', type: 'text' },
           { name: 'description', label: 'Notitie', value: selectedLog?.description || '', type: 'textarea' },
-          { name: 'date', label: 'Datum', value: selectedLog?.date ? format(new Date(selectedLog.date), 'yyyy-MM-dd') : format(currentDate, 'yyyy-MM-dd'), type: 'date' },
+          { name: 'date', label: 'Datum', value: normalizeDateInput(selectedLog?.date) || format(currentDate, 'yyyy-MM-dd'), type: 'date' },
           {
             name: 'context',
             label: 'Context',
@@ -544,5 +635,18 @@ export default function WorklogsView() {
 
       <FloatingActionButton label="Nieuwe werkregistratie" onClick={() => setManualOpen(true)} />
     </>
+  )
+}
+
+function WorklogEmptyOverlay() {
+  return (
+    <Stack spacing={0.75} alignItems="center" justifyContent="center" sx={{ height: '100%', px: 2, textAlign: 'center' }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 850 }}>
+        Nog geen werkregistraties
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320 }}>
+        Voeg handmatig een registratie toe of start de timer voor deze dag.
+      </Typography>
+    </Stack>
   )
 }

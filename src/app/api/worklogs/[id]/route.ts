@@ -13,6 +13,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     'context',
     'duration_minutes',
     'actual_duration_minutes',
+    'start_time',
+    'end_time',
     'energy_level',
     'category',
     'type',

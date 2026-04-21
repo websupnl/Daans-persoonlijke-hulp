@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
     duration_minutes,
     actual_duration_minutes,
     expected_duration_minutes,
+    start_time,
+    end_time,
     context,
     date,
     description,
@@ -72,16 +74,18 @@ export async function POST(request: NextRequest) {
 
     const log = await queryOne(`
     INSERT INTO work_logs (
-      title, duration_minutes, actual_duration_minutes, expected_duration_minutes, context,
+      title, duration_minutes, actual_duration_minutes, expected_duration_minutes, start_time, end_time, context,
       date, description, project_id, energy_level, source, category, type, interruptions, billable, hourly_rate
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     RETURNING *
   `, [
     title,
     duration_minutes,
     actual_duration_minutes ?? null,
     expected_duration_minutes ?? null,
+    start_time ?? null,
+    end_time ?? null,
     context,
     date ?? new Date().toISOString().split('T')[0],
     description ?? null,
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
         action: 'created',
         title: String(title),
         summary: 'Werklog opgeslagen',
-        metadata: { context, duration_minutes, source: source ?? 'manual' },
+        metadata: { context, duration_minutes, start_time: start_time ?? null, end_time: end_time ?? null, source: source ?? 'manual' },
       })
     }
 
