@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Box from '@mui/material/Box'
 import Fab from '@mui/material/Fab'
 import Tooltip from '@mui/material/Tooltip'
@@ -11,6 +11,7 @@ import Sidebar, { drawerWidth } from './Sidebar'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const isChat = pathname === '/chat'
 
   return (
@@ -41,6 +42,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Fab
             component="a"
             href="/chat"
+            onClick={(event) => {
+              if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+              event.preventDefault()
+              router.push('/chat')
+            }}
             color="primary"
             variant="extended"
             sx={{

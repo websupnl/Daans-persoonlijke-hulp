@@ -145,7 +145,10 @@ export async function ensureWorkspaceRegistry() {
       [workspace.id, workspace.label, workspace.id === DEFAULT_WORKSPACE_ID ? 1 : 0]
     )
   }
+}
 
+export async function ensureWorkspaceDataStorage() {
+  await ensureWorkspaceRegistry()
   await ensureWorkspaceColumns([...WORKSPACE_SCOPED_TABLES])
   await execute('ALTER TABLE health_logs DROP CONSTRAINT IF EXISTS health_logs_log_date_key')
   await execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_health_logs_workspace_date ON health_logs(workspace, log_date)')
@@ -220,6 +223,7 @@ export async function updateWorkspace(id: string, input: { label?: string; descr
 
 export async function getWorkspaceUsage(workspace: string) {
   await ensureWorkspaceRegistry()
+  await ensureWorkspaceColumns([...WORKSPACE_SCOPED_TABLES])
   const normalized = normalizeWorkspace(workspace)
   const usage: Record<string, number> = {}
 

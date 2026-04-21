@@ -5,6 +5,7 @@ import { Brain, CheckCircle2, HelpCircle, Lightbulb, RefreshCcw, Sparkles } from
 import { cn } from '@/lib/utils'
 import PageShell from '@/components/ui/PageShell'
 import { ActionPill, EmptyPanel, MetricTile, Panel, PanelHeader } from '@/components/ui/Panel'
+import { Spinner } from '@/components/ui/spinner'
 
 type Pattern = {
   id: number
@@ -57,6 +58,7 @@ export default function PatternsClient() {
   const [observations, setObservations] = useState<Observation[]>([])
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
+  const [busyPatternId, setBusyPatternId] = useState<number | null>(null)
 
   const fetchData = async () => {
     try {
@@ -88,11 +90,16 @@ export default function PatternsClient() {
   }
 
   const updatePattern = async (id: number, action: 'confirm' | 'dismiss') => {
-    await fetch('/api/patterns', {
-      method: 'POST',
-      body: JSON.stringify({ id, action }),
-    })
-    fetchData()
+    setBusyPatternId(id)
+    try {
+      await fetch('/api/patterns', {
+        method: 'POST',
+        body: JSON.stringify({ id, action }),
+      })
+      await fetchData()
+    } finally {
+      setBusyPatternId(null)
+    }
   }
 
   const confirmed = patterns.filter((pattern) => pattern.status === 'confirmed')
@@ -118,7 +125,7 @@ export default function PatternsClient() {
           disabled={analyzing}
           className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-on-surface-variant"
         >
-          <RefreshCcw size={15} className={analyzing ? 'animate-spin' : ''} />
+          {analyzing ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCcw size={15} />}
           {analyzing ? 'Analyseren...' : 'Nu analyseren'}
         </button>
       }
@@ -205,6 +212,7 @@ export default function PatternsClient() {
                           pattern={pattern}
                           onConfirm={() => updatePattern(pattern.id, 'confirm')}
                           onDismiss={() => updatePattern(pattern.id, 'dismiss')}
+                          busy={busyPatternId === pattern.id}
                         />
                       ))
                     )}
@@ -360,10 +368,12 @@ function PatternCard({
   pattern,
   onConfirm,
   onDismiss,
+  busy,
 }: {
   pattern: Pattern
   onConfirm?: () => void
   onDismiss?: () => void
+  busy?: boolean
 }) {
   return (
     <div className="rounded-xl border border-outline-variant bg-white px-4 py-4 shadow-[0_18px_44px_-36px_rgba(31,37,35,0.28)]">
@@ -390,14 +400,18 @@ function PatternCard({
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={onConfirm}
-            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230] disabled:cursor-not-allowed disabled:opacity-70"
           >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
             Klopt
           </button>
           <button
             onClick={onDismiss}
-            className="rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-70"
           >
+            {busy && <Spinner className="h-3.5 w-3.5" />}
             Niet waar
           </button>
         </div>

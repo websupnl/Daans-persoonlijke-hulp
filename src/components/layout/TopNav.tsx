@@ -68,7 +68,16 @@ export default function TopNav() {
               <MenuIcon />
             </IconButton>
 
-            <Box component="a" href="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
+            <Box
+              component="a"
+              href="/"
+              onClick={(event) => {
+                if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                router.push('/')
+              }}
+              sx={{ textDecoration: 'none', color: 'inherit' }}
+            >
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <Avatar
                   sx={{

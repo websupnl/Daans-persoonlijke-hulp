@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
@@ -25,6 +25,7 @@ function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active: bool
 
 export default function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
 
   return (
     <Drawer
@@ -78,7 +79,12 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
                     key={item.href}
                     component="a"
                     href={item.href}
-                    onClick={onClose}
+                    onClick={(event) => {
+                      onClose()
+                      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                      event.preventDefault()
+                      router.push(item.href)
+                    }}
                     selected={active}
                     sx={{ borderRadius: 2, minHeight: 44, mx: 1, '&.Mui-selected': { bgcolor: 'primary.light', color: 'primary.main' } }}
                   >

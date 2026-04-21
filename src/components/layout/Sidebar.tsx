@@ -38,12 +38,18 @@ function NavIcon({ icon: Icon, active }: { icon: React.ElementType; active: bool
 
 function NavRow({ href, label, icon }: { href: string; label: string; icon: React.ElementType }) {
   const pathname = usePathname()
+  const router = useRouter()
   const active = pathname === href || (href !== '/' && pathname.startsWith(href))
 
   return (
     <ListItemButton
       component="a"
       href={href}
+      onClick={(event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        event.preventDefault()
+        router.push(href)
+      }}
       selected={active}
       sx={{
         mx: 1.5,

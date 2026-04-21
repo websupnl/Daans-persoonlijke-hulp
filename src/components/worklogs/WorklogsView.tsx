@@ -253,24 +253,40 @@ export default function WorklogsView() {
         title="Werklog"
         subtitle="Registratie van je uren en focus"
         actions={
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <IconButton size="small" onClick={() => setCurrentDate(prev => addDays(prev, -1))}>
+          <Box
+            sx={{
+              p: 0.75,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              background: 'linear-gradient(90deg, rgba(168,206,207,0.3), rgba(230,174,140,0.22))',
+              boxShadow: '0 12px 28px -24px rgba(15,15,16,0.5)',
+            }}
+          >
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <IconButton size="medium" onClick={() => setCurrentDate(prev => addDays(prev, -1))}>
                 <ChevronLeft />
               </IconButton>
               <Button 
-                size="small" 
-                variant="outlined" 
+                size="medium"
+                variant="contained"
                 onClick={() => setCurrentDate(new Date())}
-                sx={{ minWidth: 120, fontWeight: 700 }}
+                sx={{
+                  minWidth: { xs: 136, sm: 170 },
+                  fontWeight: 900,
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  backgroundImage: 'none',
+                  '&:hover': { bgcolor: 'background.paper', backgroundImage: 'none' },
+                }}
               >
                 {dateLabel}
               </Button>
-              <IconButton size="small" onClick={() => setCurrentDate(prev => addDays(prev, 1))}>
+              <IconButton size="medium" onClick={() => setCurrentDate(prev => addDays(prev, 1))}>
                 <ChevronRight />
               </IconButton>
             </Stack>
-          </Stack>
+          </Box>
         }
       >
         <Stack spacing={3}>

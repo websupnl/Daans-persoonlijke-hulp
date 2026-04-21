@@ -20,7 +20,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
     <Container
       maxWidth={false}
       sx={{
-        py: compact ? 2.5 : 3,
+        py: compact ? 2.5 : 3.25,
         px: { xs: 2, sm: 3, lg: 5 },
         position: 'relative',
       }}
@@ -29,10 +29,25 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
         sx={{
           position: 'relative',
           zIndex: 10,
-          mb: compact ? 2 : 2.75,
-          pb: compact ? 1.5 : 2,
-          borderBottom: '1px solid',
+          mb: compact ? 2 : 3,
+          p: { xs: 2, md: compact ? 2 : 3 },
+          border: '1px solid',
           borderColor: 'divider',
+          borderRadius: 1,
+          overflow: 'hidden',
+          background:
+            'linear-gradient(135deg, rgba(168,206,207,0.24), rgba(230,174,140,0.18)), rgba(255,255,255,0.82)',
+          boxShadow: '0 22px 60px -48px rgba(15,15,16,0.45)',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            inset: 'auto -80px -120px auto',
+            width: 260,
+            height: 220,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.72), transparent 66%)',
+            pointerEvents: 'none',
+          },
         }}
       >
         <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 0.75, display: { xs: 'none', sm: 'flex' } }}>
@@ -49,7 +64,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
               sx={{
                 width: 5,
                 alignSelf: 'stretch',
-                minHeight: 42,
+                minHeight: { xs: 48, md: 58 },
                 borderRadius: 999,
                 background: 'var(--brand-gradient)',
                 flexShrink: 0,
@@ -57,11 +72,14 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
             />
             <Box sx={{ minWidth: 0 }}>
             <Typography
-              variant="h2"
+              variant="h1"
               component="h1"
               sx={{
                 display: 'inline-block',
                 color: 'text.primary',
+                fontSize: { xs: 28, md: 34 },
+                lineHeight: { xs: '34px', md: '42px' },
+                fontWeight: 900,
               }}
             >
               {title}

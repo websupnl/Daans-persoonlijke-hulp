@@ -391,7 +391,7 @@ export default function HealthView() {
   if (loading) {
     return (
       <PageShell title="Gezondheid" subtitle="Slaap, energie, stress en signalen op een plek.">
-        <Grid container spacing={2}>
+        <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
           {[0, 1, 2, 3].map((item) => (
             <Grid item xs={12} sm={6} lg={3} key={item}>
               <Skeleton variant="rounded" height={104} />
@@ -434,7 +434,7 @@ export default function HealthView() {
         </Stack>
       </Paper>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
         <Grid item xs={12} sm={6} lg={3}>
           <StatTile icon={<NightsStayOutlinedIcon />} label="Slaap" value={formatNumber(today?.sleep_hours, 'u')} helper={`30d gem. ${averages.sleep ? averages.sleep.toFixed(1) + 'u' : '-'}`} />
         </Grid>
@@ -449,7 +449,7 @@ export default function HealthView() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
         <Grid item xs={12} lg={5}>
           <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2.5 }}>
             <Stack spacing={2.5}>
@@ -462,7 +462,7 @@ export default function HealthView() {
                   <Typography variant="body2" color="text.secondary">Snel genoeg voor dagelijks gebruik, rijk genoeg voor patronen.</Typography>
                 </Box>
               </Stack>
-              <Grid container spacing={1.5}>
+              <Grid container spacing={1.5} sx={{ width: '100%', m: 0 }}>
                 <Grid item xs={12} sm={6}>
                   <TextField label="Slaapuren" value={form.sleep_hours} onChange={update('sleep_hours')} type="number" inputProps={{ step: 0.25, min: 0 }} fullWidth />
                 </Grid>
