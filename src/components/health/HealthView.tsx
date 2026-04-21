@@ -5,7 +5,6 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import Grid from '@mui/material/GridLegacy'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
@@ -391,13 +390,13 @@ export default function HealthView() {
   if (loading) {
     return (
       <PageShell title="Gezondheid" subtitle="Slaap, energie, stress en signalen op een plek.">
-        <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
+        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' } }}>
           {[0, 1, 2, 3].map((item) => (
-            <Grid item xs={12} sm={6} lg={3} key={item}>
+            <Box key={item}>
               <Skeleton variant="rounded" height={104} />
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
         <Skeleton variant="rounded" height={460} />
       </PageShell>
     )
@@ -434,23 +433,23 @@ export default function HealthView() {
         </Stack>
       </Paper>
 
-      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-        <Grid item xs={12} sm={6} lg={3}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' } }}>
+        <Box>
           <StatTile icon={<NightsStayOutlinedIcon />} label="Slaap" value={formatNumber(today?.sleep_hours, 'u')} helper={`30d gem. ${averages.sleep ? averages.sleep.toFixed(1) + 'u' : '-'}`} />
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        </Box>
+        <Box>
           <StatTile icon={<SelfImprovementOutlinedIcon />} label="Energie" value={today?.energy_level ? `${today.energy_level}/10` : '-'} helper={`30d gem. ${averages.energy ? averages.energy.toFixed(1) : '-'}`} tone={today?.energy_level && Number(today.energy_level) >= 7 ? 'good' : 'default'} />
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        </Box>
+        <Box>
           <StatTile icon={<PsychologyAltOutlinedIcon />} label="Stress" value={today?.stress_level ? `${today.stress_level}/10` : '-'} helper={`30d gem. ${averages.stress ? averages.stress.toFixed(1) : '-'}`} tone={today?.stress_level && Number(today.stress_level) >= 7 ? 'warn' : 'default'} />
-        </Grid>
-        <Grid item xs={12} sm={6} lg={3}>
+        </Box>
+        <Box>
           <StatTile icon={<LocalDrinkOutlinedIcon />} label="Water" value={today?.water_glasses ? `${today.water_glasses}` : '-'} helper="glazen vandaag" />
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
-      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
-        <Grid item xs={12} lg={5}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 5fr) minmax(0, 7fr)' }, alignItems: 'start' }}>
+        <Box sx={{ minWidth: 0 }}>
           <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2.5 }}>
             <Stack spacing={2.5}>
               <Stack direction="row" alignItems="center" spacing={1.5}>
@@ -462,49 +461,49 @@ export default function HealthView() {
                   <Typography variant="body2" color="text.secondary">Snel genoeg voor dagelijks gebruik, rijk genoeg voor patronen.</Typography>
                 </Box>
               </Stack>
-              <Grid container spacing={1.5} sx={{ width: '100%', m: 0 }}>
-                <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+                <Box>
                   <TextField label="Slaapuren" value={form.sleep_hours} onChange={update('sleep_hours')} type="number" inputProps={{ step: 0.25, min: 0 }} fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </Box>
+                <Box>
                   <TextField select label="Slaapkwaliteit" value={form.sleep_quality} onChange={update('sleep_quality')} fullWidth>
                     <MenuItem value="">Onbekend</MenuItem>
                     {[1, 2, 3, 4, 5].map((value) => <MenuItem key={value} value={value}>{value}/5</MenuItem>)}
                   </TextField>
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <ScoreButtonGroup label="Energie" value={form.energy_level} max={10} onChange={(value) => setField('energy_level', value)} />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <ScoreButtonGroup label="Stress" value={form.stress_level} max={10} onChange={(value) => setField('stress_level', value)} />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <ScoreButtonGroup label="Pijn" value={form.pain_score} max={10} onChange={(value) => setField('pain_score', value)} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </Box>
+                <Box>
                   <TextField label="Pijnlocatie" value={form.pain_location} onChange={update('pain_location')} fullWidth placeholder="bijv. rug, hoofd" />
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </Box>
+                <Box>
                   <TextField label="Water glazen" value={form.water_glasses} onChange={update('water_glasses')} type="number" inputProps={{ min: 0 }} fullWidth />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <TextField label="Symptomen" value={form.symptoms} onChange={update('symptoms')} fullWidth placeholder="bijv. hoofdpijn, moe" helperText="Scheid meerdere items met komma's." />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <TextField label="Medicatie" value={form.medications} onChange={update('medications')} fullWidth placeholder="bijv. paracetamol" helperText="Scheid meerdere items met komma's." />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <TextField label="Notities" value={form.notes} onChange={update('notes')} multiline minRows={4} fullWidth placeholder="Wat viel op vandaag?" />
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
               <LoadingButton type="submit" variant="contained" disabled={saving} loading={saving} loadingText="Opslaan..." size="large">
                 {today ? 'Vandaag bijwerken' : 'Gezondheid opslaan'}
               </LoadingButton>
             </Stack>
           </Paper>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} lg={7}>
+        <Box sx={{ minWidth: 0 }}>
           <Stack spacing={2}>
             <Paper sx={{ p: 2.5 }}>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
@@ -574,8 +573,8 @@ export default function HealthView() {
               </TableContainer>
             </PageSection>
           </Stack>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <AppDetailDrawer
         open={!!selectedLog}
