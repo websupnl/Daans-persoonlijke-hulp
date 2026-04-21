@@ -20,7 +20,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
     <Container
       maxWidth={false}
       sx={{
-        py: compact ? 2.5 : 3.25,
+        py: compact ? 2.5 : 3.5,
         px: { xs: 2, sm: 3, lg: 5 },
         position: 'relative',
       }}
@@ -29,23 +29,20 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
         sx={{
           position: 'relative',
           zIndex: 10,
-          mb: compact ? 2 : 3,
-          p: { xs: 2, md: compact ? 2 : 3 },
+          mb: compact ? 2 : 3.25,
+          p: { xs: 2.25, sm: 2.75, md: compact ? 2.5 : 3.5 },
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'rgba(95,159,161,0.28)',
           borderRadius: 1,
           overflow: 'hidden',
           background:
-            'linear-gradient(135deg, rgba(168,206,207,0.24), rgba(230,174,140,0.18)), rgba(255,255,255,0.82)',
-          boxShadow: '0 22px 60px -48px rgba(15,15,16,0.45)',
-          '&::after': {
+            'linear-gradient(135deg, rgba(168,206,207,0.34), rgba(230,174,140,0.24)), rgba(255,255,255,0.9)',
+          boxShadow: '0 24px 68px -48px rgba(15,15,16,0.55)',
+          '&::before': {
             content: '""',
             position: 'absolute',
-            inset: 'auto -80px -120px auto',
-            width: 260,
-            height: 220,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.72), transparent 66%)',
+            inset: 0,
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.36), transparent 58%)',
             pointerEvents: 'none',
           },
         }}
@@ -64,7 +61,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
               sx={{
                 width: 5,
                 alignSelf: 'stretch',
-                minHeight: { xs: 48, md: 58 },
+                minHeight: { xs: 58, md: 76 },
                 borderRadius: 999,
                 background: 'var(--brand-gradient)',
                 flexShrink: 0,
@@ -77,15 +74,15 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
               sx={{
                 display: 'inline-block',
                 color: 'text.primary',
-                fontSize: { xs: 28, md: 34 },
-                lineHeight: { xs: '34px', md: '42px' },
+                fontSize: { xs: 34, md: 46 },
+                lineHeight: { xs: '40px', md: '54px' },
                 fontWeight: 900,
               }}
             >
               {title}
             </Typography>
             {subtitle && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 760 }}>
+              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 820, fontWeight: 600 }}>
                 {subtitle}
               </Typography>
             )}
