@@ -16,40 +16,61 @@ type FloatingActionButtonProps = {
 
 export default function FloatingActionButton({ label, shortLabel = 'Voeg toe', href, onClick, icon = <AddIcon /> }: FloatingActionButtonProps) {
   const router = useRouter()
-  const content = (
+
+  const styles = {
+    position: 'fixed',
+    right: { xs: 18, md: 28 },
+    bottom: { xs: 'calc(82px + env(safe-area-inset-bottom))', md: 28 },
+    zIndex: 1290,
+    gap: 1,
+    px: 2.25,
+    minWidth: 0,
+    fontWeight: 850,
+    background: 'var(--brand-gradient-fallback)',
+    backgroundImage: 'var(--brand-gradient)',
+    color: 'common.white',
+    boxShadow: '0 14px 34px rgba(95, 159, 161, 0.28)',
+    '&:hover': {
+      backgroundImage: 'var(--brand-gradient)',
+      filter: 'saturate(1.05) brightness(0.98)',
+    },
+  } as const
+
+  const children = (
+    <>
+      {icon}
+      <span>{shortLabel}</span>
+    </>
+  )
+
+  const content = href ? (
     <Fab
       variant="extended"
-      component={href ? 'a' : 'button'}
+      component="a"
       href={href}
-      onClick={(event: MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.()
-        if (!href || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
         event.preventDefault()
         router.push(href)
       }}
       color="primary"
       aria-label={label}
-      sx={{
-        position: 'fixed',
-        right: { xs: 18, md: 28 },
-        bottom: { xs: 'calc(82px + env(safe-area-inset-bottom))', md: 28 },
-        zIndex: 1290,
-        gap: 1,
-        px: 2.25,
-        minWidth: 0,
-        fontWeight: 850,
-        background: 'var(--brand-gradient-fallback)',
-        backgroundImage: 'var(--brand-gradient)',
-        color: 'common.white',
-        boxShadow: '0 14px 34px rgba(95, 159, 161, 0.28)',
-        '&:hover': {
-          backgroundImage: 'var(--brand-gradient)',
-          filter: 'saturate(1.05) brightness(0.98)',
-        },
-      }}
+      sx={styles}
     >
-      {icon}
-      <span>{shortLabel}</span>
+      {children}
+    </Fab>
+  ) : (
+    <Fab
+      variant="extended"
+      onClick={() => {
+        onClick?.()
+      }}
+      color="primary"
+      aria-label={label}
+      sx={styles}
+    >
+      {children}
     </Fab>
   )
 
