@@ -138,22 +138,32 @@ export default function WorklogsView() {
   async function createManualLog(values: Record<string, string | number | boolean | null>) {
     setSavingLog(true)
     try {
-      await fetch('/api/worklogs', {
+      const date = String(values.date || format(currentDate, 'yyyy-MM-dd'))
+      const duration = minutesBetween(String(values.start_time || ''), String(values.end_time || ''), 30)
+      const response = await fetch('/api/worklogs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: values.title || 'Werkregistratie',
           description: values.description || null,
-          date: values.date || format(currentDate, 'yyyy-MM-dd'),
+          date,
           context: values.context || 'werk',
-          duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), 30),
-          actual_duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), 30),
+          duration_minutes: duration,
+          actual_duration_minutes: duration,
           energy_level: values.energy_level ? Number(values.energy_level) : null,
           source: 'manual',
         }),
       })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.error?.message || payload?.message || 'Werkregistratie kon niet worden opgeslagen')
+      }
       setManualOpen(false)
-      await load()
+      if (date !== format(currentDate, 'yyyy-MM-dd')) {
+        setCurrentDate(new Date(`${date}T12:00:00`))
+      } else {
+        await load()
+      }
     } finally {
       setSavingLog(false)
     }
@@ -163,22 +173,31 @@ export default function WorklogsView() {
     if (!selectedLog) return
     setSavingLog(true)
     try {
+      const date = String(values.date || selectedLog.date)
+      const duration = minutesBetween(String(values.start_time || ''), String(values.end_time || ''), selectedLog.duration_minutes)
       const response = await fetch(`/api/worklogs/${selectedLog.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: values.title,
           description: values.description,
-          date: values.date,
+          date,
           context: values.context,
-          duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), selectedLog.duration_minutes),
-          actual_duration_minutes: minutesBetween(String(values.start_time || ''), String(values.end_time || ''), selectedLog.actual_duration_minutes || selectedLog.duration_minutes),
+          duration_minutes: duration,
+          actual_duration_minutes: duration,
           energy_level: values.energy_level ? Number(values.energy_level) : null,
         }),
       })
       const payload = await response.json().catch(() => null)
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.error?.message || payload?.message || 'Werklog kon niet worden opgeslagen')
+      }
       if (payload?.data) setSelectedLog(payload.data as WorkLog)
-      await load()
+      if (date !== format(currentDate, 'yyyy-MM-dd')) {
+        setCurrentDate(new Date(`${date}T12:00:00`))
+      } else {
+        await load()
+      }
     } finally {
       setSavingLog(false)
     }
@@ -479,7 +498,7 @@ export default function WorklogsView() {
         ]}
         onSave={updateSelectedLog}
         saving={savingLog}
-        saveLabel="Werklog opslaan"
+        saveLabel="Opslaan"
         actions={selectedLog ? [
           { label: 'Verwijderen', variant: 'outlined', onClick: () => handleDelete(selectedLog.id) },
         ] : []}
@@ -515,7 +534,7 @@ export default function WorklogsView() {
         ]}
         onSave={createManualLog}
         saving={savingLog}
-        saveLabel="Registratie opslaan"
+        saveLabel="Opslaan"
         defaultEditing
       />
 

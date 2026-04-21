@@ -1,5 +1,6 @@
 'use client'
 
+import type { MouseEvent, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Fab from '@mui/material/Fab'
 import Tooltip from '@mui/material/Tooltip'
@@ -10,7 +11,7 @@ type FloatingActionButtonProps = {
   shortLabel?: string
   href?: string
   onClick?: () => void
-  icon?: React.ReactNode
+  icon?: ReactNode
 }
 
 export default function FloatingActionButton({ label, shortLabel = 'Voeg toe', href, onClick, icon = <AddIcon /> }: FloatingActionButtonProps) {
@@ -20,7 +21,7 @@ export default function FloatingActionButton({ label, shortLabel = 'Voeg toe', h
       variant="extended"
       component={href ? 'a' : 'button'}
       href={href}
-      onClick={(event) => {
+      onClick={(event: MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
         onClick?.()
         if (!href || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
         event.preventDefault()

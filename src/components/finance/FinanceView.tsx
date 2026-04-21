@@ -5,6 +5,7 @@ import PageShell from '@/components/ui/PageShell'
 import AIBriefing from '@/components/ui/AIBriefing'
 import ModuleStats from '@/components/ui/ModuleStats'
 import FloatingActionButton from '@/components/ui/FloatingActionButton'
+import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -32,12 +33,17 @@ interface FinanceItem {
   title: string
   amount: number
   contact_name?: string
+  project_title?: string
+  description?: string
   status: string
   due_date?: string
+  paid_date?: string
   category: string
+  subcategory?: string
   account: string
   created_at: string
   user_notes?: string
+  personal_business?: string
 }
 
 interface Stats {
@@ -96,6 +102,17 @@ function financeInsight(aiSummary: string | null, net: number) {
   return `Deze periode loopt ${formatCurrency(Math.abs(net))} negatief. Check eerst de grootste uitgaven.`
 }
 
+function dateInputValue(value?: string) {
+  return value ? String(value).split('T')[0] : ''
+}
+
+function readableDate(value?: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return format(date, 'd MMM yyyy', { locale: nl })
+}
+
 export default function FinanceView() {
   const [items, setItems] = useState<FinanceItem[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -107,6 +124,7 @@ export default function FinanceView() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceItem | null>(null)
+  const [savingTransaction, setSavingTransaction] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
 
@@ -166,7 +184,10 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    const payload = await response.json()
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error?.message || payload?.message || 'Transactie kon niet worden opgeslagen')
+    }
     if (payload.data) setSelectedTransaction(payload.data)
     await fetchData()
   }
@@ -177,9 +198,33 @@ export default function FinanceView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    const payload = await response.json()
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error?.message || payload?.message || 'Transactie kon niet worden aangemaakt')
+    }
     if (payload.data) setSelectedTransaction(payload.data)
     await fetchData()
+  }
+
+  async function saveSelectedTransaction(values: Record<string, string | number | boolean | null>) {
+    if (!selectedTransaction) return
+    setSavingTransaction(true)
+    try {
+      await updateTransaction(selectedTransaction.id, {
+        title: values.title,
+        amount: Number(values.amount || 0),
+        type: values.type,
+        due_date: values.due_date || null,
+        account: values.account,
+        category: values.category,
+        subcategory: values.subcategory || null,
+        status: values.status,
+        user_notes: values.user_notes || null,
+        description: values.description || null,
+      })
+    } finally {
+      setSavingTransaction(false)
+    }
   }
 
   const net = (stats?.month_income || 0) - (stats?.month_expenses || 0)
@@ -201,7 +246,7 @@ export default function FinanceView() {
       field: 'title',
       headerName: 'Omschrijving',
       flex: 1,
-      minWidth: 220,
+      minWidth: 180,
       renderCell: (params: GridRenderCellParams) => (
         <Box>
           <Typography variant="body2" sx={{ fontWeight: 750, whiteSpace: 'normal', lineHeight: 1.45 }}>{params.value}</Typography>
@@ -294,7 +339,21 @@ export default function FinanceView() {
               </Stack>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {ACCOUNT_FILTERS.map((filter) => (
-                  <Button key={filter} size="small" onClick={() => setAccountFilter(filter)} variant={accountFilter === filter ? 'contained' : 'outlined'} sx={{ fontWeight: 700 }}>
+                  <Button
+                    key={filter}
+                    size="small"
+                    onClick={() => setAccountFilter(filter)}
+                    variant={accountFilter === filter ? 'contained' : 'outlined'}
+                    sx={{
+                      fontWeight: 800,
+                      ...(accountFilter === filter ? {
+                        background: 'var(--brand-gradient-fallback)',
+                        backgroundImage: 'var(--brand-gradient)',
+                        color: 'common.white',
+                        boxShadow: '0 10px 24px rgba(95,159,161,0.2)',
+                      } : {}),
+                    }}
+                  >
                     {filter}
                   </Button>
                 ))}
@@ -330,15 +389,96 @@ export default function FinanceView() {
       </PageShell>
 
       <TransactionModal
-        isOpen={showAdd || !!selectedTransaction}
-        transaction={selectedTransaction}
-        onClose={() => { setSelectedTransaction(null); setShowAdd(false) }}
+        isOpen={showAdd}
+        transaction={null}
+        onClose={() => setShowAdd(false)}
         onSave={updateTransaction}
         onCreate={createTransaction}
         onDelete={async (id: number) => {
           await deleteItem(id)
-          setSelectedTransaction(null)
         }}
+      />
+      <AppDetailDrawer
+        open={!!selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        eyebrow="Transactie"
+        title={selectedTransaction?.title}
+        subtitle={selectedTransaction?.description || selectedTransaction?.user_notes || 'Financieel item'}
+        status={selectedTransaction ? accountLabel(selectedTransaction.account) : undefined}
+        fields={[
+          { label: 'Datum', value: readableDate(selectedTransaction?.due_date || selectedTransaction?.created_at) },
+          {
+            label: 'Bedrag',
+            value: selectedTransaction ? `${selectedTransaction.type === 'inkomst' ? '+' : '-'}${formatCurrency(selectedTransaction.amount)}` : '-',
+          },
+          { label: 'Type', value: selectedTransaction?.type || '-' },
+          { label: 'Rekening', value: selectedTransaction ? accountLabel(selectedTransaction.account) : '-' },
+          { label: 'Categorie', value: selectedTransaction?.category || '-' },
+          { label: 'Status', value: selectedTransaction?.status || '-' },
+          { label: 'Notitie', value: selectedTransaction?.user_notes || '-' },
+        ]}
+        editableFields={[
+          { name: 'title', label: 'Omschrijving', value: selectedTransaction?.title || '', type: 'text' },
+          { name: 'amount', label: 'Bedrag', value: selectedTransaction?.amount || 0, type: 'number' },
+          {
+            name: 'type',
+            label: 'Type',
+            value: selectedTransaction?.type || 'uitgave',
+            type: 'select',
+            options: [
+              { label: 'Uitgave', value: 'uitgave' },
+              { label: 'Inkomst', value: 'inkomst' },
+            ],
+          },
+          { name: 'due_date', label: 'Datum', value: dateInputValue(selectedTransaction?.due_date || selectedTransaction?.created_at), type: 'date' },
+          {
+            name: 'account',
+            label: 'Rekening',
+            value: selectedTransaction?.account || 'privÃ©',
+            type: 'select',
+            options: [
+              { label: 'Prive', value: 'privÃ©' },
+              { label: 'Zakelijk', value: 'zakelijk' },
+            ],
+          },
+          { name: 'category', label: 'Categorie', value: selectedTransaction?.category || 'overig', type: 'text' },
+          { name: 'subcategory', label: 'Subcategorie', value: selectedTransaction?.subcategory || '', type: 'text' },
+          {
+            name: 'status',
+            label: 'Status',
+            value: selectedTransaction?.status || 'betaald',
+            type: 'select',
+            options: [
+              { label: 'Betaald', value: 'betaald' },
+              { label: 'Concept', value: 'concept' },
+              { label: 'Verstuurd', value: 'verstuurd' },
+              { label: 'Verlopen', value: 'verlopen' },
+              { label: 'Geannuleerd', value: 'geannuleerd' },
+            ],
+          },
+          { name: 'user_notes', label: 'Notitie', value: selectedTransaction?.user_notes || '', type: 'textarea' },
+          { name: 'description', label: 'Beschrijving', value: selectedTransaction?.description || '', type: 'textarea' },
+        ]}
+        onSave={saveSelectedTransaction}
+        saving={savingTransaction}
+        saveLabel="Opslaan"
+        actions={selectedTransaction ? [
+          {
+            label: 'Verwijderen',
+            variant: 'outlined',
+            loading: savingTransaction,
+            onClick: async () => {
+              if (!selectedTransaction) return
+              setSavingTransaction(true)
+              try {
+                await deleteItem(selectedTransaction.id)
+                setSelectedTransaction(null)
+              } finally {
+                setSavingTransaction(false)
+              }
+            },
+          },
+        ] : []}
       />
       <FloatingActionButton label="Nieuwe transactie" onClick={() => setShowAdd(true)} />
     </>

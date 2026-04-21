@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
@@ -76,20 +76,15 @@ export default function AppDetailDrawer({
 }: AppDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState<Record<string, string | number | boolean | null>>({})
-  const editableSnapshot = useMemo(
-    () => JSON.stringify(editableFields.map((field) => [field.name, field.value ?? ''])),
-    [editableFields]
-  )
-  const initialValues = useMemo(
-    () => Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])),
-    [editableSnapshot]
-  )
+  const editableSnapshot = JSON.stringify(editableFields.map((field) => [field.name, field.value ?? '']))
 
   useEffect(() => {
     if (!open) return
-    setValues(initialValues)
+    setValues(Object.fromEntries(editableFields.map((field) => [field.name, field.value ?? ''])))
     setEditing(defaultEditing && editableFields.length > 0)
-  }, [open, initialValues, defaultEditing, editableFields.length])
+    // Only reset form values when the drawer opens or the source values actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editableSnapshot, defaultEditing])
 
   async function handleSave() {
     await onSave?.(values)
