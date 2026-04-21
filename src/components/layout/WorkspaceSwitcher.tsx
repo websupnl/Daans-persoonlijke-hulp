@@ -7,28 +7,59 @@ import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter'
-import { DEFAULT_WORKSPACE_ID, WORKSPACES, normalizeWorkspace } from '@/lib/workspace'
+import { Spinner } from '@/components/ui/spinner'
+
+type Workspace = {
+  id: string
+  label: string
+  archived?: number | boolean
+}
+
+const DEFAULT_WORKSPACE = 'websup'
+
+function storeWorkspace(workspace: string) {
+  localStorage.setItem('app_workspace', workspace)
+  document.cookie = `app_workspace=${workspace}; path=/; max-age=31536000; SameSite=Lax`
+}
 
 export default function WorkspaceSwitcher() {
-  const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE_ID)
+  const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const cookieMatch = document.cookie.match(/(?:^|;\s*)app_workspace=([^;]+)/)
-    const rawStored = cookieMatch?.[1] || localStorage.getItem('app_workspace') || DEFAULT_WORKSPACE_ID
-    const migratedDefault = localStorage.getItem('app_workspace_websup_default_migrated') === '1'
-    const stored = rawStored === 'bouma' && !migratedDefault
-      ? DEFAULT_WORKSPACE_ID
-      : normalizeWorkspace(rawStored)
-    setWorkspace(stored)
-    localStorage.setItem('app_workspace_websup_default_migrated', '1')
-    localStorage.setItem('app_workspace', stored)
-    document.cookie = `app_workspace=${stored}; path=/; max-age=31536000; SameSite=Lax`
+    let cancelled = false
+
+    async function loadWorkspaces() {
+      try {
+        const response = await fetch('/api/workspaces')
+        const payload = await response.json()
+        if (cancelled) return
+
+        const items = payload.data?.workspaces || []
+        const active = payload.data?.active || localStorage.getItem('app_workspace') || DEFAULT_WORKSPACE
+        setWorkspaces(items)
+        setWorkspace(active)
+        storeWorkspace(active)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadWorkspaces()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  function changeWorkspace(nextWorkspace: string) {
+  async function changeWorkspace(nextWorkspace: string) {
     setWorkspace(nextWorkspace)
-    localStorage.setItem('app_workspace', nextWorkspace)
-    document.cookie = `app_workspace=${nextWorkspace}; path=/; max-age=31536000; SameSite=Lax`
+    storeWorkspace(nextWorkspace)
+    await fetch('/api/workspaces', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: nextWorkspace, makeActive: true }),
+    }).catch(() => undefined)
     window.location.reload()
   }
 
@@ -41,8 +72,21 @@ export default function WorkspaceSwitcher() {
         </Typography>
       </Stack>
       <FormControl size="small" fullWidth>
-        <Select value={workspace} onChange={(event) => changeWorkspace(event.target.value)} sx={{ fontSize: 13, fontWeight: 750 }}>
-          {WORKSPACES.map((item) => (
+        <Select
+          value={workspace}
+          onChange={(event) => changeWorkspace(event.target.value)}
+          disabled={loading}
+          sx={{ fontSize: 13, fontWeight: 750 }}
+        >
+          {loading && (
+            <MenuItem value={workspace}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Spinner className="h-3.5 w-3.5" />
+                <span>Laden...</span>
+              </Stack>
+            </MenuItem>
+          )}
+          {!loading && workspaces.map((item) => (
             <MenuItem key={item.id} value={item.id}>
               {item.label}
             </MenuItem>
