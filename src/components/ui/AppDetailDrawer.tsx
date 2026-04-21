@@ -62,6 +62,7 @@ export default function AppDetailDrawer({
           maxWidth: '100%',
           borderLeft: '1px solid',
           borderColor: 'divider',
+          bgcolor: 'background.default',
         },
       }}
     >
@@ -69,7 +70,7 @@ export default function AppDetailDrawer({
         <Box
           sx={{
             p: 2.5,
-            background: 'linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.14))',
+            background: 'linear-gradient(90deg, rgba(168,206,207,0.24), rgba(230,174,140,0.18))',
             borderBottom: '1px solid',
             borderColor: 'divider',
           }}
@@ -99,7 +100,17 @@ export default function AppDetailDrawer({
 
         <Stack spacing={2} sx={{ p: 2.5, flex: 1, overflow: 'auto' }}>
           {fields.length > 0 && (
-            <Stack divider={<Divider flexItem />} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
+            <Stack
+              divider={<Divider flexItem />}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                bgcolor: 'background.paper',
+                overflow: 'hidden',
+                boxShadow: '0 18px 52px -46px rgba(15,15,16,0.38)',
+              }}
+            >
               {fields.map((field) => (
                 <Stack key={field.label} direction="row" spacing={2} justifyContent="space-between" sx={{ px: 2, py: 1.5 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 800 }}>

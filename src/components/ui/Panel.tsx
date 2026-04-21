@@ -17,12 +17,33 @@ type PanelTone = 'default' | 'muted' | 'accent' | 'inverse' | 'warning' | 'ai' |
 type PanelPadding = 'sm' | 'md' | 'lg' | 'none'
 
 const toneSx: Record<PanelTone, object> = {
-  default: { bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' },
-  muted: { bgcolor: '#fafafb', border: '1px solid', borderColor: 'divider' },
-  accent: { bgcolor: 'primary.light', border: '1px solid', borderColor: 'primary.100', borderLeft: '4px solid', borderLeftColor: 'primary.main' },
+  default: {
+    bgcolor: 'rgba(255,255,255,0.94)',
+    border: '1px solid',
+    borderColor: 'divider',
+    backdropFilter: 'blur(10px)',
+  },
+  muted: {
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.88), rgba(250,250,251,0.96))',
+    border: '1px solid',
+    borderColor: 'divider',
+  },
+  accent: {
+    background: 'linear-gradient(90deg, rgba(168,206,207,0.22), rgba(230,174,140,0.18))',
+    border: '1px solid',
+    borderColor: 'divider',
+    borderLeft: '4px solid',
+    borderLeftColor: 'primary.main',
+  },
   inverse: { bgcolor: 'text.primary', color: 'common.white' },
   warning: { bgcolor: 'warning.light', border: '1px solid', borderColor: '#fcd34d', borderLeft: '4px solid', borderLeftColor: 'warning.main' },
-  ai: { bgcolor: 'secondary.light', border: '1px solid', borderColor: '#ddd6fe', borderLeft: '4px solid', borderLeftColor: 'secondary.main' },
+  ai: {
+    background: 'linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.18))',
+    border: '1px solid',
+    borderColor: 'divider',
+    borderLeft: '4px solid',
+    borderLeftColor: 'secondary.main',
+  },
   success: { bgcolor: 'success.light', border: '1px solid', borderColor: '#6ee7b7', borderLeft: '4px solid', borderLeftColor: 'success.main' },
 }
 
@@ -52,9 +73,10 @@ export function Panel({
       sx={{
         ...toneSx[tone],
         p: paddingSx[padding],
-        borderRadius: 2,
-        transition: '160ms ease',
-        ...(interactive && { cursor: 'pointer', '&:hover': { transform: 'translateY(-1px)', boxShadow: 2 } }),
+        borderRadius: 3,
+        boxShadow: '0 18px 52px -46px rgba(15,15,16,0.38)',
+        transition: '180ms cubic-bezier(0.16, 1, 0.3, 1)',
+        ...(interactive && { cursor: 'pointer', '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 } }),
       }}
     >
       {children}
@@ -79,7 +101,7 @@ export function PanelHeader({
     <Stack className={className} direction="row" spacing={2} alignItems="flex-start" justifyContent="space-between">
       <Box sx={{ minWidth: 0 }}>
         {eyebrow && (
-          <Typography variant="overline" color="text.disabled">
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 850, letterSpacing: 1.2 }}>
             {eyebrow}
           </Typography>
         )}
@@ -116,8 +138,11 @@ export function AICard({
       sx={{
         p: 2.5,
         borderLeft: '4px solid',
-        borderLeftColor: 'secondary.main',
-        background: 'radial-gradient(circle at left center, rgba(124,58,237,0.12), transparent 28%), linear-gradient(135deg, #f8f7ff 0%, #f5f3ff 100%)',
+        borderLeftColor: 'primary.main',
+        borderRadius: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        background: 'radial-gradient(circle at left center, rgba(168,206,207,0.22), transparent 30%), linear-gradient(90deg, rgba(168,206,207,0.18), rgba(230,174,140,0.16))',
       }}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ mb: 1.5 }}>
@@ -207,8 +232,31 @@ export function StatStrip({
   return (
     <Box className={className} sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' } }}>
       {stats.map((stat, index) => (
-        <Paper key={index} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="overline" color="text.disabled">
+        <Paper
+          key={index}
+          sx={{
+            p: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            background: index === 0
+              ? 'linear-gradient(90deg, rgba(168,206,207,0.22), rgba(230,174,140,0.16))'
+              : 'rgba(255,255,255,0.94)',
+            boxShadow: '0 18px 52px -46px rgba(15,15,16,0.38)',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background: stat.accent ? colors[stat.accent] : 'var(--brand-gradient)',
+            },
+          }}
+        >
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 850 }}>
             {stat.label}
           </Typography>
           <Typography variant="h2" sx={{ color: stat.accent ? colors[stat.accent] : 'text.primary', mt: 0.5 }}>
@@ -252,10 +300,20 @@ export function MetricTile({
   className?: string
 }) {
   return (
-    <Paper className={className} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+    <Paper
+      className={className}
+      sx={{
+        p: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 3,
+        background: 'rgba(255,255,255,0.94)',
+        boxShadow: '0 18px 52px -46px rgba(15,15,16,0.38)',
+      }}
+    >
       <Stack direction="row" spacing={2} justifyContent="space-between">
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" color="text.disabled">
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 850 }}>
             {label}
           </Typography>
           <Stack direction="row" spacing={0.75} alignItems="flex-end">
@@ -273,7 +331,7 @@ export function MetricTile({
           )}
         </Box>
         {icon && (
-          <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: '#f4f4f5', color: 'text.secondary', display: 'grid', placeItems: 'center' }}>
+          <Box sx={{ width: 42, height: 42, borderRadius: 2.5, bgcolor: 'primary.light', color: 'primary.main', display: 'grid', placeItems: 'center' }}>
             {icon}
           </Box>
         )}
@@ -294,7 +352,17 @@ export function EmptyPanel({
   className?: string
 }) {
   return (
-    <Paper className={className} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2, bgcolor: '#fafafb' }}>
+    <Paper
+      className={className}
+      sx={{
+        p: 4,
+        textAlign: 'center',
+        border: '1px dashed',
+        borderColor: 'divider',
+        borderRadius: 3,
+        background: 'linear-gradient(90deg, rgba(168,206,207,0.12), rgba(230,174,140,0.10))',
+      }}
+    >
       <Typography variant="h4">{title}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mx: 'auto', maxWidth: 360 }}>
         {description}

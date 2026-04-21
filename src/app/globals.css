@@ -92,6 +92,10 @@ body {
 body {
   min-height: 100dvh;
   overflow-x: hidden;
+  background:
+    radial-gradient(circle at 18% -8%, rgba(168, 206, 207, 0.20), transparent 30rem),
+    radial-gradient(circle at 92% 2%, rgba(230, 174, 140, 0.16), transparent 32rem),
+    var(--bg-app);
 }
 
 a {

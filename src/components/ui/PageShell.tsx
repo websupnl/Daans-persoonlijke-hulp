@@ -17,7 +17,26 @@ interface PageShellProps {
 
 export default function PageShell({ title, subtitle, actions, desktopSearch, children, compact }: PageShellProps) {
   return (
-    <Container maxWidth="xl" sx={{ py: compact ? 2.5 : 3, px: { xs: 2, sm: 3 } }}>
+    <Container
+      maxWidth="xl"
+      sx={{
+        py: compact ? 2.5 : 3,
+        px: { xs: 2, sm: 3 },
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'fixed',
+          inset: '0 auto auto 232px',
+          width: 520,
+          height: 260,
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle, rgba(168,206,207,0.18), transparent 68%)',
+          filter: 'blur(6px)',
+          zIndex: -1,
+          display: { xs: 'none', md: 'block' },
+        },
+      }}
+    >
       <Box
         sx={{
           position: 'sticky',
@@ -26,10 +45,10 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
           mx: { xs: -2, sm: -3 },
           mb: 3,
           px: { xs: 2, sm: 3 },
-          py: 2,
+          py: 2.25,
           background:
-            'linear-gradient(90deg, rgba(168,206,207,0.14), rgba(230,174,140,0.1)), rgba(247,247,248,0.92)',
-          backdropFilter: 'blur(12px)',
+            'linear-gradient(90deg, rgba(168,206,207,0.20), rgba(230,174,140,0.14)), rgba(247,247,248,0.9)',
+          backdropFilter: 'blur(18px)',
           borderBottom: '1px solid',
           borderColor: 'divider',
         }}
@@ -73,7 +92,7 @@ export default function PageShell({ title, subtitle, actions, desktopSearch, chi
         </Stack>
       </Box>
 
-      <Stack spacing={2.5}>{children}</Stack>
+      <Stack spacing={2.75}>{children}</Stack>
     </Container>
   )
 }
