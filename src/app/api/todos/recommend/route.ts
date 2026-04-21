@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     if (!process.env.OPENAI_API_KEY) {

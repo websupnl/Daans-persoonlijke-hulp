@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { Sparkles, Bot, MessageSquare, Clock, Zap, Brain } from "lucide-react";
@@ -140,6 +140,25 @@ export function ChatPreview({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isVisibleRef = useRef(false);
 
+  const showNextMessage = useCallback(() => {
+    if (!isVisibleRef.current || messages.length === 0) return;
+
+    setCurrentIndex((index) => {
+      const message = messages[index];
+      const newMessage = {
+        ...message,
+        timestamp: Date.now(),
+      };
+
+      setVisibleMessages((prev) => [...prev, newMessage].slice(-maxMessages));
+
+      const delay = interval || message.duration || 5000;
+      timeoutRef.current = setTimeout(showNextMessage, delay);
+
+      return (index + 1) % messages.length;
+    });
+  }, [interval, maxMessages, messages]);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -167,24 +186,7 @@ export function ChatPreview({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [autoPlay, messages]);
-
-  const showNextMessage = () => {
-    if (!isVisibleRef.current) return;
-
-    const message = messages[currentIndex];
-    const newMessage = {
-      ...message,
-      timestamp: Date.now(),
-    };
-
-    setVisibleMessages((prev) => [...prev, newMessage].slice(-maxMessages));
-    setCurrentIndex((prev) => (prev + 1) % messages.length);
-
-    // Schedule next message
-    const delay = interval || message.duration || 5000;
-    timeoutRef.current = setTimeout(showNextMessage, delay);
-  };
+  }, [autoPlay, showNextMessage]);
 
   // Manual navigation
   const goToMessage = (index: number) => {
