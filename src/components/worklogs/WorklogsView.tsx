@@ -97,7 +97,11 @@ export default function WorklogsView() {
     const dateStr = format(currentDate, 'yyyy-MM-dd')
     try {
       const response = await fetch(`/api/worklogs?date=${dateStr}`)
-      const data = await response.json()
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.error?.message || 'Werklogs konden niet worden opgehaald')
+      }
+      const data = payload?.data ?? payload ?? {}
       const timerData = await fetch('/api/timers').then((res) => res.json()).catch(() => ({ timer: null }))
       setLogs(data.logs || [])
       setTodayMinutes(data.todayStats?.today_minutes ?? 0)
