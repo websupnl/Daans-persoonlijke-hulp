@@ -17,16 +17,32 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import ListItemIcon from '@mui/material/ListItemIcon'
+import SearchIcon from '@mui/icons-material/Search'
+import InputBase from '@mui/material/InputBase'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 const TOP_NAV_ITEMS: NavItem[] = [
   ...MOBILE_PRIMARY_ITEMS,
-  { href: '/agenda', label: 'Agenda', icon: require('@mui/icons-material/CalendarMonth').default }, // Adding Agenda to main items
+  { href: '/agenda', label: 'Agenda', icon: require('@mui/icons-material/CalendarMonth').default },
 ]
 
 export default function TopNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [searchValue, setSearchValue] = useState('')
+
+  const handleSearch = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchValue.trim()) {
+      if (searchValue.startsWith('/')) {
+        router.push(`/chat?q=${encodeURIComponent(searchValue)}`)
+      } else {
+        router.push(`/search?q=${encodeURIComponent(searchValue)}`)
+      }
+      setSearchValue('')
+    }
+  }
 
   const handleOpenMore = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget)
@@ -114,6 +130,37 @@ export default function TopNav() {
               </Button>
             </Stack>
           </Stack>
+
+          <Box sx={{ flex: 1, maxWidth: 400, mx: 4, display: { xs: 'none', lg: 'block' } }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              bgcolor: 'grey.100', 
+              px: 2, 
+              py: 0.75, 
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              '&:focus-within': {
+                bgcolor: 'common.white',
+                borderColor: 'primary.main',
+                boxShadow: '0 0 0 3px rgba(95,159,161,0.1)'
+              }
+            }}>
+              <SearchIcon sx={{ color: 'text.disabled', fontSize: 20, mr: 1 }} />
+              <InputBase
+                fullWidth
+                placeholder="Typ een commando (bijv. /taak) of zoek..."
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onKeyDown={handleSearch}
+                sx={{ fontSize: 13, fontWeight: 600 }}
+              />
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 800, bgcolor: 'common.white', px: 0.6, py: 0.2, borderRadius: 0.5, border: '1px solid', borderColor: 'divider' }}>
+                /
+              </Typography>
+            </Box>
+          </Box>
 
           <Stack direction="row" spacing={2} alignItems="center">
             <Box sx={{ width: 200 }}>

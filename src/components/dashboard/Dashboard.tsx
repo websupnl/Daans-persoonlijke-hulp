@@ -6,9 +6,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Container from '@mui/material/Container'
-import Grid from '@mui/material/GridLegacy'
-import IconButton from '@mui/material/IconButton'
-import LinearProgress from '@mui/material/LinearProgress'
+import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
@@ -19,14 +17,18 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined'
-import EuroIcon from '@mui/icons-material/Euro'
-import RefreshIcon from '@mui/icons-material/Refresh'
-import { formatCurrency, formatRelative } from '@/lib/utils'
+import IconButton from '@mui/material/IconButton'
+import PageShell from '@/components/ui/PageShell'
+import AIBriefing from '@/components/ui/AIBriefing'
+import ModuleStats from '@/components/ui/ModuleStats'
 import AppDetailDrawer, { DetailField } from '@/components/ui/AppDetailDrawer'
+import { formatCurrency, formatRelative } from '@/lib/utils'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import EuroIcon from '@mui/icons-material/Euro'
+import CalendarIcon from '@mui/icons-material/CalendarMonth'
+import WarningIcon from '@mui/icons-material/ReportProblem'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 
 interface DashboardData {
   stats: {
@@ -38,11 +40,6 @@ interface DashboardData {
   inboxCount: number
 }
 
-type SelectedDetail =
-  | { kind: 'todo'; title: string; href: string; fields: DetailField[]; status?: string }
-  | { kind: 'event'; title: string; href: string; fields: DetailField[]; status?: string }
-  | { kind: 'finance'; title: string; href: string; fields: DetailField[]; status?: string }
-
 interface EventItem {
   id: number
   title: string
@@ -51,6 +48,11 @@ interface EventItem {
   type?: string
 }
 
+type SelectedDetail =
+  | { kind: 'todo'; title: string; href: string; fields: DetailField[]; status?: string }
+  | { kind: 'event'; title: string; href: string; fields: DetailField[]; status?: string }
+  | { kind: 'finance'; title: string; href: string; fields: DetailField[]; status?: string }
+
 function greeting() {
   const hour = new Date().getHours()
   if (hour < 12) return 'Goedemorgen'
@@ -58,429 +60,162 @@ function greeting() {
   return 'Goedenavond'
 }
 
-function fallbackBriefing(data: DashboardData | null) {
-  if (!data) return 'Je basisdata is geladen. De AI-briefing wordt op de achtergrond opgehaald.'
-  const signals: string[] = []
-  if (data.stats.todos.dueToday > 0) signals.push(`${data.stats.todos.dueToday} taken vragen vandaag aandacht`)
-  if (data.stats.todos.overdue > 0) signals.push(`${data.stats.todos.overdue} taken zijn over datum`)
-  if (data.stats.finance.monthExpenses > 0) signals.push(`uitgaven deze maand: ${formatCurrency(data.stats.finance.monthExpenses)}`)
-  if (data.inboxCount > 0) signals.push(`${data.inboxCount} inbox-items wachten`)
-  return signals.length ? signals.join(' · ') : 'Geen acute signalen. Kies bewust één focusblok voor vandaag.'
-}
-
-function priorityColor(priority: string): 'error' | 'warning' | 'success' | 'default' {
-  if (priority === 'hoog') return 'error'
-  if (priority === 'medium') return 'warning'
-  if (priority === 'laag') return 'success'
-  return 'default'
-}
-
-function localDateString(date = new Date()) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function formatDateOnly(value?: string | null) {
-  if (!value) return 'Geen'
-  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Intl.DateTimeFormat('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(year, month - 1, day))
-}
-
-function KpiCard({
-  label,
-  value,
-  helper,
-  icon,
-  color = 'primary.main',
-}: {
-  label: string
-  value: string | number
-  helper: string
-  icon: React.ReactNode
-  color?: string
-}) {
-  return (
-    <Paper sx={{ p: 2.25, border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%' }}>
-      <Stack direction="row" justifyContent="space-between" spacing={2}>
-        <Box>
-          <Typography variant="overline" color="text.disabled">
-            {label}
-          </Typography>
-          <Typography variant="h1" sx={{ mt: 0.5 }}>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {helper}
-          </Typography>
-        </Box>
-        <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: '#f4f4f5', color, display: 'grid', placeItems: 'center' }}>
-          {icon}
-        </Box>
-      </Stack>
-    </Paper>
-  )
-}
-
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [events, setEvents] = useState<EventItem[]>([])
   const [aiSummary, setAiSummary] = useState<string | null>(null)
-  const [baseLoading, setBaseLoading] = useState(true)
-  const [aiLoading, setAiLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [selectedDetail, setSelectedDetail] = useState<SelectedDetail | null>(null)
 
-  async function loadBase() {
-    setBaseLoading(true)
+  async function loadData() {
+    setLoading(true)
     try {
-      const [dashboardRes, eventRes] = await Promise.all([
-        fetch('/api/dashboard').then((response) => response.json()),
-        fetch(`/api/events?date=${localDateString()}`).then((response) => response.json()).catch(() => ({ data: [] })),
+      const today = new Date().toISOString().split('T')[0]
+      const [dashboardRes, eventRes, summaryRes] = await Promise.all([
+        fetch('/api/dashboard').then(r => r.json()),
+        fetch(`/api/events?date=${today}`).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch('/api/ai/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'dashboard' }),
+        }).then(r => r.json()).catch(() => ({ summary: null }))
       ])
       setData(dashboardRes)
-      setEvents((eventRes.data || []).filter((event: EventItem) => event.date === localDateString()).slice(0, 8))
+      setEvents((eventRes.data || []).filter((e: any) => e.date === today).slice(0, 5))
+      setAiSummary(summaryRes.summary)
     } finally {
-      setBaseLoading(false)
+      setLoading(false)
     }
   }
 
-  async function loadAiBriefing() {
-    setAiLoading(true)
-    try {
-      const summaryRes = await fetch('/api/ai/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'dashboard' }),
-      }).then((response) => response.json())
-      setAiSummary(summaryRes.summary ?? null)
-    } catch {
-      setAiSummary(null)
-    } finally {
-      setAiLoading(false)
-    }
-  }
+  useEffect(() => { loadData() }, [])
 
-  useEffect(() => {
-    loadBase()
-  }, [])
-
-  useEffect(() => {
-    if (!baseLoading) loadAiBriefing()
-  }, [baseLoading])
-
-  const dateLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat('nl-NL', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(new Date()),
-    []
-  )
-
-  if (baseLoading) {
+  if (loading && !data) {
     return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Stack spacing={2.5}>
-          <Skeleton variant="rounded" height={118} />
+      <PageShell title="Laden..." subtitle="Je dashboard wordt voorbereid">
+        <Stack spacing={3}>
+          <Skeleton variant="rounded" height={120} />
           <Grid container spacing={2}>
-            {[0, 1, 2, 3].map((item) => (
-              <Grid item xs={12} sm={6} lg={3} key={item}>
-                <Skeleton variant="rounded" height={132} />
-              </Grid>
-            ))}
+            {[1, 2, 3, 4].map(i => <Grid item xs={12} sm={6} lg={3} key={i}><Skeleton variant="rounded" height={100} /></Grid>)}
           </Grid>
-          <Skeleton variant="rounded" height={360} />
+          <Skeleton variant="rounded" height={400} />
         </Stack>
-      </Container>
+      </PageShell>
     )
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Stack spacing={2.5}>
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} alignItems={{ xs: 'stretch', md: 'flex-start' }}>
-          <Box>
-            <Typography variant="h1">{greeting()}, Daan.</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-              {dateLabel}
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={1}>
-            <Button component={Link} href="/chat" variant="contained" startIcon={<AutoAwesomeIcon />}>
-              Vraag AI
-            </Button>
-            <IconButton onClick={() => { loadBase(); loadAiBriefing() }} aria-label="Vernieuw dashboard">
-              <RefreshIcon />
-            </IconButton>
-          </Stack>
-        </Stack>
+    <PageShell
+      title={`${greeting()}, Daan.`}
+      subtitle={new Intl.DateTimeFormat('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
+      actions={
+        <IconButton onClick={loadData} size="small">
+          <RefreshIcon />
+        </IconButton>
+      }
+    >
+      <Stack spacing={3}>
+        <AIBriefing 
+          title="Dag Briefing"
+          briefing={aiSummary || "Je data wordt geanalyseerd voor een persoonlijk overzicht..."}
+          score={data?.stats.todos.overdue === 0 ? 95 : 70}
+        />
 
-        <Paper
-          sx={{
-            p: 2.5,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderLeft: '4px solid',
-            borderLeftColor: 'secondary.main',
-            borderRadius: 2,
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8f7ff 100%)',
-          }}
-        >
-          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
-            <Box>
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <AutoAwesomeIcon color="secondary" fontSize="small" />
-                <Typography variant="overline" color="text.secondary">
-                  AI briefing
-                </Typography>
-                {aiLoading && <Chip size="small" label="wordt bijgewerkt" color="secondary" variant="outlined" />}
-              </Stack>
-              <Typography variant="body1" sx={{ mt: 1, maxWidth: 980, lineHeight: 1.8 }}>
-                {aiSummary ?? fallbackBriefing(data)}
-              </Typography>
-              {aiLoading && <LinearProgress color="secondary" sx={{ mt: 2, maxWidth: 360 }} />}
-            </Box>
-            <Stack direction="row" spacing={1} alignItems="flex-start">
-              <Button component={Link} href="/todos" variant="outlined" endIcon={<ArrowForwardIcon />}>
-                Taken
-              </Button>
-              <Button component={Link} href="/finance" variant="outlined" endIcon={<ArrowForwardIcon />}>
-                Financiën
-              </Button>
+        <ModuleStats stats={[
+          { icon: <CheckCircleIcon />, label: 'Taken', value: data?.stats.todos.open || 0, helper: `${data?.stats.todos.dueToday || 0} voor vandaag`, accent: 'brand' },
+          { icon: <WarningIcon />, label: 'Over datum', value: data?.stats.todos.overdue || 0, helper: 'Directe actie nodig', tone: (data?.stats.todos.overdue || 0) > 0 ? 'error' : 'default' },
+          { icon: <EuroIcon />, label: 'Uitgaven', value: formatCurrency(data?.stats.finance.monthExpenses || 0), helper: 'Deze maand', tone: 'default' },
+          { icon: <CalendarIcon />, label: 'Agenda', value: events.length, helper: 'Afspraken vandaag', tone: 'good' },
+        ]} />
+
+        <Grid container spacing={3}>
+          {/* Linker kolom: Taken & Transacties */}
+          <Grid item xs={12} lg={8}>
+            <Stack spacing={3}>
+              <Paper sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 850 }}>Focus taken</Typography>
+                  <Button component={Link} href="/todos" size="small" endIcon={<ArrowForwardIcon />}>Lijst</Button>
+                </Box>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Taak</TableCell>
+                      <TableCell>Prioriteit</TableCell>
+                      <TableCell>Project</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(data?.urgentTodos || []).slice(0, 5).map((todo) => (
+                      <TableRow key={todo.id} hover sx={{ cursor: 'pointer' }}>
+                        <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{todo.title}</Typography></TableCell>
+                        <TableCell>
+                          <Chip label={todo.priority} size="small" variant="outlined" color={todo.priority === 'hoog' ? 'error' : 'default'} sx={{ fontSize: 10, fontWeight: 800 }} />
+                        </TableCell>
+                        <TableCell><Typography variant="caption" color="text.secondary">{todo.project_title || '-'}</Typography></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+
+              <Paper sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 850 }}>Recente uitgaven</Typography>
+                  <Button component={Link} href="/finance" size="small" endIcon={<ArrowForwardIcon />}>Financiën</Button>
+                </Box>
+                <Table size="small">
+                  <TableBody>
+                    {(data?.recentFinance || []).slice(0, 5).map((f) => (
+                      <TableRow key={f.id} hover sx={{ cursor: 'pointer' }}>
+                        <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{f.title}</Typography></TableCell>
+                        <TableCell><Chip label={f.category} size="small" variant="outlined" sx={{ fontSize: 10 }} /></TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: f.type === 'inkomst' ? 'success.main' : 'text.primary' }}>
+                            {f.type === 'inkomst' ? '+' : '-'}{formatCurrency(f.amount)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
             </Stack>
-          </Stack>
-        </Paper>
+          </Grid>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} lg={3}>
-            <KpiCard label="Open taken" value={data?.stats.todos.open ?? 0} helper={`${data?.stats.todos.dueToday ?? 0} vandaag`} icon={<CheckCircleOutlineIcon />} />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <KpiCard label="Over datum" value={data?.stats.todos.overdue ?? 0} helper="Moet terug naar nul" color="error.main" icon={<CheckCircleOutlineIcon />} />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <KpiCard label="Maanduitgaven" value={formatCurrency(data?.stats.finance.monthExpenses ?? 0)} helper="Deze maand" color="warning.main" icon={<EuroIcon />} />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <KpiCard label="Afspraken" value={events.length} helper="Vandaag gepland" color="info.main" icon={<CalendarMonthIcon />} />
+          {/* Rechter kolom: Agenda */}
+          <Grid item xs={12} lg={4}>
+            <Paper sx={{ height: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>Agenda vandaag</Typography>
+                <Button component={Link} href="/agenda" size="small">Bekijk</Button>
+              </Box>
+              <Stack spacing={0} sx={{ p: 0 }}>
+                {events.map((e) => (
+                  <Box key={e.id} sx={{ p: 2, borderBottom: 1, borderColor: 'divider', '&:last-child': { borderBottom: 0 }, '&:hover': { bgcolor: 'action.hover' }, cursor: 'pointer' }}>
+                    <Typography variant="caption" color="primary.main" sx={{ fontWeight: 800 }}>{e.time || 'Hele dag'}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{e.title}</Typography>
+                  </Box>
+                ))}
+                {events.length === 0 && (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">Geen afspraken vandaag.</Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Paper>
           </Grid>
         </Grid>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} lg={7}>
-            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
-                <Box>
-                  <Typography variant="h4">Focus taken</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Tabelgericht overzicht van wat vandaag aandacht vraagt.
-                  </Typography>
-                </Box>
-                <Button component={Link} href="/todos" size="small" endIcon={<ArrowForwardIcon />}>
-                  Alles bekijken
-                </Button>
-              </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Taak</TableCell>
-                    <TableCell>Prioriteit</TableCell>
-                    <TableCell>Project</TableCell>
-                    <TableCell>Deadline</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(data?.urgentTodos ?? []).slice(0, 8).map((todo) => (
-                    <TableRow
-                      key={todo.id}
-                      hover
-                      onClick={() => setSelectedDetail({
-                        kind: 'todo',
-                        title: todo.title,
-                        href: `/todos?highlight=${todo.id}`,
-                        status: todo.priority,
-                        fields: [
-                          { label: 'Type', value: 'Taak' },
-                          { label: 'Prioriteit', value: todo.priority },
-                          { label: 'Project', value: todo.project_title || '-' },
-                          { label: 'Deadline', value: formatDateOnly(todo.due_date) },
-                        ],
-                      })}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={750}>
-                          {todo.title}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" label={todo.priority} color={priorityColor(todo.priority)} />
-                      </TableCell>
-                      <TableCell>{todo.project_title || '—'}</TableCell>
-                      <TableCell>{formatDateOnly(todo.due_date)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {(data?.urgentTodos ?? []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4}>
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                          Geen focus taken voor vandaag.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Grid>
-
-          <Grid item xs={12} lg={5}>
-            <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
-                <Box>
-                  <Typography variant="h4">Agenda vandaag</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Compact, scanbaar, zonder extra cards.
-                  </Typography>
-                </Box>
-                <Button component={Link} href="/agenda" size="small" endIcon={<ArrowForwardIcon />}>
-                  Agenda
-                </Button>
-              </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Tijd</TableCell>
-                    <TableCell>Afspraak</TableCell>
-                    <TableCell>Type</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {events.map((event) => (
-                    <TableRow
-                      key={`${event.id}-${event.date}-${event.time}`}
-                      hover
-                      onClick={() => setSelectedDetail({
-                        kind: 'event',
-                        title: event.title,
-                        href: `/agenda?event=${event.id}`,
-                        status: event.type || 'algemeen',
-                        fields: [
-                          { label: 'Type', value: 'Agenda' },
-                          { label: 'Datum', value: formatDateOnly(event.date) },
-                          { label: 'Tijd', value: event.time || 'Hele dag' },
-                          { label: 'Categorie', value: event.type || 'algemeen' },
-                        ],
-                      })}
-                      sx={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>{event.time || 'Hele dag'}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={750}>
-                          {event.title}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{event.type || 'algemeen'}</TableCell>
-                    </TableRow>
-                  ))}
-                  {events.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3}>
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                          Geen afspraken vandaag.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Grid>
-        </Grid>
-
-        <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 2, pb: 1 }}>
-            <Box>
-              <Typography variant="h4">Recente transacties</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Minder card design, meer helderheid in rijen en kolommen.
-              </Typography>
-            </Box>
-            <Button component={Link} href="/finance" size="small" endIcon={<ArrowForwardIcon />}>
-              Financiën
-            </Button>
-          </Stack>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Omschrijving</TableCell>
-                <TableCell>Categorie</TableCell>
-                <TableCell>Datum</TableCell>
-                <TableCell align="right">Bedrag</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(data?.recentFinance ?? []).map((item) => (
-                <TableRow
-                  key={item.id}
-                  hover
-                  onClick={() => setSelectedDetail({
-                    kind: 'finance',
-                    title: item.title,
-                    href: `/finance?item=${item.id}`,
-                    status: item.type,
-                    fields: [
-                      { label: 'Type', value: item.type },
-                      { label: 'Categorie', value: item.category || 'overig' },
-                      { label: 'Datum', value: formatRelative(item.created_at) },
-                      { label: 'Bedrag', value: `${item.type === 'inkomst' ? '+' : '-'}${formatCurrency(item.amount)}` },
-                    ],
-                  })}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={750}>
-                      {item.title}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip size="small" label={item.category || 'overig'} variant="outlined" />
-                  </TableCell>
-                  <TableCell>{formatRelative(item.created_at)}</TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={800} color={item.type === 'inkomst' ? 'success.main' : 'text.primary'}>
-                      {item.type === 'inkomst' ? '+' : '-'}{formatCurrency(item.amount)}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(data?.recentFinance ?? []).length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4}>
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                      Nog geen recente transacties.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
       </Stack>
+
       <AppDetailDrawer
         open={Boolean(selectedDetail)}
         onClose={() => setSelectedDetail(null)}
-        eyebrow={selectedDetail?.kind === 'todo' ? 'Focus taak' : selectedDetail?.kind === 'event' ? 'Agenda-item' : 'Transactie'}
+        eyebrow="Details"
         title={selectedDetail?.title}
-        status={selectedDetail?.status}
         fields={selectedDetail?.fields}
         primaryHref={selectedDetail?.href}
       />
-    </Container>
+    </PageShell>
   )
 }

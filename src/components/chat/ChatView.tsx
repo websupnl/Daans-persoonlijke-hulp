@@ -23,6 +23,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SendIcon from '@mui/icons-material/Send'
+import { useSearchParams } from 'next/navigation'
 import { formatMarkdown, formatRelative } from '@/lib/utils'
 
 interface DebugAction {
@@ -48,18 +49,18 @@ interface Message {
 }
 
 const examples = [
-  'Zet boodschappen doen in mijn takenlijst',
-  'Maak een taak: offerte Bakker opvolgen',
-  'Boek uitgave: lunch 14 euro',
-  'Schrijf in dagboek: vandaag was druk maar goed',
+  '/taak: offerte opvolgen',
+  '/log: 2u aan project X gewerkt',
+  '/fin: lunch 15 euro',
+  'Hoe sta ik er financieel voor?',
 ]
 
 const actionLabels: Record<string, { label: string; color: 'primary' | 'success' | 'warning' | 'secondary' | 'info' | 'error' }> = {
   todo_create: { label: 'Taak aangemaakt', color: 'primary' },
   grocery_create: { label: 'Boodschap toegevoegd', color: 'success' },
-  finance_create_expense: { label: 'Financiële post opgeslagen', color: 'warning' },
+  finance_create_expense: { label: 'Uitgave opgeslagen', color: 'warning' },
+  worklog_create: { label: 'Uren gelogd', color: 'info' },
   memory_store: { label: 'Geheugen bijgewerkt', color: 'secondary' },
-  event_create: { label: 'Agenda-item aangemaakt', color: 'info' },
 }
 
 function getActionTitle(action: DebugAction) {
@@ -126,6 +127,8 @@ function ActionCard({ action }: { action: DebugAction }) {
 }
 
 export default function ChatView() {
+  const searchParams = useSearchParams()
+  const initialQuery = searchParams.get('q')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -156,6 +159,14 @@ export default function ChatView() {
   useEffect(() => {
     loadHistory()
   }, [loadHistory])
+
+  useEffect(() => {
+    if (!initialLoad && initialQuery) {
+      sendMessage(initialQuery)
+      // Clear URL parameter without reload
+      window.history.replaceState({}, '', '/chat')
+    }
+  }, [initialLoad, initialQuery])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

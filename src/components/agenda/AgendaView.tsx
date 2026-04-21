@@ -1,565 +1,274 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import {
-  CalendarDays,
-  CheckSquare,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react'
-import { format, addDays, startOfWeek, isSameDay, parseISO, isToday, isPast } from 'date-fns'
-import { nl } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/interfaces-select'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import Paper from '@mui/material/Paper'
+import Grid from '@mui/material/Grid'
+import ButtonGroup from '@mui/material/ButtonGroup'
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import PageShell from '@/components/ui/PageShell'
-import { ActionPill, Divider, EmptyPanel, Panel, PanelHeader, StatStrip } from '@/components/ui/Panel'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ActionSearchBar, type Action } from '@/components/ui/action-search-bar'
+import AIBriefing from '@/components/ui/AIBriefing'
+import ModuleStats from '@/components/ui/ModuleStats'
 import AppDetailDrawer from '@/components/ui/AppDetailDrawer'
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  isSameDay, 
+  addMonths, 
+  subMonths,
+  isToday
+} from 'date-fns'
+import { nl } from 'date-fns/locale'
+import ChevronLeft from '@mui/icons-material/ChevronLeft'
+import ChevronRight from '@mui/icons-material/ChevronRight'
+import PlusIcon from '@mui/icons-material/Add'
+import CalendarIcon from '@mui/icons-material/CalendarMonth'
+import EventIcon from '@mui/icons-material/Event'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
 
 interface AgendaEvent {
   id: number
   title: string
   description?: string
-  date: string
-  time?: string
-  duration: number
-  type: string
-  contact_name?: string
-}
-
-interface Todo {
-  id: number
-  title: string
-  due_date?: string
-  priority: string
-  completed: number
-}
-
-const TYPE_CONFIG: Record<string, { label: string; dot: string; badge: string }> = {
-  vergadering: { label: 'Vergadering', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700' },
-  deadline: { label: 'Deadline', dot: 'bg-red-500', badge: 'bg-red-50 text-red-700' },
-  afspraak: { label: 'Afspraak', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700' },
-  herinnering: { label: 'Herinnering', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700' },
-  algemeen: { label: 'Algemeen', dot: 'bg-slate-400', badge: 'bg-slate-50 text-slate-700' },
-}
-
-const EMPTY_FORM = {
-  title: '',
-  date: format(new Date(), 'yyyy-MM-dd'),
-  time: '',
-  type: 'algemeen',
-  description: '',
-  recurring: '',
+  start_time: string
+  end_time: string
+  location?: string
+  category?: string
+  is_all_day: boolean
+  color?: string
 }
 
 export default function AgendaView() {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [events, setEvents] = useState<AgendaEvent[]>([])
-  const [todos, setTodos] = useState<Todo[]>([])
-  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
-  const [selectedDay, setSelectedDay] = useState(new Date())
-  const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
   const [loading, setLoading] = useState(true)
-  const [selectedItem, setSelectedItem] = useState<{ kind: 'event'; event: AgendaEvent } | { kind: 'todo'; todo: Todo } | null>(null)
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null)
 
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-
-  const fetchData = useCallback(async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true)
-    const from = format(weekStart, 'yyyy-MM-dd')
-    const to = format(addDays(weekStart, 6), 'yyyy-MM-dd')
+    const from = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+    const to = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+    try {
+      const response = await fetch(`/api/events?from=${from}&to=${to}`)
+      const data = await response.json()
+      setEvents(data.data || [])
+    } catch (error) {
+      console.error('Failed to fetch events:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentMonth])
 
-    const [eventsResponse, todosResponse] = await Promise.all([
-      fetch(`/api/events?from=${from}&to=${to}`).then((r) => r.json()),
-      fetch('/api/todos?filter=week').then((r) => r.json()),
-    ])
+  useEffect(() => {
+    fetchEvents()
+  }, [fetchEvents])
 
-    setEvents(eventsResponse.data ?? [])
-    setTodos(todosResponse.data ?? [])
-    setLoading(false)
-  }, [weekStart])
-
-  useEffect(() => { fetchData() }, [fetchData])
-
-  async function saveEvent() {
-    if (!form.title.trim() || !form.date) return
-    await fetch('/api/events', {
+  useEffect(() => {
+    fetch('/api/ai/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ type: 'agenda' }),
     })
-    setForm({ ...EMPTY_FORM })
-    setShowAdd(false)
-    fetchData()
-  }
+      .then((r) => r.json())
+      .then((d) => setAiSummary(d.summary ?? null))
+      .catch(() => {})
+  }, [])
 
-  async function deleteEvent(id: number) {
-    await fetch(`/api/events/${id}`, { method: 'DELETE' })
-    setEvents((prev) => prev.filter((e) => e.id !== id))
-    setSelectedItem((current) => current?.kind === 'event' && current.event.id === id ? null : current)
-  }
+  const monthDays = useMemo(() => {
+    const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 })
+    const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 })
+    return eachDayOfInterval({ start, end })
+  }, [currentMonth])
 
-  function eventsForDay(day: Date) {
-    return events
-      .filter((e) => { try { return isSameDay(parseISO(e.date), day) } catch { return false } })
-      .sort((a, b) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99'))
-  }
+  const dayEvents = useMemo(() => {
+    return events.filter(e => isSameDay(new Date(e.start_time), selectedDate))
+  }, [events, selectedDate])
 
-  function todosForDay(day: Date) {
-    return todos.filter((t) => t.due_date && isSameDay(parseISO(t.due_date), day))
-  }
-
-  const selectedEvents = eventsForDay(selectedDay)
-  const selectedTodos = todosForDay(selectedDay)
-  const weeklyTodoDeadlines = todos.filter((t) => t.due_date)
-  const weeklyItems = events.length + weeklyTodoDeadlines.length
-  const todayEvents = eventsForDay(new Date()).length
-  const selectedDayRows = [
-    ...selectedEvents.map((event) => ({ kind: 'event' as const, id: `event-${event.id}`, sortKey: event.time ?? '99:99', event })),
-    ...selectedTodos.map((todo) => ({ kind: 'todo' as const, id: `todo-${todo.id}`, sortKey: '99:99', todo })),
-  ].sort((a, b) => a.sortKey.localeCompare(b.sortKey))
-  const searchActions: Action[] = [
-    {
-      id: 'command:new-agenda-item',
-      label: 'Nieuw agenda-item',
-      icon: <Plus className="h-4 w-4 text-emerald-500" />,
-      description: 'Plan iets op deze dag',
-      end: 'Command',
+  const columns: GridColDef[] = [
+    { 
+      field: 'time', 
+      headerName: 'Tijd', 
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontWeight: 800 }}>
+          {params.row.is_all_day ? 'Hele dag' : format(new Date(params.row.start_time), 'HH:mm')}
+        </Typography>
+      )
     },
-    {
-      id: 'command:today',
-      label: 'Ga naar vandaag',
-      icon: <CalendarDays className="h-4 w-4 text-blue-500" />,
-      description: 'Spring naar huidige week',
-      end: 'View',
+    { 
+      field: 'title', 
+      headerName: 'Afspraak', 
+      flex: 1,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>{params.value}</Typography>
+          {params.row.location && (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <LocationOnIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary">{params.row.location}</Typography>
+            </Stack>
+          )}
+        </Box>
+      )
     },
-    ...selectedEvents.slice(0, 8).map((event) => ({
-      id: `event:${event.id}`,
-      label: event.title,
-      icon: <CalendarDays className="h-4 w-4 text-violet-500" />,
-      description: `${event.time || 'Hele dag'} · ${(TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen).label}`,
-      end: 'Event',
-    })),
-    ...selectedTodos.slice(0, 8).map((todo) => ({
-      id: `todo:${todo.id}`,
-      label: todo.title,
-      icon: <CheckSquare className="h-4 w-4 text-amber-500" />,
-      description: todo.priority,
-      end: 'Todo',
-    })),
+    { 
+      field: 'category', 
+      headerName: 'Categorie', 
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => params.value ? (
+        <Chip label={params.value} size="small" variant="outlined" sx={{ fontSize: 10, fontWeight: 700 }} />
+      ) : '-'
+    }
   ]
 
   return (
     <PageShell
       title="Agenda"
-      subtitle={`Week van ${format(weekStart, 'd MMMM', { locale: nl })}.`}
-      desktopSearch={
-        <ActionSearchBar
-          actions={searchActions}
-          label="Zoek dagitems"
-          placeholder="Zoek item of navigeer..."
-          onActionSelect={(action) => {
-            if (action.id === 'command:new-agenda-item') {
-              setForm((current) => ({ ...current, date: format(selectedDay, 'yyyy-MM-dd') }))
-              setShowAdd(true)
-              return
-            }
-            if (action.id === 'command:today') {
-              const today = startOfWeek(new Date(), { weekStartsOn: 1 })
-              setWeekStart(today)
-              setSelectedDay(new Date())
-              return
-            }
-            if (action.id.startsWith('event:')) {
-              const found = selectedEvents.find((event) => event.id === Number(action.id.split(':')[1]))
-              if (found) setSelectedItem({ kind: 'event', event: found })
-              return
-            }
-            if (action.id.startsWith('todo:')) {
-              const found = selectedTodos.find((todo) => todo.id === Number(action.id.split(':')[1]))
-              if (found) setSelectedItem({ kind: 'todo', todo: found })
-            }
-          }}
-        />
-      }
+      subtitle={`${format(currentMonth, 'MMMM yyyy', { locale: nl })} · Je planning en afspraken`}
       actions={
-        <>
-          <button
-            onClick={() => { const next = addDays(weekStart, -7); setWeekStart(next); setSelectedDay(next) }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <button
-            onClick={() => { const today = startOfWeek(new Date(), { weekStartsOn: 1 }); setWeekStart(today); setSelectedDay(new Date()) }}
-            className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low"
-          >
-            Vandaag
-          </button>
-          <button
-            onClick={() => { const next = addDays(weekStart, 7); setWeekStart(next); setSelectedDay(next) }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface transition-colors hover:bg-surface-container-low"
-          >
-            <ChevronRight size={15} />
-          </button>
-          <button
-            onClick={() => { setForm((c) => ({ ...c, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd((v) => !v) }}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
-          >
-            <Plus size={14} />
-            Nieuw item
-          </button>
-        </>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <ButtonGroup size="small">
+            <Button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft /></Button>
+            <Button onClick={() => setCurrentMonth(new Date())} sx={{ fontWeight: 700 }}>Vandaag</Button>
+            <Button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight /></Button>
+          </ButtonGroup>
+          <Button variant="contained" startIcon={<PlusIcon />} sx={{ borderRadius: 99 }}>
+            Afspraak
+          </Button>
+        </Stack>
       }
     >
-      <StatStrip stats={[
-        { label: 'Items deze week', value: weeklyItems },
-        { label: 'Vandaag', value: todayEvents },
-        { label: 'Todos met datum', value: weeklyTodoDeadlines.length },
-        { label: format(selectedDay, 'EEEE d MMM', { locale: nl }), value: selectedEvents.length + selectedTodos.length },
-      ]} />
+      <Stack spacing={3}>
+        <AIBriefing 
+          title="Agenda Briefing"
+          briefing={aiSummary || "Je agenda wordt geanalyseerd voor slimme inzichten..."}
+          score={dayEvents.length > 5 ? 40 : 85}
+        />
 
-      {showAdd && (
-        <Panel tone="accent">
-          <PanelHeader
-            eyebrow="Nieuw agenda-item"
-            title="Snel iets plannen"
-            action={
-              <button onClick={() => setShowAdd(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-outline-variant bg-white text-on-surface-variant hover:bg-surface-container-low">
-                <X size={13} />
-              </button>
-            }
-          />
-          <div className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-            <input value={form.title} onChange={(e) => setForm((c) => ({ ...c, title: e.target.value }))} placeholder="Titel" className="xl:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-            <input type="date" value={form.date} onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
-            <input type="time" value={form.time} onChange={(e) => setForm((c) => ({ ...c, time: e.target.value }))} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none" />
-            <Select value={form.type} onValueChange={(value) => setForm((c) => ({ ...c, type: value }))}>
-              <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(TYPE_CONFIG).map(([key, item]) => <SelectItem key={key} value={key}>{item.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={form.recurring || '__none__'} onValueChange={(value) => setForm((c) => ({ ...c, recurring: value === '__none__' ? '' : value }))}>
-              <SelectTrigger className="w-full rounded-lg px-3.5 py-2.5 text-sm">
-                <SelectValue placeholder="Herhaling" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Niet herhalend</SelectItem>
-                <SelectItem value="dagelijks">Dagelijks</SelectItem>
-                <SelectItem value="wekelijks">Wekelijks</SelectItem>
-                <SelectItem value="maandelijks">Maandelijks</SelectItem>
-              </SelectContent>
-            </Select>
-            <input value={form.description} onChange={(e) => setForm((c) => ({ ...c, description: e.target.value }))} placeholder="Omschrijving" className="md:col-span-2 rounded-lg border border-outline-variant bg-white px-3.5 py-2.5 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={saveEvent} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]">Opslaan</button>
-            <button onClick={() => setShowAdd(false)} className="rounded-lg border border-outline-variant bg-white px-3.5 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low">Annuleer</button>
-          </div>
-        </Panel>
-      )}
+        <ModuleStats stats={[
+          { icon: <EventIcon />, label: 'Vandaag', value: dayEvents.length, helper: 'Afspraken', accent: 'brand' },
+          { icon: <AccessTimeIcon />, label: 'Vrije tijd', value: '4u', helper: 'Tussen afspraken', tone: 'good' },
+          { icon: <CalendarIcon />, label: 'Deze week', value: events.length, helper: 'Totaal gepland', tone: 'default' },
+          { icon: <LocationOnIcon />, label: 'Locaties', value: '2', helper: 'Reistijd nodig', tone: 'warn' },
+        ]} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Panel>
-          <PanelHeader eyebrow="Weekoverzicht" title="Kies een dag" />
+        <Grid container spacing={3}>
+          {/* Kalender sectie */}
+          <Grid item xs={12} lg={7}>
+            <Paper sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, mb: 1 }}>
+                {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
+                  <Typography key={d} variant="caption" align="center" sx={{ fontWeight: 800, color: 'text.secondary', py: 1 }}>
+                    {d}
+                  </Typography>
+                ))}
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+                {monthDays.map((day, idx) => {
+                  const dayEventsCount = events.filter(e => isSameDay(new Date(e.start_time), day)).length
+                  const isSelected = isSameDay(day, selectedDate)
+                  const isCurrentMonth = isSameMonth(day, currentMonth)
+                  const isTodayDay = isToday(day)
 
-          {loading ? (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
-              {weekDays.map((day) => (
-                <div key={day.toISOString()} className="h-36 animate-pulse rounded-xl bg-surface-container-low" />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
-              {weekDays.map((day) => {
-                const dayEvents = eventsForDay(day)
-                const dayTodos = todosForDay(day)
-                const total = dayEvents.length + dayTodos.length
-                const isSelected = isSameDay(day, selectedDay)
-                const today = isToday(day)
-                const past = isPast(day) && !today
-
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDay(day)}
-                    className={cn(
-                      'rounded-xl border px-3 py-3 text-left transition-colors duration-150',
-                      isSelected
-                        ? 'border-[#202625] bg-accent text-white'
-                        : 'border-outline-variant bg-surface-container-low hover:bg-surface-container',
-                      past && !isSelected && 'opacity-60'
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <div>
-                        <p className={cn('text-[10px] font-semibold uppercase tracking-widest', isSelected ? 'text-white/70' : 'text-on-surface-variant/70')}>
-                          {format(day, 'EEEEEE', { locale: nl })}
-                        </p>
-                        <p className={cn('mt-0.5 text-xl font-headline font-extrabold', isSelected ? 'text-white' : 'text-on-surface')}>
-                          {format(day, 'd')}
-                        </p>
-                      </div>
-                      {today && (
-                        <span className={cn('rounded-md px-1.5 py-0.5 text-[9px] font-semibold', isSelected ? 'bg-white/15 text-white' : 'bg-surface-container text-on-surface')}>
-                          nu
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2 space-y-1.5">
-                      {total === 0 ? (
-                        <p className={cn('text-[10px]', isSelected ? 'text-white/60' : 'text-on-surface-variant/70')}>Leeg</p>
-                      ) : (
-                        <>
-                          {dayEvents.slice(0, 2).map((event) => (
-                            <div key={event.id} className="flex items-center gap-1.5">
-                              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', TYPE_CONFIG[event.type]?.dot ?? TYPE_CONFIG.algemeen.dot)} />
-                              <p className={cn('truncate text-[11px] font-medium', isSelected ? 'text-white/90' : 'text-on-surface')}>
-                                {event.title}
-                              </p>
-                            </div>
-                          ))}
-                          {dayTodos.slice(0, Math.max(0, 2 - dayEvents.length)).map((todo) => (
-                            <div key={todo.id} className="flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                              <p className={cn('truncate text-[11px]', isSelected ? 'text-white/80' : 'text-on-surface')}>
-                                {todo.title}
-                              </p>
-                            </div>
-                          ))}
-                          {total > 2 && (
-                            <p className={cn('text-[10px]', isSelected ? 'text-white/60' : 'text-on-surface-variant')}>
-                              +{total - 2} meer
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </Panel>
-
-        <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
-          <Panel>
-            <PanelHeader
-              eyebrow="Geselecteerde dag"
-              title={format(selectedDay, 'EEEE d MMMM', { locale: nl })}
-            />
-
-            <div className="mt-3">
-              {selectedEvents.length === 0 && selectedTodos.length === 0 ? (
-                <EmptyPanel
-                  title="Niets gepland"
-                  description="Nog niets op deze dag."
-                  action={
-                    <button
-                      onClick={() => { setForm((c) => ({ ...c, date: format(selectedDay, 'yyyy-MM-dd') })); setShowAdd(true) }}
-                      className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#2a3230]"
+                  return (
+                    <Box
+                      key={idx}
+                      onClick={() => setSelectedDate(day)}
+                      sx={{
+                        aspectRatio: '1/1',
+                        borderRadius: 1,
+                        p: 1,
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: isSelected ? 'primary.main' : isTodayDay ? 'primary.light' : 'transparent',
+                        bgcolor: isSelected ? 'primary.light' : 'transparent',
+                        opacity: isCurrentMonth ? 1 : 0.3,
+                        transition: 'all 0.2s',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        position: 'relative'
+                      }}
                     >
-                      Voeg item toe
-                    </button>
-                  }
+                      <Typography 
+                        variant="body2" 
+                        align="center" 
+                        sx={{ 
+                          fontWeight: isSelected || isTodayDay ? 800 : 500,
+                          color: isTodayDay ? 'primary.main' : 'text.primary'
+                        }}
+                      >
+                        {format(day, 'd')}
+                      </Typography>
+                      {dayEventsCount > 0 && (
+                        <Box sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          gap: 0.5, 
+                          mt: 0.5,
+                          flexWrap: 'wrap'
+                        }}>
+                          {Array.from({ length: Math.min(dayEventsCount, 3) }).map((_, i) => (
+                            <Box key={i} sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'primary.main' }} />
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  )
+                })}
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Dag-overzicht sectie */}
+          <Grid item xs={12} lg={5}>
+            <Paper sx={{ height: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>
+                  {format(selectedDate, 'EEEE d MMMM', { locale: nl })}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {dayEvents.length} afspraken gepland
+                </Typography>
+              </Box>
+              <Box sx={{ flex: 1, width: '100%' }}>
+                <DataGrid
+                  rows={dayEvents}
+                  columns={columns}
+                  hideFooter
+                  disableRowSelectionOnClick
+                  onRowClick={(params) => setSelectedEvent(params.row as AgendaEvent)}
+                  sx={{ border: 'none' }}
                 />
-              ) : (
-                <>
-                  <div className="space-y-3 lg:hidden">
-                    {selectedEvents.length > 0 && (
-                      <div>
-                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Afspraken</p>
-                        {selectedEvents.map((event, index) => {
-                          const typeConfig = TYPE_CONFIG[event.type] ?? TYPE_CONFIG.algemeen
-                          return (
-                            <div key={event.id}>
-                              {index > 0 && <Divider />}
-                              <div
-                                onClick={() => setSelectedItem({ kind: 'event', event })}
-                                className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50"
-                              >
-                                <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', typeConfig.dot)} />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <p className="text-sm font-semibold text-on-surface">{event.title}</p>
-                                    <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
-                                      {typeConfig.label}
-                                    </span>
-                                  </div>
-                                  <p className="mt-0.5 text-xs text-on-surface-variant">
-                                    {event.time || 'Hele dag'}{event.contact_name ? ` | ${event.contact_name}` : ''}
-                                  </p>
-                                </div>
-                                <button onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event.id) }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500">
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Stack>
 
-                    {selectedTodos.length > 0 && (
-                      <div className={selectedEvents.length > 0 ? 'mt-3' : ''}>
-                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-on-surface-variant/60">Taken</p>
-                        {selectedTodos.map((todo, index) => (
-                          <div key={todo.id}>
-                            {index > 0 && <Divider />}
-                            <div
-                              onClick={() => setSelectedItem({ kind: 'todo', todo })}
-                              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 hover:bg-surface-container-low/50"
-                            >
-                              <CheckSquare size={14} className="shrink-0 text-on-surface-variant" />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-on-surface">{todo.title}</p>
-                                <p className="text-xs text-on-surface-variant">{todo.priority}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="hidden lg:block" data-slot="frame">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Titel</TableHead>
-                          <TableHead>Moment</TableHead>
-                          <TableHead>Context</TableHead>
-                          <TableHead className="text-right">Acties</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedDayRows.map((row) => {
-                          if (row.kind === 'event') {
-                            const typeConfig = TYPE_CONFIG[row.event.type] ?? TYPE_CONFIG.algemeen
-                            return (
-                              <TableRow key={row.id} onClick={() => setSelectedItem({ kind: 'event', event: row.event })} className="cursor-pointer">
-                                <TableCell>
-                                  <span className={cn('rounded-md px-1.5 py-0.5 text-[10px] font-semibold', typeConfig.badge)}>
-                                    {typeConfig.label}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="font-medium">{row.event.title}</TableCell>
-                                <TableCell>{row.event.time || 'Hele dag'}</TableCell>
-                                <TableCell className="text-on-surface-variant">{row.event.contact_name || row.event.description || '-'}</TableCell>
-                                <TableCell className="text-right">
-                                  <button onClick={(event) => { event.stopPropagation(); deleteEvent(row.event.id) }} className="inline-flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-red-50 hover:text-red-500">
-                                    <Trash2 size={12} />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          }
-
-                          return (
-                            <TableRow key={row.id} onClick={() => setSelectedItem({ kind: 'todo', todo: row.todo })} className="cursor-pointer">
-                              <TableCell>
-                                <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Todo</span>
-                              </TableCell>
-                              <TableCell className="font-medium">{row.todo.title}</TableCell>
-                              <TableCell>Dagtaak</TableCell>
-                              <TableCell className="text-on-surface-variant capitalize">{row.todo.priority}</TableCell>
-                              <TableCell className="text-right">
-                                <CheckSquare size={14} className="ml-auto text-on-surface-variant" />
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </div>
-          </Panel>
-
-          <Panel tone="muted">
-            <PanelHeader eyebrow="Deze week" title="Todos met datum" />
-            <div className="mt-3 lg:hidden">
-              {weeklyTodoDeadlines.length === 0 ? (
-                <EmptyPanel title="Geen gedateerde todos" description="Geen taken met deadline deze week." />
-              ) : (
-                weeklyTodoDeadlines.slice(0, 6).map((todo, index) => (
-                  <div key={todo.id}>
-                    {index > 0 && <Divider />}
-                    <div
-                      onClick={() => setSelectedItem({ kind: 'todo', todo })}
-                      className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2.5 hover:bg-white/70"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-on-surface">{todo.title}</p>
-                        <p className="text-xs text-on-surface-variant">
-                          {todo.due_date ? format(parseISO(todo.due_date), 'EEEE d MMM', { locale: nl }) : 'Geen datum'}
-                        </p>
-                      </div>
-                      <ActionPill>{todo.priority}</ActionPill>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="mt-3 hidden lg:block" data-slot="frame">
-              {weeklyTodoDeadlines.length === 0 ? (
-                <EmptyPanel title="Geen gedateerde todos" description="Geen taken met deadline deze week." />
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Taak</TableHead>
-                      <TableHead>Datum</TableHead>
-                      <TableHead>Prioriteit</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {weeklyTodoDeadlines.slice(0, 6).map((todo) => (
-                      <TableRow key={todo.id} onClick={() => setSelectedItem({ kind: 'todo', todo })} className="cursor-pointer">
-                        <TableCell className="font-medium">{todo.title}</TableCell>
-                        <TableCell>{todo.due_date ? format(parseISO(todo.due_date), 'EEEE d MMM', { locale: nl }) : 'Geen datum'}</TableCell>
-                        <TableCell><ActionPill>{todo.priority}</ActionPill></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          </Panel>
-        </div>
-      </div>
       <AppDetailDrawer
-        open={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        eyebrow={selectedItem?.kind === 'event' ? 'Agenda' : 'Taakdeadline'}
-        title={selectedItem?.kind === 'event' ? selectedItem.event.title : selectedItem?.todo.title}
-        subtitle={selectedItem?.kind === 'event' ? selectedItem.event.description : 'Taak met datum in je agenda.'}
-        status={selectedItem?.kind === 'event' ? (TYPE_CONFIG[selectedItem.event.type] ?? TYPE_CONFIG.algemeen).label : selectedItem?.todo.priority}
-        primaryHref={selectedItem?.kind === 'todo' ? '/todos' : undefined}
-        primaryLabel="Open taken"
-        fields={selectedItem?.kind === 'event' ? [
-          { label: 'Datum', value: format(parseISO(selectedItem.event.date), 'EEEE d MMMM yyyy', { locale: nl }) },
-          { label: 'Moment', value: selectedItem.event.time || 'Hele dag' },
-          { label: 'Duur', value: `${selectedItem.event.duration || 0} min` },
-          { label: 'Context', value: selectedItem.event.contact_name || '-' },
-        ] : selectedItem?.kind === 'todo' ? [
-          { label: 'Datum', value: selectedItem.todo.due_date ? format(parseISO(selectedItem.todo.due_date), 'EEEE d MMMM yyyy', { locale: nl }) : 'Geen datum' },
-          { label: 'Prioriteit', value: selectedItem.todo.priority },
-          { label: 'Status', value: selectedItem.todo.completed ? 'Afgerond' : 'Open' },
-        ] : []}
-        actions={selectedItem?.kind === 'event' ? [
-          { label: 'Verwijderen', variant: 'outlined', onClick: () => deleteEvent(selectedItem.event.id) },
-        ] : []}
+        open={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        eyebrow="Afspraak"
+        title={selectedEvent?.title}
+        subtitle={selectedEvent?.description || 'Geen omschrijving.'}
+        status={selectedEvent?.category}
+        fields={[
+          { label: 'Tijd', value: selectedEvent ? `${format(new Date(selectedEvent.start_time), 'HH:mm')} - ${format(new Date(selectedEvent.end_time), 'HH:mm')}` : '-' },
+          { label: 'Locatie', value: selectedEvent?.location || '-' },
+          { label: 'Type', value: selectedEvent?.is_all_day ? 'Hele dag' : 'Specifiek tijdstip' },
+        ]}
       />
     </PageShell>
   )
