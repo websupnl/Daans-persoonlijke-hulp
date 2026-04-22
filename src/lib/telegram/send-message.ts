@@ -3,11 +3,15 @@
  * Uses: https://api.telegram.org/bot{TOKEN}/sendMessage
  */
 
+import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace'
+import { getTelegramBotToken } from './config'
+
 const TELEGRAM_API = 'https://api.telegram.org'
 
-function getToken(): string {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not configured')
+async function getToken(workspace = DEFAULT_WORKSPACE_ID, tokenOverride?: string): Promise<string> {
+  if (tokenOverride?.trim()) return tokenOverride.trim()
+  const token = await getTelegramBotToken(workspace)
+  if (!token) throw new Error(`Telegram bot token is not configured for workspace: ${workspace}`)
   return token
 }
 
@@ -25,6 +29,8 @@ export interface SendMessageOptions {
   reply_markup?: InlineKeyboardMarkup
   parse_mode?: 'Markdown' | 'HTML' | 'MarkdownV2'
   disable_web_page_preview?: boolean
+  workspace?: string
+  token?: string
 }
 
 /** Send a plain text message to a Telegram chat, with optional inline buttons */
@@ -33,7 +39,7 @@ export async function sendTelegramMessage(
   text: string,
   options?: SendMessageOptions
 ): Promise<void> {
-  const token = getToken()
+  const token = await getToken(options?.workspace, options?.token)
   const url = `${TELEGRAM_API}/bot${token}/sendMessage`
 
   const body: Record<string, unknown> = {
@@ -66,9 +72,10 @@ export async function sendTelegramMessage(
 /** Answer a callback query (required to remove the loading indicator on buttons) */
 export async function answerCallbackQuery(
   callbackQueryId: string,
-  text?: string
+  text?: string,
+  options?: { workspace?: string; token?: string }
 ): Promise<void> {
-  const token = getToken()
+  const token = await getToken(options?.workspace, options?.token)
   const url = `${TELEGRAM_API}/bot${token}/answerCallbackQuery`
 
   const res = await fetch(url, {
@@ -86,9 +93,10 @@ export async function answerCallbackQuery(
 /** Send a chat action (e.g. "typing...") to indicate the bot is working */
 export async function sendChatAction(
   chatId: string | number,
-  action: 'typing' | 'record_voice' | 'upload_document' = 'typing'
+  action: 'typing' | 'record_voice' | 'upload_document' = 'typing',
+  options?: { workspace?: string; token?: string }
 ): Promise<void> {
-  const token = getToken()
+  const token = await getToken(options?.workspace, options?.token)
   await fetch(`${TELEGRAM_API}/bot${token}/sendChatAction`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,8 +105,11 @@ export async function sendChatAction(
 }
 
 /** Get the download URL for a Telegram file by file_id */
-export async function getTelegramFileUrl(fileId: string): Promise<string> {
-  const token = getToken()
+export async function getTelegramFileUrl(
+  fileId: string,
+  options?: { workspace?: string; token?: string }
+): Promise<string> {
+  const token = await getToken(options?.workspace, options?.token)
   const res = await fetch(`${TELEGRAM_API}/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`)
   const data = await res.json() as { ok: boolean; result?: { file_path: string } }
   if (!data.ok || !data.result?.file_path) throw new Error('Telegram getFile failed')
@@ -106,13 +117,16 @@ export async function getTelegramFileUrl(fileId: string): Promise<string> {
 }
 
 /** Register a webhook URL with the Telegram Bot API */
-export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; description?: string }> {
-  const token = getToken()
+export async function setWebhook(
+  webhookUrl: string,
+  options?: { workspace?: string; token?: string; webhookSecret?: string | null }
+): Promise<{ ok: boolean; description?: string }> {
+  const token = await getToken(options?.workspace, options?.token)
   const url = `${TELEGRAM_API}/bot${token}/setWebhook`
 
-  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+  const webhookSecret = options?.webhookSecret ?? process.env.TELEGRAM_WEBHOOK_SECRET
   const body: any = { url: webhookUrl }
-  
+
   if (webhookSecret) {
     body.secret_token = webhookSecret
   }
@@ -127,8 +141,8 @@ export async function setWebhook(webhookUrl: string): Promise<{ ok: boolean; des
 }
 
 /** Get current webhook info */
-export async function getWebhookInfo(): Promise<Record<string, unknown>> {
-  const token = getToken()
+export async function getWebhookInfo(options?: { workspace?: string; token?: string }): Promise<Record<string, unknown>> {
+  const token = await getToken(options?.workspace, options?.token)
   const url = `${TELEGRAM_API}/bot${token}/getWebhookInfo`
   const res = await fetch(url)
   return res.json() as Promise<Record<string, unknown>>

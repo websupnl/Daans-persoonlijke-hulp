@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography'
 import BellIcon from '@mui/icons-material/Notifications'
 import BrainIcon from '@mui/icons-material/Psychology'
 import BusinessIcon from '@mui/icons-material/Business'
+import TelegramIcon from '@mui/icons-material/Telegram'
 import DeleteIcon from '@mui/icons-material/DeleteOutline'
 import PlusIcon from '@mui/icons-material/Add'
 import PageShell from '@/components/ui/PageShell'
@@ -31,6 +32,14 @@ interface Settings {
   notification_morning_hour: number
   notification_enabled: boolean
   life_coach_enabled: boolean
+}
+
+interface TelegramSettings {
+  workspace: string
+  hasToken: boolean
+  tokenMasked: string | null
+  chatId: string | null
+  webhook?: { result?: { url?: string; pending_update_count?: number } } | null
 }
 
 interface Workspace {
@@ -50,17 +59,23 @@ export default function SettingsView() {
   const [saving, setSaving] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const [telegram, setTelegram] = useState<TelegramSettings | null>(null)
+  const [telegramForm, setTelegramForm] = useState({ token: '', chatId: '' })
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [settingsRes, workspaceRes] = await Promise.all([
+      const [settingsRes, workspaceRes, telegramRes] = await Promise.all([
         fetch('/api/settings').then((response) => response.json()),
         fetch('/api/workspaces').then((response) => response.json()),
+        fetch('/api/settings/telegram').then((response) => response.json()),
       ])
 
       setSettings(settingsRes.data)
       setWorkspaces(workspaceRes.data?.workspaces || [])
       setActiveWorkspace(workspaceRes.data?.active || 'websup')
+      setTelegram(telegramRes.data || null)
+      setTelegramForm({ token: '', chatId: telegramRes.data?.chatId || '' })
     } finally {
       setLoading(false)
     }
@@ -121,6 +136,49 @@ export default function SettingsView() {
       setActiveWorkspace(id)
       setFeedback({ type: 'success', text: 'Workspace actief gezet. De pagina wordt vernieuwd.' })
       window.location.reload()
+    } finally {
+      setSaving(null)
+    }
+  }
+
+
+
+  async function saveTelegramSettings() {
+    setSaving('telegram-save')
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/settings/telegram', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(telegramForm),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Kon Telegram instellingen niet opslaan')
+
+      setTelegram(payload.data)
+      setTelegramForm((current) => ({ ...current, token: '' }))
+      setFeedback({ type: 'success', text: 'Telegram instellingen zijn opgeslagen voor deze workspace.' })
+    } catch (error) {
+      setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Telegram instellingen konden niet opgeslagen worden.' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function setupTelegramWebhook() {
+    setSaving('telegram-webhook')
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/settings/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Webhook setup mislukt')
+      setFeedback({ type: 'success', text: 'Telegram webhook is ingesteld voor deze workspace.' })
+      await loadData()
+    } catch (error) {
+      setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Webhook kon niet ingesteld worden.' })
     } finally {
       setSaving(null)
     }
@@ -285,6 +343,67 @@ export default function SettingsView() {
             </Stack>
           </Stack>
         </Paper>
+
+
+        <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Stack spacing={2.5}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.main', display: 'flex' }}>
+                <TelegramIcon fontSize="small" />
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 850 }}>Telegram per workspace</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Sla per workspace een eigen bot key op. Zo blijft Telegram-koppeling gescheiden tussen accounts.
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <TextField
+                  label="Telegram API key"
+                  placeholder={telegram?.tokenMasked || '123456:ABC...'}
+                  fullWidth
+                  size="small"
+                  type="password"
+                  value={telegramForm.token}
+                  onChange={(event) => setTelegramForm((current) => ({ ...current, token: event.target.value }))}
+                  helperText={telegram?.hasToken ? `Huidige key: ${telegram?.tokenMasked}` : 'Nog geen key opgeslagen voor deze workspace'}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 5 }}>
+                <TextField
+                  label="Telegram chat ID (optioneel)"
+                  placeholder="Bijv. 123456789"
+                  fullWidth
+                  size="small"
+                  value={telegramForm.chatId}
+                  onChange={(event) => setTelegramForm((current) => ({ ...current, chatId: event.target.value }))}
+                />
+              </Grid>
+            </Grid>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <LoadingButton
+                variant="contained"
+                loading={saving === 'telegram-save'}
+                onClick={saveTelegramSettings}
+              >
+                Telegram opslaan
+              </LoadingButton>
+              <LoadingButton
+                variant="outlined"
+                loading={saving === 'telegram-webhook'}
+                onClick={setupTelegramWebhook}
+                disabled={!telegram?.hasToken && !telegramForm.token.trim()}
+              >
+                Webhook instellen
+              </LoadingButton>
+            </Stack>
+          </Stack>
+        </Paper>
+
 
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
